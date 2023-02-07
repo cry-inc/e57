@@ -3,8 +3,10 @@ use crate::error::read_err;
 use crate::paged_reader::PagedReader;
 use crate::Error;
 use crate::Header;
+use std::fs::File;
 use std::io::Read;
 use std::io::Seek;
+use std::path::Path;
 
 pub struct E57<T: Read + Seek> {
     reader: PagedReader<T>,
@@ -13,8 +15,8 @@ pub struct E57<T: Read + Seek> {
 }
 
 impl<T: Read + Seek> E57<T> {
-    /// Creates a new E57 instance for reading.
-    pub fn new(mut reader: T) -> Result<Self, Error> {
+    /// Creates a new E57 instance for from a reader.
+    pub fn from_reader(mut reader: T) -> Result<Self, Error> {
         let mut header_bytes = [0_u8; 48];
         reader
             .read_exact(&mut header_bytes)
@@ -67,15 +69,20 @@ impl<T: Read + Seek> E57<T> {
     }
 }
 
+impl E57<File> {
+    pub fn from_file(path: impl AsRef<Path>) -> Result<Self, Error> {
+        let file = File::open(path).map_err(|e| read_err("Unable to open file", e))?;
+        Self::from_reader(file)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::File;
 
     #[test]
     fn header() {
-        let file = File::open("testdata/bunnyDouble.e57").unwrap();
-        let reader = E57::new(file).unwrap();
+        let reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
 
         let header = reader.get_header();
         assert_eq!(header.major, 1);
@@ -85,8 +92,7 @@ mod tests {
 
     #[test]
     fn xml() {
-        let file = File::open("testdata/bunnyDouble.e57").unwrap();
-        let reader = E57::new(file).unwrap();
+        let reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
         let header = reader.get_header();
         let xml = reader.get_xml();
         assert_eq!(xml.len() as u64, header.xml_length);
@@ -95,8 +101,7 @@ mod tests {
 
     #[test]
     fn validate() {
-        let file = File::open("testdata/bunnyDouble.e57").unwrap();
-        let mut reader = E57::new(file).unwrap();
+        let mut reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
         reader.validate_crc().unwrap();
     }
 }
