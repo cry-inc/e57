@@ -5,18 +5,33 @@ const EXPECTED_MAJOR_VERSION: u32 = 1;
 const EXPECTED_MINOR_VERSION: u32 = 0;
 const EXPECTED_PAGE_SIZE: u64 = 1024;
 
+/// Represents the file structure from the start of an E57 file.
 #[derive(Clone, Debug)]
 pub struct Header {
+    /// File header signature that must be always "ASTM-E57".
     pub signature: [u8; 8],
+
+    /// Major version number of the E57 format of the file.
     pub major: u32,
+
+    /// Minor version number of the E57 format of the file.
     pub minor: u32,
+
+    /// Physical lenght of the E57 file on disk or in memory.
     pub phys_length: u64,
+
+    /// Physical offset of the XML data inside the XML file.
     pub phys_xml_offset: u64,
+
+    /// Logical (without CRC bytes) length of the XML data.
     pub xml_length: u64,
+
+    /// Page size of the E57 file.
     pub page_size: u64,
 }
 
 impl Header {
+    /// Creates an E57 file header structure from an array of bytes.
     pub fn from_bytes(data: &[u8; 48]) -> Result<Self, Error> {
         let err = "Wrong header offsets detected, this is most likely a bug";
         let header = Header {
