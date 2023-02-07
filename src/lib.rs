@@ -1,14 +1,4 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+mod paged_reader;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub trait ReadSeek: std::io::Read + std::io::Seek {}
+impl<T: std::io::Read + std::io::Seek> ReadSeek for T {}
