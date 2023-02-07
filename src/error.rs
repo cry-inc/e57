@@ -1,5 +1,7 @@
 use std::error::Error as StdError;
-use std::fmt::{Display, Formatter, Result};
+use std::fmt::Result as FmtResult;
+use std::fmt::{Display, Formatter};
+use std::result::Result as StdResult;
 
 /// Possible errors that can occur while working with E57 files.
 #[derive(Debug)]
@@ -17,7 +19,7 @@ pub enum Error {
 }
 
 impl Display for Error {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
         match self {
             Error::InvalidFile { reason, .. } => write!(f, "Invalid E57 file: {reason}"),
             Error::Read { reason, .. } => write!(f, "Failed to read E57: {reason}"),
@@ -33,6 +35,8 @@ impl StdError for Error {
         }
     }
 }
+
+pub type Result<T> = StdResult<T, Error>;
 
 pub fn invalid_file_err_str(reason: &str) -> Error {
     Error::InvalidFile {

@@ -1,4 +1,5 @@
-use crate::{error::invalid_file_err_str, Error};
+use crate::error::invalid_file_err_str;
+use crate::Result;
 
 const EXPECTED_SIGNATURE: &[u8] = "ASTM-E57".as_bytes();
 const EXPECTED_MAJOR_VERSION: u32 = 1;
@@ -32,7 +33,7 @@ pub struct Header {
 
 impl Header {
     /// Creates an E57 file header structure from an array of bytes.
-    pub fn from_bytes(data: &[u8; 48]) -> Result<Self, Error> {
+    pub fn from_bytes(data: &[u8; 48]) -> Result<Self> {
         let err = "Wrong header offsets detected, this is most likely a bug";
         let header = Header {
             signature: data[0..8].try_into().expect(err),

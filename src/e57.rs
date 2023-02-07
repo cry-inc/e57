@@ -1,8 +1,8 @@
 use crate::error::invalid_file_err;
 use crate::error::read_err;
 use crate::paged_reader::PagedReader;
-use crate::Error;
 use crate::Header;
+use crate::Result;
 use std::fs::File;
 use std::io::Read;
 use std::io::Seek;
@@ -16,7 +16,7 @@ pub struct E57<T: Read + Seek> {
 
 impl<T: Read + Seek> E57<T> {
     /// Creates a new E57 instance for from a reader.
-    pub fn from_reader(mut reader: T) -> Result<Self, Error> {
+    pub fn from_reader(mut reader: T) -> Result<Self> {
         let mut header_bytes = [0_u8; 48];
         reader
             .read_exact(&mut header_bytes)
@@ -56,7 +56,7 @@ impl<T: Read + Seek> E57<T> {
     }
 
     /// Iterate over the whole file to check for CRC errors.
-    pub fn validate_crc(&mut self) -> Result<(), Error> {
+    pub fn validate_crc(&mut self) -> Result<()> {
         self.reader.rewind().unwrap();
         let mut buffer = vec![0_u8; self.header.page_size as usize];
         while self
@@ -70,7 +70,7 @@ impl<T: Read + Seek> E57<T> {
 }
 
 impl E57<File> {
-    pub fn from_file(path: impl AsRef<Path>) -> Result<Self, Error> {
+    pub fn from_file(path: impl AsRef<Path>) -> Result<Self> {
         let file = File::open(path).map_err(|e| read_err("Unable to open file", e))?;
         Self::from_reader(file)
     }
