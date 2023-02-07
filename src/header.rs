@@ -30,16 +30,24 @@ impl Header {
         };
 
         if header.signature != EXPECTED_SIGNATURE {
-            Err(Error::InvalidFile(String::from("Found unsupported signature in header")))?;
+            Err(Error::InvalidFile(String::from(
+                "Found unsupported signature in header",
+            )))?;
         }
         if header.major != EXPECTED_MAJOR_VERSION {
-            Err(Error::InvalidFile(String::from("Found unsupported major version in header")))?;
+            Err(Error::InvalidFile(String::from(
+                "Found unsupported major version in header",
+            )))?;
         }
         if header.minor != EXPECTED_MINOR_VERSION {
-            Err(Error::InvalidFile(String::from("Found unsupported minor version in header")))?;
+            Err(Error::InvalidFile(String::from(
+                "Found unsupported minor version in header",
+            )))?;
         }
         if header.page_size != EXPECTED_PAGE_SIZE {
-            Err(Error::InvalidFile(String::from("Found unsupported page size in header")))?;
+            Err(Error::InvalidFile(String::from(
+                "Found unsupported page size in header",
+            )))?;
         }
 
         Ok(header)
