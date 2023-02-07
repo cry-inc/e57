@@ -1,4 +1,4 @@
-use crate::Error;
+use crate::{error::invalid_file_err_str, Error};
 
 const EXPECTED_SIGNATURE: &[u8] = "ASTM-E57".as_bytes();
 const EXPECTED_MAJOR_VERSION: u32 = 1;
@@ -45,24 +45,24 @@ impl Header {
         };
 
         if header.signature != EXPECTED_SIGNATURE {
-            Err(Error::InvalidFile(String::from(
+            Err(invalid_file_err_str(
                 "Found unsupported signature in header",
-            )))?;
+            ))?;
         }
         if header.major != EXPECTED_MAJOR_VERSION {
-            Err(Error::InvalidFile(String::from(
+            Err(invalid_file_err_str(
                 "Found unsupported major version in header",
-            )))?;
+            ))?;
         }
         if header.minor != EXPECTED_MINOR_VERSION {
-            Err(Error::InvalidFile(String::from(
+            Err(invalid_file_err_str(
                 "Found unsupported minor version in header",
-            )))?;
+            ))?;
         }
         if header.page_size != EXPECTED_PAGE_SIZE {
-            Err(Error::InvalidFile(String::from(
+            Err(invalid_file_err_str(
                 "Found unsupported page size in header",
-            )))?;
+            ))?;
         }
 
         Ok(header)
