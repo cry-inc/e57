@@ -1,19 +1,18 @@
 use crate::paged_reader::PagedReader;
 use crate::Error;
 use crate::Header;
-use crate::ReadSeek;
 use std::io::Read;
 use std::io::Seek;
 
-pub struct E57 {
-    reader: PagedReader,
+pub struct E57<T: Read + Seek> {
+    reader: PagedReader<T>,
     header: Header,
     xml: Vec<u8>,
 }
 
-impl E57 {
+impl<T: Read + Seek> E57<T> {
     /// Creates a new E57 instance for reading.
-    pub fn new(mut reader: Box<dyn ReadSeek>) -> Result<Self, Error> {
+    pub fn new(mut reader: T) -> Result<Self, Error> {
         let mut header_bytes = [0_u8; 48];
         reader
             .read_exact(&mut header_bytes)
@@ -69,11 +68,12 @@ impl E57 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs::File;
 
     #[test]
     fn header() {
-        let file = std::fs::File::open("testdata/bunnyDouble.e57").unwrap();
-        let reader = E57::new(Box::new(file)).unwrap();
+        let file = File::open("testdata/bunnyDouble.e57").unwrap();
+        let reader = E57::new(file).unwrap();
 
         let header = reader.get_header();
         assert_eq!(header.major, 1);
@@ -83,8 +83,8 @@ mod tests {
 
     #[test]
     fn xml() {
-        let file = std::fs::File::open("testdata/bunnyDouble.e57").unwrap();
-        let reader = E57::new(Box::new(file)).unwrap();
+        let file = File::open("testdata/bunnyDouble.e57").unwrap();
+        let reader = E57::new(file).unwrap();
         let header = reader.get_header();
         let xml = reader.get_xml();
         assert_eq!(xml.len() as u64, header.xml_length);
@@ -93,8 +93,8 @@ mod tests {
 
     #[test]
     fn validate() {
-        let file = std::fs::File::open("testdata/bunnyDouble.e57").unwrap();
-        let mut reader = E57::new(Box::new(file)).unwrap();
+        let file = File::open("testdata/bunnyDouble.e57").unwrap();
+        let mut reader = E57::new(file).unwrap();
         reader.validate_crc().unwrap();
     }
 }

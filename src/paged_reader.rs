@@ -1,24 +1,23 @@
-use crate::ReadSeek;
 use crc::{Crc, CRC_32_ISCSI};
 use std::io::{Error, ErrorKind, Read, Result, Seek, SeekFrom};
 
 const CHECKSUM_SIZE: u64 = CRC_32_ISCSI.width as u64 / 8;
 
-pub struct PagedReader {
+pub struct PagedReader<T: Read + Seek> {
     page_size: u64,
     phy_file_size: u64,
     log_file_size: u64,
     pages: u64,
-    reader: Box<dyn ReadSeek>,
+    reader: T,
     offset: u64,
     crc: Crc<u32>,
     page_num: Option<u64>,
     page_buffer: Vec<u8>,
 }
 
-impl PagedReader {
+impl<T: Read + Seek> PagedReader<T> {
     /// Create and initialize a paged reader that abstracts the E57 CRC scheme
-    pub fn new(mut reader: Box<dyn ReadSeek>, page_size: u64) -> Result<Self> {
+    pub fn new(mut reader: T, page_size: u64) -> Result<Self> {
         if page_size <= CHECKSUM_SIZE {
             let msg = format!("Page size {page_size} needs to be bigger than checksum (4 bytes)");
             Err(Error::new(ErrorKind::InvalidInput, msg))?;
@@ -94,7 +93,7 @@ impl PagedReader {
     }
 }
 
-impl Read for PagedReader {
+impl<T: Read + Seek> Read for PagedReader<T> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         let page = self.offset / (self.page_size - CHECKSUM_SIZE);
         if page >= self.pages {
@@ -114,7 +113,7 @@ impl Read for PagedReader {
     }
 }
 
-impl Seek for PagedReader {
+impl<T: Read + Seek> Seek for PagedReader<T> {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
         let new_offset = match pos {
             SeekFrom::Start(p) => p,
@@ -133,6 +132,8 @@ impl Seek for PagedReader {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs::File;
+    use std::io::Cursor;
 
     const PAGE_SIZE: u64 = 1024;
 
@@ -141,8 +142,8 @@ mod tests {
         let file_size = 743424_u64;
         let pages = file_size / PAGE_SIZE;
         let logical_file_size = file_size - pages * CHECKSUM_SIZE;
-        let file = std::fs::File::open("testdata/bunnyDouble.e57").unwrap();
-        let mut reader = PagedReader::new(Box::new(file), PAGE_SIZE).unwrap();
+        let file = File::open("testdata/bunnyDouble.e57").unwrap();
+        let mut reader = PagedReader::new(file, PAGE_SIZE).unwrap();
 
         let mut buf = Vec::new();
         reader.read_to_end(&mut buf).unwrap();
@@ -151,28 +152,28 @@ mod tests {
 
     #[test]
     fn size_not_multiple_of_page() {
-        let file = std::fs::File::open("testdata/bunnyDouble.e57").unwrap();
-        assert!(PagedReader::new(Box::new(file), PAGE_SIZE - 1).is_err());
+        let file = File::open("testdata/bunnyDouble.e57").unwrap();
+        assert!(PagedReader::new(file, PAGE_SIZE - 1).is_err());
     }
 
     #[test]
     fn page_size_too_small() {
-        let file = std::fs::File::open("testdata/bunnyDouble.e57").unwrap();
-        assert!(PagedReader::new(Box::new(file), CHECKSUM_SIZE).is_err());
+        let file = File::open("testdata/bunnyDouble.e57").unwrap();
+        assert!(PagedReader::new(file, CHECKSUM_SIZE).is_err());
     }
 
     #[test]
     fn zero_pages() {
         let file = Vec::<u8>::new();
-        let cursor = std::io::Cursor::new(file);
-        assert!(PagedReader::new(Box::new(cursor), PAGE_SIZE).is_err());
+        let cursor = Cursor::new(file);
+        assert!(PagedReader::new(cursor, PAGE_SIZE).is_err());
     }
 
     #[test]
     fn corrupt_page() {
         let data = vec![0_u8; 128];
-        let cursor = std::io::Cursor::new(data);
-        let mut reader = PagedReader::new(Box::new(cursor), 128).unwrap();
+        let cursor = Cursor::new(data);
+        let mut reader = PagedReader::new(cursor, 128).unwrap();
 
         let mut buf = Vec::new();
         assert!(reader.read_to_end(&mut buf).is_err());
@@ -181,8 +182,8 @@ mod tests {
 
     #[test]
     fn seek() {
-        let file = std::fs::File::open("testdata/bunnyDouble.e57").unwrap();
-        let mut reader = PagedReader::new(Box::new(file), PAGE_SIZE).unwrap();
+        let file = File::open("testdata/bunnyDouble.e57").unwrap();
+        let mut reader = PagedReader::new(file, PAGE_SIZE).unwrap();
 
         let xml_logical_offset = 737844;
         assert_eq!(
@@ -210,8 +211,8 @@ mod tests {
 
     #[test]
     fn physical_seek() {
-        let file = std::fs::File::open("testdata/bunnyDouble.e57").unwrap();
-        let mut reader = PagedReader::new(Box::new(file), PAGE_SIZE).unwrap();
+        let file = File::open("testdata/bunnyDouble.e57").unwrap();
+        let mut reader = PagedReader::new(file, PAGE_SIZE).unwrap();
 
         let xml_physical_offset = 740736;
         let expected_logical_offset = 737844;
@@ -226,8 +227,8 @@ mod tests {
 
     #[test]
     fn read_end() {
-        let file = std::fs::File::open("testdata/bunnyDouble.e57").unwrap();
-        let mut reader = PagedReader::new(Box::new(file), PAGE_SIZE).unwrap();
+        let file = File::open("testdata/bunnyDouble.e57").unwrap();
+        let mut reader = PagedReader::new(file, PAGE_SIZE).unwrap();
 
         reader.seek(SeekFrom::End(0)).unwrap();
 
