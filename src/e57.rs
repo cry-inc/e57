@@ -1,6 +1,7 @@
 use crate::error::invalid_file_err;
 use crate::error::read_err;
 use crate::paged_reader::PagedReader;
+use crate::xml::XmlDocument;
 use crate::Header;
 use crate::Result;
 use std::fs::File;
@@ -11,7 +12,7 @@ use std::path::Path;
 pub struct E57<T: Read + Seek> {
     reader: PagedReader<T>,
     header: Header,
-    xml: Vec<u8>,
+    xml: XmlDocument,
 }
 
 impl<T: Read + Seek> E57<T> {
@@ -38,6 +39,11 @@ impl<T: Read + Seek> E57<T> {
             .read_exact(&mut xml)
             .map_err(|e| read_err("Failed to read XML section", e))?;
 
+        // Parse XML data
+        let xml = String::from_utf8(xml)
+            .map_err(|e| invalid_file_err("Failed to parse XML as UTF8 string", e))?;
+        let xml = XmlDocument::parse(xml)?;
+
         Ok(Self {
             reader,
             header,
@@ -48,11 +54,6 @@ impl<T: Read + Seek> E57<T> {
     /// Returns the E57 file header structure.
     pub fn get_header(&self) -> Header {
         self.header.clone()
-    }
-
-    /// Returns the raw XML data of the E57 file as bytes.
-    pub fn get_xml(&self) -> Vec<u8> {
-        self.xml.clone()
     }
 
     /// Iterate over the whole file to check for CRC errors.
@@ -66,6 +67,21 @@ impl<T: Read + Seek> E57<T> {
             == 0
         {}
         Ok(())
+    }
+
+    /// Returns the raw XML data of the E57 file as bytes.
+    pub fn raw_xml(&self) -> &str {
+        self.xml.raw_xml()
+    }
+
+    /// Returns format name stored in the XML section.
+    pub fn format_name(&self) -> Option<&str> {
+        self.xml.format_name().map(|x| &**x)
+    }
+
+    /// Returns GUID stored in the XML section.
+    pub fn guid(&self) -> Option<&str> {
+        self.xml.guid().map(|x| &**x)
     }
 }
 
@@ -91,17 +107,31 @@ mod tests {
     }
 
     #[test]
-    fn xml() {
+    fn validate() {
+        let mut reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
+        reader.validate_crc().unwrap();
+    }
+
+    #[test]
+    fn raw_xml() {
         let reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
         let header = reader.get_header();
-        let xml = reader.get_xml();
+        let xml = reader.raw_xml();
         assert_eq!(xml.len() as u64, header.xml_length);
         //std::fs::write("dump.xml", xml).unwrap();
     }
 
     #[test]
-    fn validate() {
-        let mut reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
-        reader.validate_crc().unwrap();
+    fn format_name() {
+        let reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
+        let format = reader.format_name();
+        assert_eq!(format, Some("ASTM E57 3D Imaging Data File"));
+    }
+
+    #[test]
+    fn guid() {
+        let reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
+        let guid = reader.guid();
+        assert_eq!(guid, Some("{19AA90ED-145E-4B3B-922C-80BC00648844}"));
     }
 }

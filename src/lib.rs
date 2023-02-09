@@ -4,6 +4,7 @@ mod e57;
 mod error;
 mod header;
 mod paged_reader;
+mod xml;
 
 pub use self::e57::E57;
 pub use self::error::Error;
