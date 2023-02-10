@@ -3,6 +3,7 @@ use crate::error::read_err;
 use crate::paged_reader::PagedReader;
 use crate::xml::XmlDocument;
 use crate::Header;
+use crate::PointCloud;
 use crate::Result;
 use std::fs::File;
 use std::io::Read;
@@ -83,6 +84,11 @@ impl<T: Read + Seek> E57<T> {
     pub fn guid(&self) -> Option<&str> {
         self.xml.guid().map(|x| &**x)
     }
+
+    /// Returns a list of all point clouds in the file.
+    pub fn pointclouds(&self) -> Vec<PointCloud> {
+        self.xml.pointclouds()
+    }
 }
 
 impl E57<File> {
@@ -95,6 +101,7 @@ impl E57<File> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Record;
 
     #[test]
     fn header() {
@@ -133,5 +140,25 @@ mod tests {
         let reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
         let guid = reader.guid();
         assert_eq!(guid, Some("{19AA90ED-145E-4B3B-922C-80BC00648844}"));
+    }
+
+    #[test]
+    fn pointclouds() {
+        let reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
+        let pcs = reader.pointclouds();
+        assert_eq!(pcs.len(), 1);
+        let pc = pcs.first().unwrap();
+        assert_eq!(pc.guid, "{9CA24C38-C93E-40E8-A366-F49977C7E3EB}");
+        assert_eq!(pc.name, Some(String::from("bunny")));
+        assert_eq!(pc.file_offset, 48);
+        assert_eq!(pc.records, 30571);
+        assert_eq!(pc.prototype.len(), 4);
+        assert!(matches!(pc.prototype[0], Record::CartesianX { .. }));
+        assert!(matches!(pc.prototype[1], Record::CartesianY { .. }));
+        assert!(matches!(pc.prototype[2], Record::CartesianZ { .. }));
+        assert!(matches!(
+            pc.prototype[3],
+            Record::CartesianInvalidState { .. }
+        ));
     }
 }
