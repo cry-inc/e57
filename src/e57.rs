@@ -1,5 +1,4 @@
-use crate::error::invalid_file_err;
-use crate::error::read_err;
+use crate::error::ErrorConverter;
 use crate::paged_reader::PagedReader;
 use crate::xml::XmlDocument;
 use crate::Header;
@@ -22,27 +21,26 @@ impl<T: Read + Seek> E57<T> {
         let mut header_bytes = [0_u8; 48];
         reader
             .read_exact(&mut header_bytes)
-            .map_err(|e| read_err("Failed to read 48 byte file header", e))?;
+            .read_err("Failed to read 48 byte file header")?;
 
         // Parse and validate E57 header
         let header = Header::from_bytes(&header_bytes)?;
 
         // Set up paged reader for the CRC page layer
         let mut reader = PagedReader::new(reader, header.page_size)
-            .map_err(|e| invalid_file_err("Unable to setup CRC reader for E57 file", e))?;
+            .read_err("Unable to setup CRC reader for E57 file")?;
 
         // Read XML section
         reader
             .seek_physical(header.phys_xml_offset)
-            .map_err(|e| read_err("Failed to seek to XML section", e))?;
+            .read_err("Failed to seek to XML section")?;
         let mut xml = vec![0_u8; header.xml_length as usize];
         reader
             .read_exact(&mut xml)
-            .map_err(|e| read_err("Failed to read XML section", e))?;
+            .read_err("Failed to read XML section")?;
 
         // Parse XML data
-        let xml = String::from_utf8(xml)
-            .map_err(|e| invalid_file_err("Failed to parse XML as UTF8 string", e))?;
+        let xml = String::from_utf8(xml).read_err("Failed to parse XML as UTF8 string")?;
         let xml = XmlDocument::parse(xml)?;
 
         Ok(Self {
@@ -64,7 +62,7 @@ impl<T: Read + Seek> E57<T> {
         while self
             .reader
             .read(&mut buffer)
-            .map_err(|e| read_err("Failed to read file for validation", e))?
+            .read_err("Failed to read file for validation")?
             == 0
         {}
         Ok(())
@@ -92,8 +90,9 @@ impl<T: Read + Seek> E57<T> {
 }
 
 impl E57<File> {
+    /// Creates an E57 instance from a Path.
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self> {
-        let file = File::open(path).map_err(|e| read_err("Unable to open file", e))?;
+        let file = File::open(path).read_err("Unable to open file")?;
         Self::from_reader(file)
     }
 }

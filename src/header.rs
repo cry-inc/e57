@@ -1,4 +1,4 @@
-use crate::error::invalid_file_err_str;
+use crate::Error;
 use crate::Result;
 
 const EXPECTED_SIGNATURE: &[u8] = "ASTM-E57".as_bytes();
@@ -34,7 +34,7 @@ pub struct Header {
 impl Header {
     /// Creates an E57 file header structure from an array of bytes.
     pub fn from_bytes(data: &[u8; 48]) -> Result<Self> {
-        let err = "Wrong header offsets detected, this is most likely a bug";
+        let err = "Wrong header offsets detected";
         let header = Header {
             signature: data[0..8].try_into().expect(err),
             major: u32::from_le_bytes(data[8..12].try_into().expect(err)),
@@ -46,24 +46,16 @@ impl Header {
         };
 
         if header.signature != EXPECTED_SIGNATURE {
-            Err(invalid_file_err_str(
-                "Found unsupported signature in header",
-            ))?;
+            Error::invalid("Found unsupported signature in header")?
         }
         if header.major != EXPECTED_MAJOR_VERSION {
-            Err(invalid_file_err_str(
-                "Found unsupported major version in header",
-            ))?;
+            Error::invalid("Found unsupported major version in header")?
         }
         if header.minor != EXPECTED_MINOR_VERSION {
-            Err(invalid_file_err_str(
-                "Found unsupported minor version in header",
-            ))?;
+            Error::invalid("Found unsupported minor version in header")?
         }
         if header.page_size != EXPECTED_PAGE_SIZE {
-            Err(invalid_file_err_str(
-                "Found unsupported page size in header",
-            ))?;
+            Error::invalid("Found unsupported page size in header")?
         }
 
         Ok(header)

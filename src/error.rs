@@ -1,3 +1,4 @@
+use std::convert::Infallible;
 use std::error::Error as StdError;
 use std::fmt::Result as FmtResult;
 use std::fmt::{Display, Formatter};
@@ -7,21 +8,31 @@ use std::result::Result as StdResult;
 #[derive(Debug)]
 pub enum Error {
     /// The file content is invalid and does not confirm with the E57 format specification.
-    InvalidFile {
+    Invalid {
         reason: String,
         source: Option<Box<dyn StdError>>,
     },
-    /// Something went wrong while reading data from an E57 file
+    /// Something went wrong while reading data from an E57 file.
     Read {
         reason: String,
         source: Option<Box<dyn StdError>>,
     },
 }
 
+impl Error {
+    /// Creates an invalid file error from text.
+    pub fn invalid<T>(reason: &str) -> Result<T> {
+        Err(Error::Invalid {
+            reason: reason.to_string(),
+            source: None,
+        })
+    }
+}
+
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         match self {
-            Error::InvalidFile { reason, .. } => write!(f, "Invalid E57 file: {reason}"),
+            Error::Invalid { reason, .. } => write!(f, "Invalid E57 file: {reason}"),
             Error::Read { reason, .. } => write!(f, "Failed to read E57: {reason}"),
         }
     }
@@ -30,7 +41,7 @@ impl Display for Error {
 impl StdError for Error {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
-            Error::InvalidFile { source, .. } => source.as_ref().map(|s| s.as_ref()),
+            Error::Invalid { source, .. } => source.as_ref().map(|s| s.as_ref()),
             Error::Read { source, .. } => source.as_ref().map(|s| s.as_ref()),
         }
     }
@@ -38,23 +49,74 @@ impl StdError for Error {
 
 pub type Result<T> = StdResult<T, Error>;
 
-pub fn invalid_file_err_str(reason: &str) -> Error {
-    Error::InvalidFile {
-        reason: reason.to_string(),
-        source: None,
+/// Helper trait for types that can be converted into an Error.
+pub trait ErrorConverter<T, E> {
+    fn read_err<C>(self, context: C) -> Result<T>
+    where
+        C: Display + Send + Sync + 'static;
+
+    fn invalid_err<C>(self, context: C) -> Result<T>
+    where
+        C: Display + Send + Sync + 'static;
+}
+
+/// Create an library Error from std Error instances.
+impl<T, E> ErrorConverter<T, E> for StdResult<T, E>
+where
+    E: StdError + Send + Sync + 'static,
+{
+    fn read_err<C>(self, reason: C) -> Result<T>
+    where
+        C: Display + Send + Sync + 'static,
+    {
+        match self {
+            Ok(ok) => Ok(ok),
+            Err(error) => Err(Error::Read {
+                reason: reason.to_string(),
+                source: Some(Box::new(error)),
+            }),
+        }
+    }
+
+    fn invalid_err<C>(self, reason: C) -> Result<T>
+    where
+        C: Display + Send + Sync + 'static,
+    {
+        match self {
+            Ok(ok) => Ok(ok),
+            Err(error) => Err(Error::Invalid {
+                reason: reason.to_string(),
+                source: Some(Box::new(error)),
+            }),
+        }
     }
 }
 
-pub fn invalid_file_err(reason: &str, source: impl StdError + 'static) -> Error {
-    Error::InvalidFile {
-        reason: reason.to_string(),
-        source: Some(Box::new(source)),
+/// Create an library Error from Option instances.
+impl<T> ErrorConverter<T, Infallible> for Option<T> {
+    fn read_err<C>(self, reason: C) -> Result<T>
+    where
+        C: Display + Send + Sync + 'static,
+    {
+        match self {
+            Some(ok) => Ok(ok),
+            None => Err(Error::Read {
+                reason: reason.to_string(),
+                source: None,
+            }),
+        }
     }
-}
 
-pub fn read_err(reason: &str, source: impl StdError + 'static) -> Error {
-    Error::Read {
-        reason: reason.to_string(),
-        source: Some(Box::new(source)),
+    fn invalid_err<C>(self, reason: C) -> Result<T>
+    where
+        C: Display + Send + Sync + 'static,
+    {
+        match self {
+            Some(ok) => Ok(ok),
+            None => Err(Error::Invalid {
+                reason: reason.to_string(),
+                source: None,
+            }),
+        }
     }
 }
