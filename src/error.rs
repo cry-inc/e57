@@ -60,7 +60,7 @@ impl StdError for Error {
 pub type Result<T> = StdResult<T, Error>;
 
 /// Helper trait for types that can be converted into an Error.
-pub trait ErrorConverter<T, E> {
+pub trait Converter<T, E> {
     fn read_err<C>(self, context: C) -> Result<T>
     where
         C: Display + Send + Sync + 'static;
@@ -75,7 +75,7 @@ pub trait ErrorConverter<T, E> {
 }
 
 /// Create an library Error from std Error instances.
-impl<T, E> ErrorConverter<T, E> for StdResult<T, E>
+impl<T, E> Converter<T, E> for StdResult<T, E>
 where
     E: StdError + Send + Sync + 'static,
 {
@@ -120,7 +120,7 @@ where
 }
 
 /// Create an library Error from Option instances.
-impl<T> ErrorConverter<T, Infallible> for Option<T> {
+impl<T> Converter<T, Infallible> for Option<T> {
     fn read_err<C>(self, reason: C) -> Result<T>
     where
         C: Display + Send + Sync + 'static,

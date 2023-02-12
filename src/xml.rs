@@ -1,4 +1,4 @@
-use crate::error::{Error, ErrorConverter};
+use crate::error::{Converter, Error};
 use crate::{PointCloud, Record, RecordType, Result};
 use roxmltree::{Document, Node};
 

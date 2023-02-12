@@ -1,4 +1,4 @@
-use crate::error::ErrorConverter;
+use crate::error::Converter;
 use crate::Error;
 use crate::Result;
 

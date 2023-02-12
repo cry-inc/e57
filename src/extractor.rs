@@ -1,4 +1,4 @@
-use crate::error::ErrorConverter;
+use crate::error::Converter;
 use crate::paged_reader::PagedReader;
 use crate::CartesianCoodinate;
 use crate::Error;
