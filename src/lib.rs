@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+mod bitpack;
 mod e57;
 mod error;
 mod extractor;

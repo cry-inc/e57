@@ -1,8 +1,10 @@
+use crate::bitpack::BitPack;
 use crate::error::Converter;
 use crate::paged_reader::PagedReader;
 use crate::CartesianCoodinate;
 use crate::Error;
 use crate::PointCloud;
+use crate::Record;
 use crate::Result;
 use std::io::{Read, Seek};
 
@@ -141,12 +143,11 @@ pub fn extract_pointcloud<T: Read + Seek>(
                 }
 
                 let mut buffer_sizes = Vec::with_capacity(pc.prototype.len());
-                for b in 0..bytestream_count {
+                for _ in 0..bytestream_count {
                     let mut buf = [0_u8; 2];
                     reader.read_exact(&mut buf).unwrap();
                     let len = u16::from_le_bytes(buf) as usize;
                     buffer_sizes.push(len);
-                    println!("Buffer: {b}, Len: {len}");
                 }
 
                 let mut buffers = Vec::with_capacity(buffer_sizes.len());
@@ -156,20 +157,32 @@ pub fn extract_pointcloud<T: Read + Seek>(
                     buffers.push(buffer);
                 }
 
-                if buffers.len() >= 3
-                    && buffers[0].len() == buffers[1].len()
-                    && buffers[1].len() == buffers[2].len()
-                {
-                    let values = buffers[0].len() / 8;
-                    for i in 0..values {
-                        let x =
-                            f64::from_le_bytes(buffers[0][i * 8..(i + 1) * 8].try_into().unwrap());
-                        let y =
-                            f64::from_le_bytes(buffers[1][i * 8..(i + 1) * 8].try_into().unwrap());
-                        let z =
-                            f64::from_le_bytes(buffers[2][i * 8..(i + 1) * 8].try_into().unwrap());
-                        result.push(CartesianCoodinate { x, y, z });
+                if pc.prototype.len() < 3 {
+                    // Prototypes with less than 3 records cannot contain XYZ
+                    todo!();
+                }
+
+                match (&pc.prototype[0], &pc.prototype[1], &pc.prototype[2]) {
+                    (Record::CartesianX(xrt), Record::CartesianY(yrt), Record::CartesianZ(zrt)) => {
+                        let x_buffer = BitPack::unpack_double(&buffers[0], xrt)?;
+                        let y_buffer = BitPack::unpack_double(&buffers[1], yrt)?;
+                        let z_buffer = BitPack::unpack_double(&buffers[2], zrt)?;
+
+                        if x_buffer.len() != y_buffer.len() || y_buffer.len() != z_buffer.len() {
+                            Error::invalid(
+                                "X, Y and Z buffer in data packet do not have the same size",
+                            )?
+                        }
+
+                        for i in 0..x_buffer.len() {
+                            result.push(CartesianCoodinate {
+                                x: x_buffer[i],
+                                y: y_buffer[i],
+                                z: z_buffer[i],
+                            });
+                        }
                     }
+                    _ => todo!(),
                 }
             }
         };

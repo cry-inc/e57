@@ -1,5 +1,6 @@
 use crate::error::{Converter, Error};
-use crate::{PointCloud, Record, RecordType, Result};
+use crate::record::record_type_from_node;
+use crate::{PointCloud, Record, Result};
 use roxmltree::{Document, Node};
 
 pub struct XmlDocument {
@@ -106,11 +107,11 @@ fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
         if n.is_element() {
             let tag_name = n.tag_name().name();
             match tag_name {
-                "cartesianX" => prototype.push(Record::CartesianX(parse_record_type(&n)?)),
-                "cartesianY" => prototype.push(Record::CartesianY(parse_record_type(&n)?)),
-                "cartesianZ" => prototype.push(Record::CartesianZ(parse_record_type(&n)?)),
+                "cartesianX" => prototype.push(Record::CartesianX(record_type_from_node(&n)?)),
+                "cartesianY" => prototype.push(Record::CartesianY(record_type_from_node(&n)?)),
+                "cartesianZ" => prototype.push(Record::CartesianZ(record_type_from_node(&n)?)),
                 "cartesianInvalidState" => {
-                    prototype.push(Record::CartesianInvalidState(parse_record_type(&n)?))
+                    prototype.push(Record::CartesianInvalidState(record_type_from_node(&n)?))
                 }
                 tag => {
                     let msg = format!("Found unknown tag name in prototype: {tag}");
@@ -126,44 +127,5 @@ fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
         file_offset,
         records,
         prototype,
-    })
-}
-
-fn parse_record_type(node: &Node) -> Result<RecordType> {
-    let type_string = node
-        .attribute("type")
-        .invalid_err("Missing type attribute for prototype tag")?;
-    Ok(match type_string {
-        "Float" => {
-            let min = if let Some(min) = node.attribute("minimum") {
-                min.parse::<f64>()
-                    .invalid_err("Cannot parse minimum value")?
-            } else {
-                f64::MIN
-            };
-            let max = if let Some(max) = node.attribute("maximum") {
-                max.parse::<f64>()
-                    .invalid_err("Cannot parse maximum value")?
-            } else {
-                f64::MAX
-            };
-            RecordType::Float { min, max }
-        }
-        "Integer" => {
-            let min = if let Some(min) = node.attribute("minimum") {
-                min.parse::<i64>()
-                    .invalid_err("Cannot parse minimum value")?
-            } else {
-                i64::MIN
-            };
-            let max = if let Some(max) = node.attribute("maximum") {
-                max.parse::<i64>()
-                    .invalid_err("Cannot parse maximum value")?
-            } else {
-                i64::MAX
-            };
-            RecordType::Integer { min, max }
-        }
-        _ => Error::invalid("Unknown record type detected")?,
     })
 }

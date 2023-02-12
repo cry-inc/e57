@@ -170,18 +170,22 @@ mod tests {
 
     #[test]
     fn extract_pointcloud() {
-        let mut reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
-        let pcs = reader.pointclouds();
-        let pc = pcs.first().unwrap();
-        let points = reader.extract_pointcloud(pc).unwrap();
-        assert_eq!(points.len(), 30571);
+        let files = ["testdata/bunnyDouble.e57", "testdata/bunnyFloat.e57"];
+        for file in files {
+            let mut reader = E57::from_file(file).unwrap();
+            let pcs = reader.pointclouds();
+            let pc = pcs.first().unwrap();
+            let points = reader.extract_pointcloud(pc).unwrap();
+            assert_eq!(points.len(), 30571);
 
-        /*
-        let mut str = String::new();
-        for p in points {
-            str += &format!("{} {} {}\n", p.x, p.y, p.z);
+            /*
+            std::fs::write("dump.xml", reader.raw_xml()).unwrap();
+            let mut str = String::new();
+            for p in points {
+                str += &format!("{} {} {}\n", p.x, p.y, p.z);
+            }
+            std::fs::write("dump.xyz", str).unwrap();
+            */
         }
-        std::fs::write("dump.xyz", str).unwrap();
-        */
     }
 }
