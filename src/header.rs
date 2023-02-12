@@ -34,7 +34,7 @@ pub struct Header {
 
 impl Header {
     /// Creates an E57 file header structure from an array of bytes.
-    pub fn from_bytes(data: &[u8; 48]) -> Result<Self> {
+    pub fn from_array(data: &[u8; 48]) -> Result<Self> {
         let msg = "Wrong header offsets detected";
         let header = Header {
             signature: data[0..8].try_into().internal_err(msg)?,

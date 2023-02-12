@@ -14,7 +14,7 @@ struct CompressedVectorHeader {
 }
 
 impl CompressedVectorHeader {
-    pub fn from_slice(buffer: &[u8; 32]) -> Result<Self> {
+    pub fn from_array(buffer: &[u8; 32]) -> Result<Self> {
         if buffer[0] != 1 {
             Error::invalid("Section ID of the compressed vector header is not one")?
         }
@@ -31,7 +31,7 @@ impl CompressedVectorHeader {
         reader
             .read_exact(&mut buffer)
             .read_err("Failed to read compressed vector header")?;
-        CompressedVectorHeader::from_slice(&buffer)
+        CompressedVectorHeader::from_array(&buffer)
     }
 }
 

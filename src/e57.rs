@@ -26,7 +26,7 @@ impl<T: Read + Seek> E57<T> {
             .read_err("Failed to read 48 byte file header")?;
 
         // Parse and validate E57 header
-        let header = Header::from_bytes(&header_bytes)?;
+        let header = Header::from_array(&header_bytes)?;
 
         // Set up paged reader for the CRC page layer
         let mut reader = PagedReader::new(reader, header.page_size)
