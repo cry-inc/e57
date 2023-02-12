@@ -91,6 +91,23 @@ impl<T: Read + Seek> PagedReader<T> {
             Ok(())
         }
     }
+
+    /// Do some skipping to next 4-byte-aligned offset, if needed.
+    /// Returns the new logical offset relative to the beginning of the file.
+    pub fn align(&mut self) -> Result<u64> {
+        let off_alignment = self.offset % 4;
+        if off_alignment != 0 {
+            let skip = 4 - off_alignment;
+            if self.offset + skip > self.log_file_size {
+                Err(Error::new(
+                    ErrorKind::InvalidInput,
+                    "Tried to move behind end of file",
+                ))?
+            }
+            self.offset += skip;
+        }
+        Ok(self.offset)
+    }
 }
 
 impl<T: Read + Seek> Read for PagedReader<T> {
@@ -234,5 +251,22 @@ mod tests {
 
         let mut buffer = Vec::new();
         assert_eq!(reader.read_to_end(&mut buffer).unwrap(), 0);
+    }
+
+    #[test]
+    fn align() {
+        let data = vec![0_u8; 128];
+        let cursor = Cursor::new(data);
+        let mut reader = PagedReader::new(cursor, 128).unwrap();
+
+        let pos = reader.align().unwrap();
+        assert_eq!(pos, 0);
+
+        reader.seek(SeekFrom::Start(1)).unwrap();
+        let pos = reader.align().unwrap();
+        assert_eq!(pos, 4);
+
+        let pos = reader.align().unwrap();
+        assert_eq!(pos, 4);
     }
 }

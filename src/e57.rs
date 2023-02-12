@@ -1,6 +1,8 @@
 use crate::error::ErrorConverter;
+use crate::extractor::extract_pointcloud;
 use crate::paged_reader::PagedReader;
 use crate::xml::XmlDocument;
+use crate::CartesianCoodinate;
 use crate::Header;
 use crate::PointCloud;
 use crate::Result;
@@ -87,6 +89,11 @@ impl<T: Read + Seek> E57<T> {
     pub fn pointclouds(&self) -> Vec<PointCloud> {
         self.xml.pointclouds()
     }
+
+    /// Extract the requested point cloud as simple cartesian point cloud.
+    pub fn extract_pointcloud(&mut self, pc: &PointCloud) -> Result<Vec<CartesianCoodinate>> {
+        extract_pointcloud(pc, &mut self.reader)
+    }
 }
 
 impl E57<File> {
@@ -159,5 +166,22 @@ mod tests {
             pc.prototype[3],
             Record::CartesianInvalidState { .. }
         ));
+    }
+
+    #[test]
+    fn extract_pointcloud() {
+        let mut reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
+        let pcs = reader.pointclouds();
+        let pc = pcs.first().unwrap();
+        let points = reader.extract_pointcloud(pc).unwrap();
+        assert_eq!(points.len(), 30571);
+
+        /*
+        let mut str = String::new();
+        for p in points {
+            str += &format!("{} {} {}\n", p.x, p.y, p.z);
+        }
+        std::fs::write("dump.xyz", str).unwrap();
+        */
     }
 }
