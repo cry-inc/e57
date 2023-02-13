@@ -1,5 +1,6 @@
 use crate::bitpack::BitPack;
 use crate::error::Converter;
+use crate::error::WRONG_OFFSET;
 use crate::paged_reader::PagedReader;
 use crate::CartesianCoodinate;
 use crate::Error;
@@ -18,13 +19,18 @@ struct CompressedVectorHeader {
 impl CompressedVectorHeader {
     pub fn from_array(buffer: &[u8; 32]) -> Result<Self> {
         if buffer[0] != 1 {
-            Error::invalid("Section ID of the compressed vector header is not one")?
+            Error::invalid("Section ID of the compressed vector section header is not 1")?
         }
-        let msg = "Wrong header offsets detected";
         Ok(Self {
-            _section_length: u64::from_le_bytes(buffer[8..16].try_into().internal_err(msg)?),
-            data_start_offset: u64::from_le_bytes(buffer[16..24].try_into().internal_err(msg)?),
-            _index_start_offset: u64::from_le_bytes(buffer[24..32].try_into().internal_err(msg)?),
+            _section_length: u64::from_le_bytes(
+                buffer[8..16].try_into().internal_err(WRONG_OFFSET)?,
+            ),
+            data_start_offset: u64::from_le_bytes(
+                buffer[16..24].try_into().internal_err(WRONG_OFFSET)?,
+            ),
+            _index_start_offset: u64::from_le_bytes(
+                buffer[24..32].try_into().internal_err(WRONG_OFFSET)?,
+            ),
         })
     }
 
@@ -32,7 +38,7 @@ impl CompressedVectorHeader {
         let mut buffer = [0_u8; 32];
         reader
             .read_exact(&mut buffer)
-            .read_err("Failed to read compressed vector header")?;
+            .read_err("Failed to read compressed vector section header")?;
         CompressedVectorHeader::from_array(&buffer)
     }
 }
@@ -61,44 +67,51 @@ impl PacketHeader {
             .read_exact(&mut buffer)
             .read_err("Failed to read packet type")?;
         if buffer[0] == 0 {
+            // Index Packet
             let mut buffer = [0_u8; 15];
             reader
                 .read_exact(&mut buffer)
                 .read_err("Failed to read index packet header")?;
-            let msg = "Wrong header offsets detected";
             Ok(PacketHeader::Index {
-                _packet_length: u16::from_le_bytes(buffer[1..3].try_into().internal_err(msg)?)
-                    as u32
+                _packet_length: u16::from_le_bytes(
+                    buffer[1..3].try_into().internal_err(WRONG_OFFSET)?,
+                ) as u32
                     + 1,
-                _entry_count: u16::from_le_bytes(buffer[3..5].try_into().internal_err(msg)?),
+                _entry_count: u16::from_le_bytes(
+                    buffer[3..5].try_into().internal_err(WRONG_OFFSET)?,
+                ),
                 _index_level: buffer[5],
             })
         } else if buffer[0] == 1 {
+            // Data Packet
             let mut buffer = [0_u8; 5];
             reader
                 .read_exact(&mut buffer)
                 .read_err("Failed to read data packet header")?;
-            let msg = "Wrong header offsets detected";
             Ok(PacketHeader::Data {
                 _packet_flags: PacketFlags::from_byte(buffer[0]),
-                _packet_length: u16::from_le_bytes(buffer[1..3].try_into().internal_err(msg)?)
-                    as u32
+                _packet_length: u16::from_le_bytes(
+                    buffer[1..3].try_into().internal_err(WRONG_OFFSET)?,
+                ) as u32
                     + 1,
-                bytestream_count: u16::from_le_bytes(buffer[3..5].try_into().internal_err(msg)?),
+                bytestream_count: u16::from_le_bytes(
+                    buffer[3..5].try_into().internal_err(WRONG_OFFSET)?,
+                ),
             })
         } else if buffer[0] == 2 {
+            // Ignored Packet
             let mut buffer = [0_u8; 3];
             reader
                 .read_exact(&mut buffer)
                 .read_err("Failed to read ignore packet header")?;
-            let msg = "Wrong header offsets detected";
             Ok(PacketHeader::Ignored {
-                _packet_length: u16::from_le_bytes(buffer[1..3].try_into().internal_err(msg)?)
-                    as u32
+                _packet_length: u16::from_le_bytes(
+                    buffer[1..3].try_into().internal_err(WRONG_OFFSET)?,
+                ) as u32
                     + 1,
             })
         } else {
-            Error::invalid("Found unknown packet type when trying to read a packet header")?
+            Error::invalid("Found unknown packet ID when trying to read packet header")?
         }
     }
 }
@@ -124,7 +137,6 @@ pub fn extract_pointcloud<T: Read + Seek>(
         .seek_physical(pc.file_offset)
         .read_err("Cannot seek to compressed vector header")?;
     let section_header = CompressedVectorHeader::from_reader(reader)?;
-
     reader
         .seek_physical(section_header.data_start_offset)
         .read_err("Cannot seek to packet header")?;
@@ -133,8 +145,12 @@ pub fn extract_pointcloud<T: Read + Seek>(
     while result.len() < pc.records as usize {
         let packet_header = PacketHeader::from_reader(reader)?;
         match packet_header {
-            PacketHeader::Index { .. } => todo!(),
-            PacketHeader::Ignored { .. } => todo!(),
+            PacketHeader::Index { .. } => {
+                Error::not_implemented("Index packets are not yet supported")?
+            }
+            PacketHeader::Ignored { .. } => {
+                Error::not_implemented("Ignored packets are not yet supported")?
+            }
             PacketHeader::Data {
                 bytestream_count, ..
             } => {
@@ -158,8 +174,9 @@ pub fn extract_pointcloud<T: Read + Seek>(
                 }
 
                 if pc.prototype.len() < 3 {
-                    // Prototypes with less than 3 records cannot contain XYZ
-                    todo!();
+                    Error::not_implemented(
+                        "This library does currently not support prototypes with less than 3 records",
+                    )?
                 }
 
                 match (&pc.prototype[0], &pc.prototype[1], &pc.prototype[2]) {
@@ -182,7 +199,9 @@ pub fn extract_pointcloud<T: Read + Seek>(
                             });
                         }
                     }
-                    _ => todo!(),
+                    _ => Error::not_implemented(
+                        "This file contains an combination of protoypes that is currently not supported",
+                    )?
                 }
             }
         };

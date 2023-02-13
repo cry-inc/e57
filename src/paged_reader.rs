@@ -19,8 +19,10 @@ impl<T: Read + Seek> PagedReader<T> {
     /// Create and initialize a paged reader that abstracts the E57 CRC scheme
     pub fn new(mut reader: T, page_size: u64) -> Result<Self> {
         if page_size <= CHECKSUM_SIZE {
-            let msg = format!("Page size {page_size} needs to be bigger than checksum (4 bytes)");
-            Err(Error::new(ErrorKind::InvalidInput, msg))?;
+            Err(Error::new(
+                ErrorKind::InvalidInput,
+                format!("Page size {page_size} needs to be bigger than checksum ({CHECKSUM_SIZE} bytes)"),
+            ))?;
         }
 
         let phy_file_size = reader.seek(SeekFrom::End(0))?;
@@ -29,9 +31,10 @@ impl<T: Read + Seek> PagedReader<T> {
             Err(Error::new(ErrorKind::InvalidData, msg))?;
         }
         if phy_file_size % page_size != 0 {
-            let msg =
-                format!("File size {phy_file_size} is not a multiple of the page size {page_size}");
-            Err(Error::new(ErrorKind::InvalidData, msg))?;
+            Err(Error::new(
+                ErrorKind::InvalidData,
+                format!("File size {phy_file_size} is not a multiple of the page size {page_size}"),
+            ))?;
         }
 
         let pages = phy_file_size / page_size;
@@ -53,8 +56,10 @@ impl<T: Read + Seek> PagedReader<T> {
     /// Will return the new logical offset inside the file or an error.
     pub fn seek_physical(&mut self, offset: u64) -> Result<u64> {
         if offset >= self.phy_file_size {
-            let msg = format!("Offset {offset} is behind end of file");
-            Err(Error::new(ErrorKind::InvalidInput, msg))?;
+            Err(Error::new(
+                ErrorKind::InvalidInput,
+                format!("Offset {offset} is behind end of file"),
+            ))?;
         }
 
         let pages_before = offset / self.page_size;
@@ -65,8 +70,10 @@ impl<T: Read + Seek> PagedReader<T> {
     fn read_page(&mut self, page: u64) -> Result<()> {
         if page >= self.pages {
             let max = self.pages - 1;
-            let msg = format!("Page {page} does not exist, only page numbers 0..{max} are valid");
-            Err(Error::new(ErrorKind::InvalidInput, msg))?;
+            Err(Error::new(
+                ErrorKind::InvalidInput,
+                format!("Page {page} does not exist, only page numbers 0..{max} are valid"),
+            ))?;
         }
         let offset = page * self.page_size;
         self.reader.seek(SeekFrom::Start(offset))?;
@@ -84,8 +91,10 @@ impl<T: Read + Seek> PagedReader<T> {
 
         if expected_checksum != calculated_checksum {
             self.page_num = None;
-            let msg = format!("Detected invalid checksum (expected: {expected_checksum:?}, actual: {calculated_checksum:?}) for page {page}");
-            Err(Error::new(ErrorKind::InvalidData, msg))
+            Err(Error::new(
+                ErrorKind::InvalidData,
+                format!("Detected invalid checksum (expected: {expected_checksum:?}, actual: {calculated_checksum:?}) for page {page}")
+            ))
         } else {
             self.page_num = Some(page);
             Ok(())
@@ -101,7 +110,7 @@ impl<T: Read + Seek> PagedReader<T> {
             if self.offset + skip > self.log_file_size {
                 Err(Error::new(
                     ErrorKind::InvalidInput,
-                    "Tried to move behind end of file",
+                    "Tried to seek behind end of the file",
                 ))?
             }
             self.offset += skip;
@@ -138,8 +147,10 @@ impl<T: Read + Seek> Seek for PagedReader<T> {
             SeekFrom::Current(p) => (self.offset as i64 + p) as u64,
         };
         if new_offset > self.log_file_size {
-            let msg = format!("Detected invalid offset {new_offset} after end of file");
-            Err(Error::new(ErrorKind::InvalidInput, msg))?;
+            Err(Error::new(
+                ErrorKind::InvalidInput,
+                format!("Detected invalid offset {new_offset} after end of file"),
+            ))?;
         }
         self.offset = new_offset;
         Ok(self.offset)

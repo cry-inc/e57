@@ -12,7 +12,7 @@ pub struct XmlDocument {
 
 impl XmlDocument {
     pub fn parse(xml: String) -> Result<Self> {
-        let document = Document::parse(&xml).invalid_err("Failed to parse XML document")?;
+        let document = Document::parse(&xml).invalid_err("Failed to parse XML data")?;
         let format = extract_string(&document, "formatName");
         let guid = extract_string(&document, "guid");
         let data3d = extract_pointclouds(&document)?;
@@ -53,7 +53,7 @@ fn extract_pointclouds(document: &Document) -> Result<Vec<PointCloud>> {
     let data3d_node = document
         .descendants()
         .find(|n| n.has_tag_name("data3D"))
-        .invalid_err("Cannot find data3D tag in XML document")?;
+        .invalid_err("Cannot find 'data3D' tag in XML document")?;
 
     let mut data3d = Vec::new();
     for n in data3d_node.children() {
@@ -69,7 +69,7 @@ fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
     let guid = node
         .children()
         .find(|n| n.has_tag_name("guid") && n.attribute("type") == Some("String"))
-        .invalid_err("Cannot find GUID tag inside data3D child")?
+        .invalid_err("Cannot find 'guid' tag inside 'data3D' child")?
         .text()
         .invalid_err("GUID tag is empty")?
         .to_string();
@@ -83,24 +83,24 @@ fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
     let points_tag = node
         .children()
         .find(|n| n.has_tag_name("points") && n.attribute("type") == Some("CompressedVector"))
-        .invalid_err("Cannot find points tag inside data3D child")?;
+        .invalid_err("Cannot find 'points' tag inside 'data3D' child")?;
 
     let file_offset = points_tag
         .attribute("fileOffset")
-        .invalid_err("Cannot find fileOffset attribute in points tag")?
+        .invalid_err("Cannot find 'fileOffset' attribute in 'points' tag")?
         .parse::<u64>()
-        .invalid_err("Cannot parse fileOffset as u64")?;
+        .invalid_err("Cannot parse 'fileOffset' attribute value as u64")?;
 
     let records = points_tag
         .attribute("recordCount")
-        .invalid_err("Cannot find recordCount attribute in points tag")?
+        .invalid_err("Cannot find 'recordCount' attribute in 'points' tag")?
         .parse::<u64>()
-        .invalid_err("Cannot parse recordCount as u64")?;
+        .invalid_err("Cannot parse 'recordCount' attribute value as u64")?;
 
     let prototype_tag = points_tag
         .children()
         .find(|n| n.has_tag_name("prototype") && n.attribute("type") == Some("Structure"))
-        .invalid_err("Cannot find prototype child in points tag")?;
+        .invalid_err("Cannot find 'prototype' child in 'points' tag")?;
 
     let mut prototype = Vec::new();
     for n in prototype_tag.children() {
@@ -113,10 +113,9 @@ fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
                 "cartesianInvalidState" => {
                     prototype.push(Record::CartesianInvalidState(record_type_from_node(&n)?))
                 }
-                tag => {
-                    let msg = format!("Found unknown tag name in prototype: {tag}");
-                    Error::invalid(&msg)?
-                }
+                tag => Error::not_implemented(format!(
+                    "Found unsupported record named '{tag}' inside 'prototype'"
+                ))?,
             }
         }
     }

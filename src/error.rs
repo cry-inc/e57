@@ -4,6 +4,9 @@ use std::fmt::Result as FmtResult;
 use std::fmt::{Display, Formatter};
 use std::result::Result as StdResult;
 
+/// To be used as error message when extracting stuff from arrays that should never fail
+pub const WRONG_OFFSET: &str = "Wrong buffer offset detected";
+
 /// Possible errors that can occur while working with E57 files.
 #[derive(Debug)]
 pub enum Error {
@@ -12,12 +15,17 @@ pub enum Error {
         reason: String,
         source: Option<Box<dyn StdError>>,
     },
+
     /// Something went wrong while reading data from an E57 file.
     /// Typically this is caused by an IO error outside the library or because of an incomplete file.
     Read {
         reason: String,
         source: Option<Box<dyn StdError>>,
     },
+
+    /// Some feature or aspect of E57 that is not yet implement by this library.
+    NotImplemented { description: String },
+
     /// An unexpected internal issue occured.
     /// Most likely this is a logic inside the library.
     /// Please file an issue, if possible.
@@ -28,11 +36,24 @@ pub enum Error {
 }
 
 impl Error {
-    /// Creates an invalid file error from text.
-    pub fn invalid<T>(reason: &str) -> Result<T> {
+    /// Creates an new invalid file error.
+    pub fn invalid<T, C>(reason: C) -> Result<T>
+    where
+        C: Display + Send + Sync + 'static,
+    {
         Err(Error::Invalid {
             reason: reason.to_string(),
             source: None,
+        })
+    }
+
+    /// Creates an new internal error.
+    pub fn not_implemented<T, C>(description: C) -> Result<T>
+    where
+        C: Display + Send + Sync + 'static,
+    {
+        Err(Error::NotImplemented {
+            description: description.to_string(),
         })
     }
 }
@@ -43,6 +64,7 @@ impl Display for Error {
             Error::Invalid { reason, .. } => write!(f, "Invalid E57 file: {reason}"),
             Error::Read { reason, .. } => write!(f, "Failed to read E57: {reason}"),
             Error::Internal { reason, .. } => write!(f, "Internal error: {reason}"),
+            Error::NotImplemented { description } => write!(f, "Not implemented: {description}"),
         }
     }
 }
@@ -53,6 +75,7 @@ impl StdError for Error {
             Error::Invalid { source, .. } => source.as_ref().map(|s| s.as_ref()),
             Error::Read { source, .. } => source.as_ref().map(|s| s.as_ref()),
             Error::Internal { source, .. } => source.as_ref().map(|s| s.as_ref()),
+            Error::NotImplemented { .. } => None,
         }
     }
 }

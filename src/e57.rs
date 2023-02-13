@@ -23,26 +23,26 @@ impl<T: Read + Seek> E57<T> {
         let mut header_bytes = [0_u8; 48];
         reader
             .read_exact(&mut header_bytes)
-            .read_err("Failed to read 48 byte file header")?;
+            .read_err("Failed to read file header")?;
 
         // Parse and validate E57 header
         let header = Header::from_array(&header_bytes)?;
 
         // Set up paged reader for the CRC page layer
-        let mut reader = PagedReader::new(reader, header.page_size)
-            .read_err("Unable to setup CRC reader for E57 file")?;
+        let mut reader =
+            PagedReader::new(reader, header.page_size).read_err("Failed creating CRC reader")?;
 
-        // Read XML section
+        // Read XML data
         reader
             .seek_physical(header.phys_xml_offset)
-            .read_err("Failed to seek to XML section")?;
+            .read_err("Cannot seek to XML offset")?;
         let mut xml = vec![0_u8; header.xml_length as usize];
         reader
             .read_exact(&mut xml)
-            .read_err("Failed to read XML section")?;
+            .read_err("Failed to read XML data")?;
 
         // Parse XML data
-        let xml = String::from_utf8(xml).read_err("Failed to parse XML as UTF8 string")?;
+        let xml = String::from_utf8(xml).read_err("Failed to parse XML as UTF8")?;
         let xml = XmlDocument::parse(xml)?;
 
         Ok(Self {
@@ -64,8 +64,8 @@ impl<T: Read + Seek> E57<T> {
         while self
             .reader
             .read(&mut buffer)
-            .read_err("Failed to read file for validation")?
-            == 0
+            .read_err("Failed to read for file validation")?
+            != 0
         {}
         Ok(())
     }
@@ -131,7 +131,6 @@ mod tests {
         let header = reader.get_header();
         let xml = reader.raw_xml();
         assert_eq!(xml.len() as u64, header.xml_length);
-        //std::fs::write("dump.xml", xml).unwrap();
     }
 
     #[test]

@@ -1,4 +1,5 @@
 use crate::error::Converter;
+use crate::error::WRONG_OFFSET;
 use crate::Error;
 use crate::Result;
 
@@ -35,15 +36,16 @@ pub struct Header {
 impl Header {
     /// Creates an E57 file header structure from an array of bytes.
     pub fn from_array(data: &[u8; 48]) -> Result<Self> {
-        let msg = "Wrong header offsets detected";
         let header = Header {
-            signature: data[0..8].try_into().internal_err(msg)?,
-            major: u32::from_le_bytes(data[8..12].try_into().internal_err(msg)?),
-            minor: u32::from_le_bytes(data[12..16].try_into().internal_err(msg)?),
-            phys_length: u64::from_le_bytes(data[16..24].try_into().internal_err(msg)?),
-            phys_xml_offset: u64::from_le_bytes(data[24..32].try_into().internal_err(msg)?),
-            xml_length: u64::from_le_bytes(data[32..40].try_into().internal_err(msg)?),
-            page_size: u64::from_le_bytes(data[40..48].try_into().internal_err(msg)?),
+            signature: data[0..8].try_into().internal_err(WRONG_OFFSET)?,
+            major: u32::from_le_bytes(data[8..12].try_into().internal_err(WRONG_OFFSET)?),
+            minor: u32::from_le_bytes(data[12..16].try_into().internal_err(WRONG_OFFSET)?),
+            phys_length: u64::from_le_bytes(data[16..24].try_into().internal_err(WRONG_OFFSET)?),
+            phys_xml_offset: u64::from_le_bytes(
+                data[24..32].try_into().internal_err(WRONG_OFFSET)?,
+            ),
+            xml_length: u64::from_le_bytes(data[32..40].try_into().internal_err(WRONG_OFFSET)?),
+            page_size: u64::from_le_bytes(data[40..48].try_into().internal_err(WRONG_OFFSET)?),
         };
 
         if header.signature != EXPECTED_SIGNATURE {
