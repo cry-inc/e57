@@ -169,7 +169,11 @@ mod tests {
 
     #[test]
     fn extract_pointcloud() {
-        let files = ["testdata/bunnyDouble.e57", "testdata/bunnyFloat.e57"];
+        let files = [
+            "testdata/bunnyDouble.e57",
+            "testdata/bunnyFloat.e57",
+            "testdata/bunnyInt32.e57",
+        ];
         for file in files {
             let mut reader = E57::from_file(file).unwrap();
             let pcs = reader.pointclouds();

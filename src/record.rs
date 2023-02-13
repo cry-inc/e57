@@ -7,6 +7,7 @@ pub enum RecordType {
     Double { min: f64, max: f64 },
     Single { min: f64, max: f64 },
     Integer { min: i64, max: i64 },
+    ScaledInteger { min: i64, max: i64, scale: f64 },
 }
 
 #[derive(Debug, Clone)]
@@ -24,19 +25,21 @@ pub fn record_type_from_node(node: &Node) -> Result<RecordType> {
     ))?;
     Ok(match type_string {
         "Float" => {
-            let min = if let Some(min) = node.attribute("minimum") {
-                min.parse::<f64>()
-                    .invalid_err("Cannot parse minimum value of float type")?
-            } else {
-                f64::MIN
-            };
-            let max = if let Some(max) = node.attribute("maximum") {
-                max.parse::<f64>()
-                    .invalid_err("Cannot parse maximum value of float type")?
-            } else {
-                f64::MAX
-            };
-
+            let min = node
+                .attribute("minimum")
+                .invalid_err("Cannot find 'minimum' attribute of 'Float' type")?
+                .parse::<f64>()
+                .invalid_err("Cannot parse 'minimum' attribute of 'Float' type as f64")?;
+            let max = node
+                .attribute("maximum")
+                .invalid_err("Cannot find 'maximum' attribute of 'Float' type")?
+                .parse::<f64>()
+                .invalid_err("Cannot parse 'maximum' attribute of 'Float' type as f64")?;
+            if max <= min {
+                Error::invalid(format!(
+                    "Maximum value {max} and minimum value {min} of 'Float' type are invalid"
+                ))?
+            }
             let precision = node.attribute("precision").unwrap_or("double");
             if precision == "double" {
                 RecordType::Double { min, max }
@@ -44,24 +47,48 @@ pub fn record_type_from_node(node: &Node) -> Result<RecordType> {
                 RecordType::Single { min, max }
             } else {
                 Error::invalid(format!(
-                    "Float precision {precision} in prototype tag is unknown"
+                    "Float 'precision' attribute value '{precision}' for 'Float' type is unknown"
                 ))?
             }
         }
         "Integer" => {
-            let min = if let Some(min) = node.attribute("minimum") {
-                min.parse::<i64>()
-                    .invalid_err("Cannot parse minimum value of integer type")?
-            } else {
-                i64::MIN
-            };
-            let max = if let Some(max) = node.attribute("maximum") {
-                max.parse::<i64>()
-                    .invalid_err("Cannot parse maximum value of integer type")?
-            } else {
-                i64::MAX
-            };
+            let min = node
+                .attribute("minimum")
+                .invalid_err("Cannot find 'minimum' attribute of 'Integer' type")?
+                .parse::<i64>()
+                .invalid_err("Cannot parse 'minimum' attribute of 'Integer' type as i64")?;
+            let max = node
+                .attribute("maximum")
+                .invalid_err("Cannot find 'maximum' attribute of 'Integer' type")?
+                .parse::<i64>()
+                .invalid_err("Cannot parse 'maximum' attribute of 'Integer' type as i64")?;
+            if max <= min {
+                Error::invalid(format!(
+                    "Maximum value {max} and minimum value {min} of 'Integer' type are invalid"
+                ))?
+            }
             RecordType::Integer { min, max }
+        }
+        "ScaledInteger" => {
+            let min = node
+                .attribute("minimum")
+                .invalid_err("Cannot find 'minimum' attribute of 'ScaledInteger' type")?
+                .parse::<i64>()
+                .invalid_err("Cannot parse 'minimum' attribute of 'ScaledInteger' type as i64")?;
+            let max = node
+                .attribute("maximum")
+                .invalid_err("Cannot find 'maximum' attribute of 'ScaledInteger' type")?
+                .parse::<i64>()
+                .invalid_err("Cannot parse 'maximum' attribute of 'ScaledInteger' type as i64")?;
+            if max <= min {
+                Error::invalid(format!("Maximum value {max} and minimum value {min} of 'ScaledInteger' type are invalid"))?
+            }
+            let scale = node
+                .attribute("scale")
+                .invalid_err("Cannot find 'scale' attribute of 'ScaledInteger' type")?
+                .parse::<f64>()
+                .invalid_err("Cannot parse 'scale' attribute of 'ScaledInteger' type as f64")?;
+            RecordType::ScaledInteger { min, max, scale }
         }
         _ => Error::not_implemented(format!("Unsupported record type {type_string} detected"))?,
     })
