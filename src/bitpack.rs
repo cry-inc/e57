@@ -61,9 +61,9 @@ impl BitPack {
                 }
                 Ok(result)
             }
-            RecordType::Integer { .. } => Error::not_implemented(format!(
-                "Unpacking of {rt:?} as double is not supported"
-            )),
+            RecordType::Integer { .. } => {
+                Error::not_implemented(format!("Unpacking of {rt:?} as double is not supported"))
+            }
         }
     }
 }
