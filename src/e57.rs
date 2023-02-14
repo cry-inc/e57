@@ -173,6 +173,7 @@ mod tests {
             "testdata/bunnyDouble.e57",
             "testdata/bunnyFloat.e57",
             "testdata/bunnyInt32.e57",
+            "testdata/bunnyInt24.e57",
         ];
         for file in files {
             let mut reader = E57::from_file(file).unwrap();

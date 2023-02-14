@@ -211,5 +211,8 @@ pub fn extract_pointcloud<T: Read + Seek>(
             .read_err("Failed to align on 4-byte offset for next packet")?;
     }
 
+    // In some cases the bytestreams seem to contain more points that expected with invalid data at the end
+    result.truncate(pc.records as usize);
+
     Ok(result)
 }
