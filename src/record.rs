@@ -16,6 +16,28 @@ pub enum Record {
     CartesianY(RecordType),
     CartesianZ(RecordType),
     CartesianInvalidState(RecordType),
+
+    SphericalRange(RecordType),
+    SphericalAzimuth(RecordType),
+    SphericalElevation(RecordType),
+    SphericalInvalidState(RecordType),
+
+    Intensity(RecordType),
+    IsIntensityInvalid(RecordType),
+
+    ColorRed(RecordType),
+    ColorGreen(RecordType),
+    ColorBlue(RecordType),
+    IsColorInvalid(RecordType),
+
+    RowIndex(RecordType),
+    ColumnIndex(RecordType),
+
+    ReturnCount(RecordType),
+    ReturnIndex(RecordType),
+
+    TimeStamp(RecordType),
+    IsTimeStampInvalid(RecordType),
 }
 
 pub fn record_type_from_node(node: &Node) -> Result<RecordType> {
