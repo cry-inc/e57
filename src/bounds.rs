@@ -1,6 +1,13 @@
+use roxmltree::Node;
 use std::str::FromStr;
 
-use roxmltree::Node;
+fn extract_bound<T: FromStr>(bounds: &Node, tag_name: &str) -> Option<T> {
+    bounds
+        .descendants()
+        .find(|n| n.has_tag_name(tag_name))
+        .and_then(|n| n.text())
+        .and_then(|t| t.parse::<T>().ok())
+}
 
 #[derive(Debug, Clone)]
 #[non_exhaustive]
@@ -11,14 +18,6 @@ pub struct CartesianBounds {
     pub y_max: Option<f64>,
     pub z_min: Option<f64>,
     pub z_max: Option<f64>,
-}
-
-fn extract_bound<T: FromStr>(bounds: &Node, tag_name: &str) -> Option<T> {
-    bounds
-        .descendants()
-        .find(|n| n.has_tag_name(tag_name))
-        .and_then(|n| n.text())
-        .and_then(|t| t.parse::<T>().ok())
 }
 
 pub fn cartesian_bounds_from_node(node: &Node) -> CartesianBounds {

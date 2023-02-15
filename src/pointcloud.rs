@@ -1,9 +1,13 @@
 use crate::bounds::{
-    cartesian_bounds_from_node, index_bounds_from_node, spherical_bounds_from_node, IndexBounds,
+    cartesian_bounds_from_node, index_bounds_from_node, spherical_bounds_from_node,
 };
+use crate::error::Converter;
+use crate::limits::{color_limits_from_node, intensity_limits_from_node};
 use crate::record::record_type_from_node;
-use crate::Error;
-use crate::{error::Converter, CartesianBounds, Record, Result, SphericalBounds};
+use crate::{
+    CartesianBounds, ColorLimits, Error, IndexBounds, IntensityLimits, Record, Result,
+    SphericalBounds,
+};
 use roxmltree::Node;
 
 #[derive(Debug, Clone)]
@@ -17,6 +21,8 @@ pub struct PointCloud {
     pub cartesian_bounds: Option<CartesianBounds>,
     pub spherical_bounds: Option<SphericalBounds>,
     pub index_bounds: Option<IndexBounds>,
+    pub intensity_limits: Option<IntensityLimits>,
+    pub color_limits: Option<ColorLimits>,
 }
 
 pub fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
@@ -108,16 +114,17 @@ pub fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
         .children()
         .find(|n| n.has_tag_name("cartesianBounds"))
         .map(|n| cartesian_bounds_from_node(&n));
-
     let spherical_bounds = node
         .children()
         .find(|n| n.has_tag_name("sphericalBounds"))
         .map(|n| spherical_bounds_from_node(&n));
-
     let index_bounds = node
         .children()
         .find(|n| n.has_tag_name("indexBounds"))
         .map(|n| index_bounds_from_node(&n));
+
+    let intensity_limits_tag = node.children().find(|n| n.has_tag_name("colorLimits"));
+    let color_limits_tag = node.children().find(|n| n.has_tag_name("colorLimits"));
 
     Ok(PointCloud {
         guid,
@@ -128,5 +135,15 @@ pub fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
         cartesian_bounds,
         spherical_bounds,
         index_bounds,
+        intensity_limits: if let Some(tag) = intensity_limits_tag {
+            Some(intensity_limits_from_node(&tag)?)
+        } else {
+            None
+        },
+        color_limits: if let Some(tag) = color_limits_tag {
+            Some(color_limits_from_node(&tag)?)
+        } else {
+            None
+        },
     })
 }

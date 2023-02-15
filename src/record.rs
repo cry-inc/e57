@@ -44,7 +44,7 @@ pub enum Record {
 
 pub fn record_type_from_node(node: &Node) -> Result<RecordType> {
     let type_string = node.attribute("type").invalid_err(format!(
-        "Missing type attribute for prototype tag {}",
+        "Missing type attribute for tag {}",
         node.tag_name().name()
     ))?;
     Ok(match type_string {
