@@ -1,4 +1,6 @@
-use crate::bounds::{cartesian_bounds_from_node, spherical_bounds_from_node};
+use crate::bounds::{
+    cartesian_bounds_from_node, index_bounds_from_node, spherical_bounds_from_node, IndexBounds,
+};
 use crate::record::record_type_from_node;
 use crate::Error;
 use crate::{error::Converter, CartesianBounds, Record, Result, SphericalBounds};
@@ -14,6 +16,7 @@ pub struct PointCloud {
     pub prototype: Vec<Record>,
     pub cartesian_bounds: Option<CartesianBounds>,
     pub spherical_bounds: Option<SphericalBounds>,
+    pub index_bounds: Option<IndexBounds>,
 }
 
 pub fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
@@ -111,6 +114,11 @@ pub fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
         .find(|n| n.has_tag_name("sphericalBounds"))
         .map(|n| spherical_bounds_from_node(&n));
 
+    let index_bounds = node
+        .children()
+        .find(|n| n.has_tag_name("indexBounds"))
+        .map(|n| index_bounds_from_node(&n));
+
     Ok(PointCloud {
         guid,
         name,
@@ -119,5 +127,6 @@ pub fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
         prototype,
         cartesian_bounds,
         spherical_bounds,
+        index_bounds,
     })
 }

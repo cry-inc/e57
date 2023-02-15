@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use roxmltree::Node;
 
 #[derive(Debug, Clone)]
@@ -11,21 +13,21 @@ pub struct CartesianBounds {
     pub z_max: Option<f64>,
 }
 
-fn extract_double_bound(bounds: &Node, tag_name: &str) -> Option<f64> {
+fn extract_bound<T: FromStr>(bounds: &Node, tag_name: &str) -> Option<T> {
     bounds
         .descendants()
         .find(|n| n.has_tag_name(tag_name))
         .and_then(|n| n.text())
-        .and_then(|t| t.parse::<f64>().ok())
+        .and_then(|t| t.parse::<T>().ok())
 }
 
 pub fn cartesian_bounds_from_node(node: &Node) -> CartesianBounds {
-    let x_min = extract_double_bound(node, "xMinimum");
-    let x_max = extract_double_bound(node, "xMaximum");
-    let y_min = extract_double_bound(node, "yMinimum");
-    let y_max = extract_double_bound(node, "yMaximum");
-    let z_min = extract_double_bound(node, "zMinimum");
-    let z_max = extract_double_bound(node, "zMaximum");
+    let x_min = extract_bound(node, "xMinimum");
+    let x_max = extract_bound(node, "xMaximum");
+    let y_min = extract_bound(node, "yMinimum");
+    let y_max = extract_bound(node, "yMaximum");
+    let z_min = extract_bound(node, "zMinimum");
+    let z_max = extract_bound(node, "zMaximum");
     CartesianBounds {
         x_min,
         x_max,
@@ -37,6 +39,7 @@ pub fn cartesian_bounds_from_node(node: &Node) -> CartesianBounds {
 }
 
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct SphericalBounds {
     pub range_min: Option<f64>,
     pub range_max: Option<f64>,
@@ -47,12 +50,12 @@ pub struct SphericalBounds {
 }
 
 pub fn spherical_bounds_from_node(node: &Node) -> SphericalBounds {
-    let range_min = extract_double_bound(node, "rangeMinimum");
-    let range_max = extract_double_bound(node, "rangeMaximum");
-    let elevation_min = extract_double_bound(node, "elevationMinimum");
-    let elevation_max = extract_double_bound(node, "elevationMaximum");
-    let azimuth_start = extract_double_bound(node, "azimuthStart");
-    let azimuth_end = extract_double_bound(node, "azimuthEnd");
+    let range_min = extract_bound(node, "rangeMinimum");
+    let range_max = extract_bound(node, "rangeMaximum");
+    let elevation_min = extract_bound(node, "elevationMinimum");
+    let elevation_max = extract_bound(node, "elevationMaximum");
+    let azimuth_start = extract_bound(node, "azimuthStart");
+    let azimuth_end = extract_bound(node, "azimuthEnd");
     SphericalBounds {
         range_min,
         range_max,
@@ -60,5 +63,33 @@ pub fn spherical_bounds_from_node(node: &Node) -> SphericalBounds {
         elevation_max,
         azimuth_start,
         azimuth_end,
+    }
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct IndexBounds {
+    pub row_min: Option<i64>,
+    pub row_max: Option<i64>,
+    pub column_min: Option<i64>,
+    pub column_max: Option<i64>,
+    pub return_min: Option<i64>,
+    pub return_max: Option<i64>,
+}
+
+pub fn index_bounds_from_node(node: &Node) -> IndexBounds {
+    let row_min = extract_bound(node, "rowMinimum");
+    let row_max = extract_bound(node, "rowMaximum");
+    let column_min = extract_bound(node, "columnMinimum");
+    let column_max = extract_bound(node, "columnMaximum");
+    let return_min = extract_bound(node, "returnMinimum");
+    let return_max = extract_bound(node, "returnMaximum");
+    IndexBounds {
+        row_min,
+        row_max,
+        column_min,
+        column_max,
+        return_min,
+        return_max,
     }
 }
