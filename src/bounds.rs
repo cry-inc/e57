@@ -1,6 +1,7 @@
 use roxmltree::Node;
 
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct CartesianBounds {
     pub x_min: Option<f64>,
     pub x_max: Option<f64>,

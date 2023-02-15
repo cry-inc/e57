@@ -9,6 +9,7 @@ pub const WRONG_OFFSET: &str = "Wrong buffer offset detected";
 
 /// Possible errors that can occur while working with E57 files.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Error {
     /// The file content is invalid and does not confirm with the E57 format specification.
     Invalid {

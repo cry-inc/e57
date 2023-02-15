@@ -10,6 +10,7 @@ const EXPECTED_PAGE_SIZE: u64 = 1024;
 
 /// Represents the file structure from the start of an E57 file.
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct Header {
     /// File header signature that must be always "ASTM-E57".
     pub signature: [u8; 8],

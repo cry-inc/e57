@@ -5,6 +5,7 @@ use crate::{error::Converter, CartesianBounds, Record, Result, SphericalBounds};
 use roxmltree::Node;
 
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct PointCloud {
     pub guid: String,
     pub name: Option<String>,

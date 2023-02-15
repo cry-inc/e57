@@ -10,6 +10,7 @@ use crate::Result;
 use std::io::{Read, Seek};
 
 #[derive(Debug)]
+#[non_exhaustive]
 struct CompressedVectorHeader {
     pub _section_length: u64,
     pub data_start_offset: u64,
@@ -44,6 +45,7 @@ impl CompressedVectorHeader {
 }
 
 #[derive(Debug)]
+#[non_exhaustive]
 enum PacketHeader {
     Index {
         _packet_length: u32,
@@ -117,6 +119,7 @@ impl PacketHeader {
 }
 
 #[derive(Debug)]
+#[non_exhaustive]
 struct PacketFlags {
     pub _compressor_restart: bool,
 }
