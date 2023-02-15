@@ -2,6 +2,7 @@ use crc::{Crc, CRC_32_ISCSI};
 use std::io::{Error, ErrorKind, Read, Result, Seek, SeekFrom};
 
 const CHECKSUM_SIZE: u64 = CRC_32_ISCSI.width as u64 / 8;
+const ALIGNMENT_SIZE: u64 = 4;
 
 pub struct PagedReader<T: Read + Seek> {
     page_size: u64,
@@ -106,7 +107,7 @@ impl<T: Read + Seek> PagedReader<T> {
     pub fn align(&mut self) -> Result<u64> {
         let off_alignment = self.offset % 4;
         if off_alignment != 0 {
-            let skip = 4 - off_alignment;
+            let skip = ALIGNMENT_SIZE - off_alignment;
             if self.offset + skip > self.log_file_size {
                 Err(Error::new(
                     ErrorKind::InvalidInput,
@@ -275,9 +276,9 @@ mod tests {
 
         reader.seek(SeekFrom::Start(1)).unwrap();
         let pos = reader.align().unwrap();
-        assert_eq!(pos, 4);
+        assert_eq!(pos, ALIGNMENT_SIZE);
 
         let pos = reader.align().unwrap();
-        assert_eq!(pos, 4);
+        assert_eq!(pos, ALIGNMENT_SIZE);
     }
 }
