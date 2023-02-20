@@ -195,15 +195,37 @@ mod tests {
             let pc = pcs.first().unwrap();
             let points = reader.extract_pointcloud(pc).unwrap();
             assert_eq!(points.len(), 30571);
-
-            /*
-            std::fs::write("dump.xml", reader.raw_xml()).unwrap();
-            let mut str = String::new();
-            for p in points {
-                str += &format!("{} {} {}\n", p.x, p.y, p.z);
-            }
-            std::fs::write("dump.xyz", str).unwrap();
-            */
         }
+    }
+
+    #[test]
+    fn cartesian_bounds() {
+        let file = "testdata/tinyCartesianFloatRgb.e57";
+        let reader = E57::from_file(file).unwrap();
+        let pcs = reader.pointclouds();
+        let pc = pcs.first().unwrap();
+        let bounds = pc.cartesian_bounds.as_ref().unwrap();
+        assert_eq!(bounds.x_min.unwrap(), -9.779529571533203);
+        assert_eq!(bounds.x_max.unwrap(), -6.774238109588623);
+        assert_eq!(bounds.y_min.unwrap(), 4.5138792991638184);
+        assert_eq!(bounds.y_max.unwrap(), 7.5154604911804199);
+        assert_eq!(bounds.z_min.unwrap(), 295.52468872070312);
+        assert_eq!(bounds.z_max.unwrap(), 298.53216552734375);
+    }
+
+    #[test]
+    #[ignore]
+    fn debug() {
+        let file = "testdata/tinyCartesianFloatRgb.e57";
+        let mut reader = E57::from_file(file).unwrap();
+        std::fs::write("dump.xml", reader.raw_xml()).unwrap();
+        let pcs = reader.pointclouds();
+        let pc = pcs.first().unwrap();
+        let points = reader.extract_pointcloud(pc).unwrap();
+        let mut str = String::new();
+        for p in points {
+            str += &format!("{} {} {}\n", p.x, p.y, p.z);
+        }
+        std::fs::write("dump.xyz", str).unwrap();
     }
 }

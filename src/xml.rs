@@ -78,7 +78,7 @@ fn extract_creation_date(document: &Document) -> Result<Option<DateTime>> {
         .descendants()
         .find(|n| n.has_tag_name("creationDateTime"));
     if let Some(node) = creation_node {
-        Ok(Some(date_time_from_node(&node)?))
+        Ok(date_time_from_node(&node)?)
     } else {
         Ok(None)
     }

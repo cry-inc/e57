@@ -11,29 +11,30 @@ pub struct DateTime {
     pub atomic_reference: bool,
 }
 
-pub fn date_time_from_node(node: &Node) -> Result<DateTime> {
-    let gps_time = node
+pub fn date_time_from_node(node: &Node) -> Result<Option<DateTime>> {
+    let gps_time_text = node
         .children()
         .find(|n| n.has_tag_name("dateTimeValue") && n.attribute("type") == Some("Float"))
         .invalid_err("Unable to find tag 'dateTimeValue' with type 'Float'")?
-        .text()
-        .invalid_err("Unable to read 'dateTimeValue' text")?
-        .parse::<f64>()
-        .invalid_err("Failed to parse 'dateTimeValue' text as f64")?;
+        .text();
+    let gps_time = if let Some(text) = gps_time_text {
+        text.parse::<f64>()
+            .invalid_err("Failed to parse 'dateTimeValue' text as f64")?
+    } else {
+        return Ok(None);
+    };
 
-    let atomic_reference = node
-        .children()
-        .find(|n| {
-            n.has_tag_name("isAtomicClockReferenced") && n.attribute("type") == Some("Integer")
-        })
-        .invalid_err("Unable to find tag 'isAtomicClockReferenced' with type 'Integer'")?
-        .text()
-        .unwrap_or("0")
-        .trim()
-        == "1";
+    let atomic_reference_node = node.children().find(|n| {
+        n.has_tag_name("isAtomicClockReferenced") && n.attribute("type") == Some("Integer")
+    });
+    let atomic_reference = if let Some(node) = atomic_reference_node {
+        node.text().unwrap_or("0").trim() == "1"
+    } else {
+        return Ok(None);
+    };
 
-    Ok(DateTime {
+    Ok(Some(DateTime {
         gps_time,
         atomic_reference,
-    })
+    }))
 }
