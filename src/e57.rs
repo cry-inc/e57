@@ -3,6 +3,7 @@ use crate::extractor::extract_pointcloud;
 use crate::paged_reader::PagedReader;
 use crate::xml::XmlDocument;
 use crate::CartesianCoodinate;
+use crate::DateTime;
 use crate::Header;
 use crate::PointCloud;
 use crate::Result;
@@ -94,6 +95,11 @@ impl<T: Read + Seek> E57<T> {
     pub fn extract_pointcloud(&mut self, pc: &PointCloud) -> Result<Vec<CartesianCoodinate>> {
         extract_pointcloud(pc, &mut self.reader)
     }
+
+    /// If available returns the creation date and time of the file.
+    pub fn creation(&self) -> Option<DateTime> {
+        self.xml.creation()
+    }
 }
 
 impl E57<File> {
@@ -145,6 +151,14 @@ mod tests {
         let reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
         let guid = reader.guid();
         assert_eq!(guid, Some("{19AA90ED-145E-4B3B-922C-80BC00648844}"));
+    }
+
+    #[test]
+    fn creation() {
+        let reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
+        let creation = reader.creation().unwrap();
+        assert_eq!(creation.gps_time, 987369380.8049808);
+        assert_eq!(creation.atomic_reference, false);
     }
 
     #[test]

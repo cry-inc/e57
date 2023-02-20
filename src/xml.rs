@@ -1,6 +1,7 @@
+use crate::date_time::date_time_from_node;
 use crate::error::Converter;
 use crate::pointcloud::extract_pointcloud;
-use crate::{PointCloud, Result};
+use crate::{DateTime, PointCloud, Result};
 use roxmltree::Document;
 
 pub struct XmlDocument {
@@ -8,6 +9,7 @@ pub struct XmlDocument {
     format: Option<String>,
     guid: Option<String>,
     pointclouds: Vec<PointCloud>,
+    creation: Option<DateTime>,
 }
 
 impl XmlDocument {
@@ -15,12 +17,14 @@ impl XmlDocument {
         let document = Document::parse(&xml).invalid_err("Failed to parse XML data")?;
         let format = extract_string(&document, "formatName");
         let guid = extract_string(&document, "guid");
-        let data3d = extract_pointclouds(&document)?;
+        let pointclouds = extract_pointclouds(&document)?;
+        let creation = extract_creation_date(&document)?;
         Ok(Self {
             xml,
             format,
             guid,
-            pointclouds: data3d,
+            pointclouds,
+            creation,
         })
     }
 
@@ -38,6 +42,10 @@ impl XmlDocument {
 
     pub fn pointclouds(&self) -> Vec<PointCloud> {
         self.pointclouds.clone()
+    }
+
+    pub fn creation(&self) -> Option<DateTime> {
+        self.creation.clone()
     }
 }
 
@@ -63,4 +71,15 @@ fn extract_pointclouds(document: &Document) -> Result<Vec<PointCloud>> {
         }
     }
     Ok(data3d)
+}
+
+fn extract_creation_date(document: &Document) -> Result<Option<DateTime>> {
+    let creation_node = document
+        .descendants()
+        .find(|n| n.has_tag_name("creationDateTime"));
+    if let Some(node) = creation_node {
+        Ok(Some(date_time_from_node(&node)?))
+    } else {
+        Ok(None)
+    }
 }

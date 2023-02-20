@@ -2,6 +2,7 @@
 
 mod bitpack;
 mod bounds;
+mod date_time;
 mod e57;
 mod error;
 mod extractor;
@@ -16,6 +17,7 @@ mod xml;
 pub use self::bounds::CartesianBounds;
 pub use self::bounds::IndexBounds;
 pub use self::bounds::SphericalBounds;
+pub use self::date_time::DateTime;
 pub use self::e57::E57;
 pub use self::error::Error;
 pub use self::error::Result;
