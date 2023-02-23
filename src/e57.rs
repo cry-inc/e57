@@ -1,11 +1,13 @@
 use crate::error::Converter;
 use crate::extractor::extract_pointcloud;
+use crate::iterator::pointcloud_iterator;
 use crate::paged_reader::PagedReader;
 use crate::xml::XmlDocument;
 use crate::CartesianCoodinate;
 use crate::DateTime;
 use crate::Header;
 use crate::PointCloud;
+use crate::PointCloudIterator;
 use crate::Result;
 use std::fs::File;
 use std::io::Read;
@@ -94,6 +96,11 @@ impl<T: Read + Seek> E57<T> {
     /// Extract the requested point cloud as simple cartesian point cloud.
     pub fn extract_pointcloud(&mut self, pc: &PointCloud) -> Result<Vec<CartesianCoodinate>> {
         extract_pointcloud(pc, &mut self.reader)
+    }
+
+    /// Returns an iterator for the requested point cloud.
+    pub fn pointcloud(&mut self, pc: &PointCloud) -> Result<PointCloudIterator<T>> {
+        pointcloud_iterator(pc, &mut self.reader)
     }
 
     /// If available returns the creation date and time of the file.
@@ -226,6 +233,21 @@ mod tests {
         assert_eq!(limits.green_max, Some(LimitValue::Integer(255)));
         assert_eq!(limits.blue_min, Some(LimitValue::Integer(0)));
         assert_eq!(limits.blue_max, Some(LimitValue::Integer(255)));
+    }
+
+    #[test]
+    #[ignore]
+    fn iterator() {
+        let file = "testdata/tinyCartesianFloatRgb.e57";
+        let mut reader = E57::from_file(file).unwrap();
+        let pcs = reader.pointclouds();
+        let pc = pcs.first().unwrap();
+        let mut counter = 0;
+        for p in reader.pointcloud(pc).unwrap() {
+            p.unwrap();
+            counter += 1;
+        }
+        assert_eq!(counter, pc.records);
     }
 
     #[test]

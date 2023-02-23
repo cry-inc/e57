@@ -66,4 +66,41 @@ impl BitPack {
             }
         }
     }
+
+    pub fn unpack_float(buffer: &[u8], rt: &RecordType) -> Result<Vec<f32>> {
+        match rt {
+            RecordType::Double { .. } => {
+                Error::not_implemented(format!("Unpacking of {rt:?} as float is not supported"))
+            }
+            RecordType::Single { .. } => {
+                Error::not_implemented(format!("Unpacking of {rt:?} as float is not supported"))
+            }
+            RecordType::ScaledInteger { .. } => {
+                Error::not_implemented(format!("Unpacking of {rt:?} as float is not supported"))
+            }
+            RecordType::Integer { min, max } => {
+                let range = max - min;
+                let bit_size = f64::ceil(f64::log2(range as f64 + 1.0)) as usize;
+                if bit_size % 8 != 0 {
+                    Error::not_implemented("Integers are only supported for multiples of 8 bit")?
+                }
+                let byte_size = f64::ceil((bit_size as f64) / 8.0) as usize;
+                let mut result = Vec::new();
+                let mut count = 0;
+                loop {
+                    let byte_index = (count * bit_size) / 8;
+                    if byte_index + byte_size > buffer.len() {
+                        break;
+                    }
+                    let mut tmp = [0_u8; 8];
+                    tmp[..byte_size].copy_from_slice(&buffer[byte_index..(byte_index + byte_size)]);
+                    let int_value = u64::from_le_bytes(tmp) as i64;
+                    let float_value = int_value as f32 / range as f32;
+                    result.push(float_value);
+                    count += 1;
+                }
+                Ok(result)
+            }
+        }
+    }
 }
