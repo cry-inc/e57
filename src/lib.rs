@@ -24,6 +24,7 @@ pub use self::error::Result;
 pub use self::header::Header;
 pub use self::limits::ColorLimits;
 pub use self::limits::IntensityLimits;
+pub use self::limits::LimitValue;
 pub use self::pointcloud::PointCloud;
 pub use self::points::CartesianCoodinate;
 pub use self::record::Record;

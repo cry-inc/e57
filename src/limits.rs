@@ -1,11 +1,36 @@
-use crate::record::record_type_from_node;
-use crate::RecordType;
+use crate::error::Converter;
+use crate::Error;
 use crate::Result;
 use roxmltree::Node;
 
-fn extract_limit(bounds: &Node, tag_name: &str) -> Result<Option<RecordType>> {
+#[derive(Debug, Clone, PartialEq)]
+pub enum LimitValue {
+    Float(f64),
+    Integer(i64),
+    ScaledInteger(f64),
+}
+
+fn extract_limit(bounds: &Node, tag_name: &str) -> Result<Option<LimitValue>> {
     if let Some(tag) = bounds.descendants().find(|n| n.has_tag_name(tag_name)) {
-        Ok(Some(record_type_from_node(&tag)?))
+        let type_str = tag
+            .attribute("type")
+            .invalid_err(format!("Cannot find type attribute of limit '{tag_name}'"))?;
+        let value_str = tag.text().unwrap_or("0");
+        Ok(match type_str {
+            "Integer" => Some(LimitValue::Integer(
+                value_str
+                    .parse::<i64>()
+                    .invalid_err("Cannot parse Integer limit value")?,
+            )),
+            "Float" => Some(LimitValue::Float(
+                value_str
+                    .parse::<f64>()
+                    .invalid_err("Cannot parse Integer limit value")?,
+            )),
+            _ => Error::not_implemented(format!(
+                "Found unsupported limit of type '{type_str}' for '{tag_name}'"
+            ))?,
+        })
     } else {
         Ok(None)
     }
@@ -14,8 +39,8 @@ fn extract_limit(bounds: &Node, tag_name: &str) -> Result<Option<RecordType>> {
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct IntensityLimits {
-    pub intensity_min: Option<RecordType>,
-    pub intensity_max: Option<RecordType>,
+    pub intensity_min: Option<LimitValue>,
+    pub intensity_max: Option<LimitValue>,
 }
 
 pub fn intensity_limits_from_node(node: &Node) -> Result<IntensityLimits> {
@@ -30,12 +55,12 @@ pub fn intensity_limits_from_node(node: &Node) -> Result<IntensityLimits> {
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct ColorLimits {
-    pub red_min: Option<RecordType>,
-    pub red_max: Option<RecordType>,
-    pub green_min: Option<RecordType>,
-    pub green_max: Option<RecordType>,
-    pub blue_min: Option<RecordType>,
-    pub blue_max: Option<RecordType>,
+    pub red_min: Option<LimitValue>,
+    pub red_max: Option<LimitValue>,
+    pub green_min: Option<LimitValue>,
+    pub green_max: Option<LimitValue>,
+    pub blue_min: Option<LimitValue>,
+    pub blue_max: Option<LimitValue>,
 }
 
 pub fn color_limits_from_node(node: &Node) -> Result<ColorLimits> {

@@ -113,7 +113,7 @@ impl E57<File> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Record;
+    use crate::{LimitValue, Record};
 
     #[test]
     fn header() {
@@ -205,12 +205,27 @@ mod tests {
         let pcs = reader.pointclouds();
         let pc = pcs.first().unwrap();
         let bounds = pc.cartesian_bounds.as_ref().unwrap();
-        assert_eq!(bounds.x_min.unwrap(), -9.779529571533203);
-        assert_eq!(bounds.x_max.unwrap(), -6.774238109588623);
-        assert_eq!(bounds.y_min.unwrap(), 4.5138792991638184);
-        assert_eq!(bounds.y_max.unwrap(), 7.5154604911804199);
-        assert_eq!(bounds.z_min.unwrap(), 295.52468872070312);
-        assert_eq!(bounds.z_max.unwrap(), 298.53216552734375);
+        assert_eq!(bounds.x_min, Some(-9.779529571533203));
+        assert_eq!(bounds.x_max, Some(-6.774238109588623));
+        assert_eq!(bounds.y_min, Some(4.5138792991638184));
+        assert_eq!(bounds.y_max, Some(7.5154604911804199));
+        assert_eq!(bounds.z_min, Some(295.52468872070312));
+        assert_eq!(bounds.z_max, Some(298.53216552734375));
+    }
+
+    #[test]
+    fn color_limits() {
+        let file = "testdata/tinyCartesianFloatRgb.e57";
+        let reader = E57::from_file(file).unwrap();
+        let pcs = reader.pointclouds();
+        let pc = pcs.first().unwrap();
+        let limits = pc.color_limits.as_ref().unwrap();
+        assert_eq!(limits.red_min, Some(LimitValue::Integer(0)));
+        assert_eq!(limits.red_max, Some(LimitValue::Integer(255)));
+        assert_eq!(limits.green_min, Some(LimitValue::Integer(0)));
+        assert_eq!(limits.green_max, Some(LimitValue::Integer(255)));
+        assert_eq!(limits.blue_min, Some(LimitValue::Integer(0)));
+        assert_eq!(limits.blue_max, Some(LimitValue::Integer(255)));
     }
 
     #[test]
