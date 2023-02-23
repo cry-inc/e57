@@ -4,9 +4,10 @@ use crate::bounds::{
 use crate::error::Converter;
 use crate::limits::{color_limits_from_node, intensity_limits_from_node};
 use crate::record::record_type_from_node;
+use crate::transform::transform_from_node;
 use crate::{
     CartesianBounds, ColorLimits, Error, IndexBounds, IntensityLimits, Record, Result,
-    SphericalBounds,
+    SphericalBounds, Transform,
 };
 use roxmltree::Node;
 
@@ -23,6 +24,7 @@ pub struct PointCloud {
     pub index_bounds: Option<IndexBounds>,
     pub intensity_limits: Option<IntensityLimits>,
     pub color_limits: Option<ColorLimits>,
+    pub transform: Option<Transform>,
 }
 
 pub fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
@@ -123,8 +125,9 @@ pub fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
         .find(|n| n.has_tag_name("indexBounds"))
         .map(|n| index_bounds_from_node(&n));
 
-    let intensity_limits_tag = node.children().find(|n| n.has_tag_name("colorLimits"));
-    let color_limits_tag = node.children().find(|n| n.has_tag_name("colorLimits"));
+    let intensity_limits = node.children().find(|n| n.has_tag_name("colorLimits"));
+    let color_limits = node.children().find(|n| n.has_tag_name("colorLimits"));
+    let transform = node.children().find(|n| n.has_tag_name("pose"));
 
     Ok(PointCloud {
         guid,
@@ -135,13 +138,18 @@ pub fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
         cartesian_bounds,
         spherical_bounds,
         index_bounds,
-        intensity_limits: if let Some(tag) = intensity_limits_tag {
-            Some(intensity_limits_from_node(&tag)?)
+        intensity_limits: if let Some(node) = intensity_limits {
+            Some(intensity_limits_from_node(&node)?)
         } else {
             None
         },
-        color_limits: if let Some(tag) = color_limits_tag {
-            Some(color_limits_from_node(&tag)?)
+        color_limits: if let Some(node) = color_limits {
+            Some(color_limits_from_node(&node)?)
+        } else {
+            None
+        },
+        transform: if let Some(node) = transform {
+            Some(transform_from_node(&node)?)
         } else {
             None
         },

@@ -12,6 +12,7 @@ mod paged_reader;
 mod pointcloud;
 mod points;
 mod record;
+mod transform;
 mod xml;
 
 pub use self::bounds::CartesianBounds;
@@ -29,3 +30,6 @@ pub use self::pointcloud::PointCloud;
 pub use self::points::CartesianCoodinate;
 pub use self::record::Record;
 pub use self::record::RecordType;
+pub use self::transform::Quaternion;
+pub use self::transform::Transform;
+pub use self::transform::Translation;
