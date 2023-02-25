@@ -114,6 +114,7 @@ impl E57<File> {
 mod tests {
     use super::*;
     use crate::{LimitValue, Point, Record};
+    use std::io::{BufWriter, Write};
 
     #[test]
     fn header() {
@@ -247,26 +248,30 @@ mod tests {
     #[test]
     #[ignore]
     fn debug() {
-        let file = "testdata/tinyCartesianFloatRgb.e57";
-        let mut reader = E57::from_file(file).unwrap();
+        let mut reader = E57::from_file("testdata/tinyCartesianFloatRgb.e57").unwrap();
         std::fs::write("dump.xml", reader.raw_xml()).unwrap();
+
         let pcs = reader.pointclouds();
         let pc = pcs.first().unwrap();
-        let mut str = String::new();
+        let writer = File::create("dump.xyz").unwrap();
+        let mut writer = BufWriter::new(writer);
         for p in reader.pointcloud(pc).unwrap() {
             let p = p.unwrap();
             let xyz = p.cartesian.unwrap();
-            str += &format!("{} {} {}", xyz.x, xyz.y, xyz.z);
+            writer
+                .write_fmt(format_args!("{} {} {}", xyz.x, xyz.y, xyz.z))
+                .unwrap();
             if let Some(color) = p.color {
-                str += &format!(
-                    " {} {} {}",
-                    (color.red * 255.) as u8,
-                    (color.green * 255.) as u8,
-                    (color.blue * 255.) as u8
-                );
+                writer
+                    .write_fmt(format_args!(
+                        " {} {} {}",
+                        (color.red * 255.) as u8,
+                        (color.green * 255.) as u8,
+                        (color.blue * 255.) as u8
+                    ))
+                    .unwrap();
             }
-            str += "\n";
+            writer.write_fmt(format_args!("\n")).unwrap();
         }
-        std::fs::write("dump.xyz", str).unwrap();
     }
 }
