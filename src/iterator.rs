@@ -89,6 +89,8 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
                 let mut green = Vec::new();
                 let mut blue = Vec::new();
 
+                let mut intensity = Vec::new();
+
                 let mut cartesian_invalid = Vec::new();
                 let mut spherical_invalid = Vec::new();
                 let mut time_invalid = Vec::new();
@@ -132,6 +134,10 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
                         Record::ColorBlue(brt) => {
                             blue = BitPack::unpack_unit_float(&buffers[i], brt)?;
                             handle_length(blue.len(), r)?;
+                        }
+                        Record::Intensity(rt) => {
+                            intensity = BitPack::unpack_unit_float(&buffers[i], rt)?;
+                            handle_length(intensity.len(), r)?;
                         }
                         Record::CartesianInvalidState(rt) => {
                             cartesian_invalid = BitPack::unpack_u8(&buffers[i], rt)?;
@@ -182,6 +188,11 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
                             blue: blue[i],
                         });
                     }
+
+                    if !intensity.is_empty() {
+                        point.intensity = Some(intensity[i]);
+                    }
+
                     if cartesian_invalid.len() >= length {
                         point.cartesian_invalid = Some(cartesian_invalid[i]);
                     }
