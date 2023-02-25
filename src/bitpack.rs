@@ -67,7 +67,7 @@ impl BitPack {
         }
     }
 
-    pub fn unpack_float(buffer: &[u8], rt: &RecordType) -> Result<Vec<f32>> {
+    pub fn unpack_unit_float(buffer: &[u8], rt: &RecordType) -> Result<Vec<f32>> {
         match rt {
             RecordType::Double { .. } => {
                 Error::not_implemented(format!("Unpacking of {rt:?} as float is not supported"))

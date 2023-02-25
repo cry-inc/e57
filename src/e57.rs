@@ -1,9 +1,7 @@
 use crate::error::Converter;
-use crate::extractor::extract_pointcloud;
 use crate::iterator::pointcloud_iterator;
 use crate::paged_reader::PagedReader;
 use crate::xml::XmlDocument;
-use crate::CartesianCoodinate;
 use crate::DateTime;
 use crate::Header;
 use crate::PointCloud;
@@ -93,11 +91,6 @@ impl<T: Read + Seek> E57<T> {
         self.xml.pointclouds()
     }
 
-    /// Extract the requested point cloud as simple cartesian point cloud.
-    pub fn extract_pointcloud(&mut self, pc: &PointCloud) -> Result<Vec<CartesianCoodinate>> {
-        extract_pointcloud(pc, &mut self.reader)
-    }
-
     /// Returns an iterator for the requested point cloud.
     pub fn pointcloud(&mut self, pc: &PointCloud) -> Result<PointCloudIterator<T>> {
         pointcloud_iterator(pc, &mut self.reader)
@@ -120,7 +113,7 @@ impl E57<File> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{LimitValue, Record};
+    use crate::{LimitValue, Point, Record};
 
     #[test]
     fn header() {
@@ -189,7 +182,7 @@ mod tests {
     }
 
     #[test]
-    fn extract_pointcloud() {
+    fn bunny_point_count() {
         let files = [
             "testdata/bunnyDouble.e57",
             "testdata/bunnyFloat.e57",
@@ -200,7 +193,7 @@ mod tests {
             let mut reader = E57::from_file(file).unwrap();
             let pcs = reader.pointclouds();
             let pc = pcs.first().unwrap();
-            let points = reader.extract_pointcloud(pc).unwrap();
+            let points: Vec<Point> = reader.pointcloud(pc).unwrap().map(|p| p.unwrap()).collect();
             assert_eq!(points.len(), 30571);
         }
     }
@@ -236,15 +229,16 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
-    fn iterator() {
+    fn simple_iterator_test() {
         let file = "testdata/tinyCartesianFloatRgb.e57";
         let mut reader = E57::from_file(file).unwrap();
         let pcs = reader.pointclouds();
         let pc = pcs.first().unwrap();
         let mut counter = 0;
         for p in reader.pointcloud(pc).unwrap() {
-            p.unwrap();
+            let p = p.unwrap();
+            assert!(p.cartesian.is_some());
+            assert!(p.color.is_some());
             counter += 1;
         }
         assert_eq!(counter, pc.records);
@@ -258,10 +252,20 @@ mod tests {
         std::fs::write("dump.xml", reader.raw_xml()).unwrap();
         let pcs = reader.pointclouds();
         let pc = pcs.first().unwrap();
-        let points = reader.extract_pointcloud(pc).unwrap();
         let mut str = String::new();
-        for p in points {
-            str += &format!("{} {} {}\n", p.x, p.y, p.z);
+        for p in reader.pointcloud(pc).unwrap() {
+            let p = p.unwrap();
+            let xyz = p.cartesian.unwrap();
+            str += &format!("{} {} {}", xyz.x, xyz.y, xyz.z);
+            if let Some(color) = p.color {
+                str += &format!(
+                    " {} {} {}",
+                    (color.red * 255.) as u8,
+                    (color.green * 255.) as u8,
+                    (color.blue * 255.) as u8
+                );
+            }
+            str += "\n";
         }
         std::fs::write("dump.xyz", str).unwrap();
     }

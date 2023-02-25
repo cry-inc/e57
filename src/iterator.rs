@@ -116,16 +116,19 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
                             handle_length(z.len(), r)?;
                         }
                         Record::ColorRed(rrt) => {
-                            red = BitPack::unpack_float(&buffers[i], rrt)?;
+                            red = BitPack::unpack_unit_float(&buffers[i], rrt)?;
                             handle_length(red.len(), r)?;
                         }
                         Record::ColorGreen(grt) => {
-                            green = BitPack::unpack_float(&buffers[i], grt)?;
+                            green = BitPack::unpack_unit_float(&buffers[i], grt)?;
                             handle_length(green.len(), r)?;
                         }
                         Record::ColorBlue(brt) => {
-                            blue = BitPack::unpack_float(&buffers[i], brt)?;
+                            blue = BitPack::unpack_unit_float(&buffers[i], brt)?;
                             handle_length(blue.len(), r)?;
+                        }
+                        Record::CartesianInvalidState(_) => {
+                            // Not yet supported but ignored to be able to read the bunny test files
                         }
                         _ => Error::not_implemented(format!(
                             "Iterator support for record {r:?} is not implemented"

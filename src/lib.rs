@@ -6,7 +6,6 @@ mod comp_vector;
 mod date_time;
 mod e57;
 mod error;
-mod extractor;
 mod header;
 mod iterator;
 mod limits;
