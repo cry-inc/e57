@@ -9,8 +9,7 @@ fn extract_bound<T: FromStr>(bounds: &Node, tag_name: &str) -> Option<T> {
         .and_then(|t| t.parse::<T>().ok())
 }
 
-#[derive(Debug, Clone)]
-#[non_exhaustive]
+#[derive(Clone, Debug)]
 pub struct CartesianBounds {
     pub x_min: Option<f64>,
     pub x_max: Option<f64>,
@@ -37,8 +36,7 @@ pub fn cartesian_bounds_from_node(node: &Node) -> CartesianBounds {
     }
 }
 
-#[derive(Debug, Clone)]
-#[non_exhaustive]
+#[derive(Clone, Debug)]
 pub struct SphericalBounds {
     pub range_min: Option<f64>,
     pub range_max: Option<f64>,
@@ -65,8 +63,7 @@ pub fn spherical_bounds_from_node(node: &Node) -> SphericalBounds {
     }
 }
 
-#[derive(Debug, Clone)]
-#[non_exhaustive]
+#[derive(Clone, Debug)]
 pub struct IndexBounds {
     pub row_min: Option<i64>,
     pub row_max: Option<i64>,

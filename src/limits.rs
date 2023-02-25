@@ -3,7 +3,7 @@ use crate::Error;
 use crate::Result;
 use roxmltree::Node;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum LimitValue {
     Float(f64),
     Integer(i64),
@@ -36,8 +36,7 @@ fn extract_limit(bounds: &Node, tag_name: &str) -> Result<Option<LimitValue>> {
     }
 }
 
-#[derive(Debug, Clone)]
-#[non_exhaustive]
+#[derive(Clone, Debug)]
 pub struct IntensityLimits {
     pub intensity_min: Option<LimitValue>,
     pub intensity_max: Option<LimitValue>,
@@ -52,8 +51,7 @@ pub fn intensity_limits_from_node(node: &Node) -> Result<IntensityLimits> {
     })
 }
 
-#[derive(Debug, Clone)]
-#[non_exhaustive]
+#[derive(Clone, Debug)]
 pub struct ColorLimits {
     pub red_min: Option<LimitValue>,
     pub red_max: Option<LimitValue>,

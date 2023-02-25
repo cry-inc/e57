@@ -3,7 +3,6 @@ use crate::{Error, Result};
 use roxmltree::Node;
 
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub enum RecordType {
     Double { min: f64, max: f64 },
     Single { min: f64, max: f64 },
@@ -12,7 +11,6 @@ pub enum RecordType {
 }
 
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub enum Record {
     CartesianX(RecordType),
     CartesianY(RecordType),

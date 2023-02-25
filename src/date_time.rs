@@ -3,7 +3,6 @@ use roxmltree::Node;
 
 /// Represents a specific date and time used in E57 files.
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub struct DateTime {
     /// Number of seconds since GPS start epoch (00:00 UTC on January 6, 1980).
     pub gps_time: f64,
