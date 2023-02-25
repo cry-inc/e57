@@ -90,6 +90,10 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
                 let mut blue = Vec::new();
 
                 let mut cartesian_invalid = Vec::new();
+                let mut spherical_invalid = Vec::new();
+                let mut time_invalid = Vec::new();
+                let mut intensity_invalid = Vec::new();
+                let mut color_invalid = Vec::new();
 
                 let mut handle_length = |len: usize, record: &Record| -> Result<()> {
                     if length == 0 {
@@ -129,8 +133,20 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
                             blue = BitPack::unpack_unit_float(&buffers[i], brt)?;
                             handle_length(blue.len(), r)?;
                         }
-                        Record::CartesianInvalidState(cirt) => {
-                            cartesian_invalid = BitPack::unpack_u8(&buffers[i], cirt)?;
+                        Record::CartesianInvalidState(rt) => {
+                            cartesian_invalid = BitPack::unpack_u8(&buffers[i], rt)?;
+                        }
+                        Record::SphericalInvalidState(rt) => {
+                            spherical_invalid = BitPack::unpack_u8(&buffers[i], rt)?;
+                        }
+                        Record::IsTimeStampInvalid(rt) => {
+                            time_invalid = BitPack::unpack_u8(&buffers[i], rt)?;
+                        }
+                        Record::IsIntensityInvalid(rt) => {
+                            intensity_invalid = BitPack::unpack_u8(&buffers[i], rt)?;
+                        }
+                        Record::IsColorInvalid(rt) => {
+                            color_invalid = BitPack::unpack_u8(&buffers[i], rt)?;
                         }
                         _ => Error::not_implemented(format!(
                             "Iterator support for record {r:?} is not implemented"
@@ -168,6 +184,18 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
                     }
                     if cartesian_invalid.len() >= length {
                         point.cartesian_invalid = Some(cartesian_invalid[i]);
+                    }
+                    if spherical_invalid.len() >= length {
+                        point.spherical_invalid = Some(spherical_invalid[i]);
+                    }
+                    if time_invalid.len() >= length {
+                        point.time_invalid = Some(time_invalid[i]);
+                    }
+                    if intensity_invalid.len() >= length {
+                        point.intensity_invalid = Some(intensity_invalid[i]);
+                    }
+                    if color_invalid.len() >= length {
+                        point.color_invalid = Some(color_invalid[i]);
                     }
                     self.buffer.push(point);
                     self.extracted += 1;
