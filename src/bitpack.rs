@@ -69,15 +69,6 @@ impl BitPack {
 
     pub fn unpack_unit_float(buffer: &[u8], rt: &RecordType) -> Result<Vec<f32>> {
         match rt {
-            RecordType::Double { .. } => {
-                Error::not_implemented(format!("Unpacking of {rt:?} as float is not supported"))
-            }
-            RecordType::Single { .. } => {
-                Error::not_implemented(format!("Unpacking of {rt:?} as float is not supported"))
-            }
-            RecordType::ScaledInteger { .. } => {
-                Error::not_implemented(format!("Unpacking of {rt:?} as float is not supported"))
-            }
             RecordType::Integer { min, max } => {
                 let range = max - min;
                 let bit_size = f64::ceil(f64::log2(range as f64 + 1.0)) as usize;
@@ -101,6 +92,36 @@ impl BitPack {
                 }
                 Ok(result)
             }
+            _ => Error::not_implemented(format!(
+                "Unpacking of {rt:?} as unit float is not supported"
+            )),
+        }
+    }
+
+    pub fn unpack_u8(buffer: &[u8], rt: &RecordType) -> Result<Vec<u8>> {
+        match rt {
+            RecordType::Integer { min, max } => {
+                let range = max - min;
+                let bit_size = f64::ceil(f64::log2(range as f64 + 1.0)) as usize;
+                if bit_size != 1 {
+                    Error::not_implemented(
+                        "Unpacking to u8 is currently only possible for binary values",
+                    )?
+                }
+                let mut result = Vec::with_capacity(buffer.len() * 8);
+                let mut count = 0;
+                loop {
+                    let byte_index = count / 8;
+                    if byte_index >= buffer.len() {
+                        break;
+                    }
+                    let mask = 1 << (count % 8);
+                    result.push(if buffer[byte_index] & mask == 0 { 0 } else { 1 });
+                    count += 1;
+                }
+                Ok(result)
+            }
+            _ => Error::not_implemented(format!("Unpacking of {rt:?} as u8 is not supported")),
         }
     }
 }

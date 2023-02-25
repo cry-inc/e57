@@ -89,13 +89,15 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
                 let mut green = Vec::new();
                 let mut blue = Vec::new();
 
+                let mut cartesian_invalid = Vec::new();
+
                 let mut handle_length = |len: usize, record: &Record| -> Result<()> {
                     if length == 0 {
                         length = len;
                     }
                     if length != len {
                         Error::invalid(format!(
-                            "Other buffers do not have the same size as {record:?}"
+                            "Other buffers do not have the same size as {record:?}. Found {len} but expected {length}",
                         ))?
                     }
                     Ok(())
@@ -127,8 +129,8 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
                             blue = BitPack::unpack_unit_float(&buffers[i], brt)?;
                             handle_length(blue.len(), r)?;
                         }
-                        Record::CartesianInvalidState(_) => {
-                            // Not yet supported but ignored to be able to read the bunny test files
+                        Record::CartesianInvalidState(cirt) => {
+                            cartesian_invalid = BitPack::unpack_u8(&buffers[i], cirt)?;
                         }
                         _ => Error::not_implemented(format!(
                             "Iterator support for record {r:?} is not implemented"
@@ -163,6 +165,9 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
                             green: green[i],
                             blue: blue[i],
                         });
+                    }
+                    if cartesian_invalid.len() >= length {
+                        point.cartesian_invalid = Some(cartesian_invalid[i]);
                     }
                     self.buffer.push(point);
                     self.extracted += 1;
