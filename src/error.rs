@@ -13,48 +13,59 @@ pub const WRONG_OFFSET: &str = "Wrong buffer offset detected";
 pub enum Error {
     /// The file content is invalid and does not confirm with the E57 format specification.
     Invalid {
-        reason: String,
+        desc: String,
         source: Option<Box<dyn StdError>>,
     },
 
     /// Something went wrong while reading data from an E57 file.
     /// Typically this is caused by an IO error outside the library or because of an incomplete file.
     Read {
-        reason: String,
+        desc: String,
         source: Option<Box<dyn StdError>>,
     },
 
     /// Some feature or aspect of E57 that is not yet implement by this library.
-    NotImplemented { description: String },
+    NotImplemented { desc: String },
 
     /// An unexpected internal issue occured.
     /// Most likely this is a logic inside the library.
     /// Please file an issue, if possible.
     Internal {
-        reason: String,
+        desc: String,
         source: Option<Box<dyn StdError>>,
     },
 }
 
 impl Error {
     /// Creates an new invalid file error.
-    pub fn invalid<T, C>(reason: C) -> Result<T>
+    pub fn invalid<T, C>(desc: C) -> Result<T>
     where
         C: Display + Send + Sync + 'static,
     {
         Err(Error::Invalid {
-            reason: reason.to_string(),
+            desc: desc.to_string(),
             source: None,
         })
     }
 
-    /// Creates an new internal error.
-    pub fn not_implemented<T, C>(description: C) -> Result<T>
+    /// Creates an new unimplemented error.
+    pub fn not_implemented<T, C>(desc: C) -> Result<T>
     where
         C: Display + Send + Sync + 'static,
     {
         Err(Error::NotImplemented {
-            description: description.to_string(),
+            desc: desc.to_string(),
+        })
+    }
+
+    /// Creates an new internal error.
+    pub fn internal<T, C>(desc: C) -> Result<T>
+    where
+        C: Display + Send + Sync + 'static,
+    {
+        Err(Error::Internal {
+            desc: desc.to_string(),
+            source: None,
         })
     }
 }
@@ -62,10 +73,10 @@ impl Error {
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         match self {
-            Error::Invalid { reason, .. } => write!(f, "Invalid E57 file: {reason}"),
-            Error::Read { reason, .. } => write!(f, "Failed to read E57: {reason}"),
-            Error::Internal { reason, .. } => write!(f, "Internal error: {reason}"),
-            Error::NotImplemented { description } => write!(f, "Not implemented: {description}"),
+            Error::Invalid { desc, .. } => write!(f, "Invalid E57 file: {desc}"),
+            Error::Read { desc, .. } => write!(f, "Failed to read E57: {desc}"),
+            Error::Internal { desc, .. } => write!(f, "Internal error: {desc}"),
+            Error::NotImplemented { desc } => write!(f, "Not implemented: {desc}"),
         }
     }
 }
@@ -103,40 +114,40 @@ impl<T, E> Converter<T, E> for StdResult<T, E>
 where
     E: StdError + Send + Sync + 'static,
 {
-    fn read_err<C>(self, reason: C) -> Result<T>
+    fn read_err<C>(self, desc: C) -> Result<T>
     where
         C: Display + Send + Sync + 'static,
     {
         match self {
             Ok(ok) => Ok(ok),
             Err(error) => Err(Error::Read {
-                reason: reason.to_string(),
+                desc: desc.to_string(),
                 source: Some(Box::new(error)),
             }),
         }
     }
 
-    fn invalid_err<C>(self, reason: C) -> Result<T>
+    fn invalid_err<C>(self, desc: C) -> Result<T>
     where
         C: Display + Send + Sync + 'static,
     {
         match self {
             Ok(ok) => Ok(ok),
             Err(error) => Err(Error::Invalid {
-                reason: reason.to_string(),
+                desc: desc.to_string(),
                 source: Some(Box::new(error)),
             }),
         }
     }
 
-    fn internal_err<C>(self, reason: C) -> Result<T>
+    fn internal_err<C>(self, desc: C) -> Result<T>
     where
         C: Display + Send + Sync + 'static,
     {
         match self {
             Ok(ok) => Ok(ok),
             Err(error) => Err(Error::Internal {
-                reason: reason.to_string(),
+                desc: desc.to_string(),
                 source: Some(Box::new(error)),
             }),
         }
@@ -145,40 +156,40 @@ where
 
 /// Create an library Error from Option instances.
 impl<T> Converter<T, Infallible> for Option<T> {
-    fn read_err<C>(self, reason: C) -> Result<T>
+    fn read_err<C>(self, desc: C) -> Result<T>
     where
         C: Display + Send + Sync + 'static,
     {
         match self {
             Some(ok) => Ok(ok),
             None => Err(Error::Read {
-                reason: reason.to_string(),
+                desc: desc.to_string(),
                 source: None,
             }),
         }
     }
 
-    fn invalid_err<C>(self, reason: C) -> Result<T>
+    fn invalid_err<C>(self, desc: C) -> Result<T>
     where
         C: Display + Send + Sync + 'static,
     {
         match self {
             Some(ok) => Ok(ok),
             None => Err(Error::Invalid {
-                reason: reason.to_string(),
+                desc: desc.to_string(),
                 source: None,
             }),
         }
     }
 
-    fn internal_err<C>(self, reason: C) -> Result<T>
+    fn internal_err<C>(self, desc: C) -> Result<T>
     where
         C: Display + Send + Sync + 'static,
     {
         match self {
             Some(ok) => Ok(ok),
             None => Err(Error::Internal {
-                reason: reason.to_string(),
+                desc: desc.to_string(),
                 source: None,
             }),
         }
