@@ -1,3 +1,4 @@
+use crate::byte_stream::ByteStream;
 use crate::error::Converter;
 use crate::error::WRONG_OFFSET;
 use crate::Error;
@@ -7,57 +8,72 @@ use crate::Result;
 pub struct BitPack {}
 
 impl BitPack {
-    pub fn unpack_double(buffer: &[u8], rt: &RecordType) -> Result<Vec<f64>> {
+    pub fn unpack_double(stream: &mut ByteStream, rt: &RecordType) -> Result<Vec<f64>> {
         match rt {
             RecordType::Double { .. } => {
-                if buffer.len() % 8 != 0 {
-                    Error::invalid("Buffer size does not match expected type size")?
+                if stream.available() % 64 != 0 {
+                    Error::invalid("Avalilabe bits do not match expected type size")?
                 }
-                let count = buffer.len() / 8;
+                let count = (stream.available() / 64) as usize;
                 let mut result = Vec::with_capacity(count);
-                for i in 0..count {
-                    let s = i * 8;
-                    let e = (i + 1) * 8;
-                    let v = f64::from_le_bytes(buffer[s..e].try_into().internal_err(WRONG_OFFSET)?);
+                for _ in 0..count {
+                    let e = stream
+                        .extract(64)
+                        .internal_err("Unexpected error when extracing double from byte stream")?;
+                    if e.bits != 64 || e.offset != 0 || e.data.len() != 8 {
+                        Error::internal("Unexpected data after extracting double from byte stream")?
+                    }
+                    let s = e.data.as_slice();
+                    let v = f64::from_le_bytes(s.try_into().internal_err(WRONG_OFFSET)?);
                     result.push(v);
                 }
                 Ok(result)
             }
             RecordType::Single { .. } => {
-                if buffer.len() % 4 != 0 {
-                    Error::invalid("Buffer size does not match expected type size")?
+                if stream.available() % 32 != 0 {
+                    Error::invalid("Avalilabe bits do not match expected type size")?
                 }
-                let count = buffer.len() / 4;
+                let count = (stream.available() / 32) as usize;
                 let mut result = Vec::with_capacity(count);
-                for i in 0..count {
-                    let s = i * 4;
-                    let e = (i + 1) * 4;
-                    let v = f32::from_le_bytes(buffer[s..e].try_into().internal_err(WRONG_OFFSET)?);
+                for _ in 0..count {
+                    let e = stream
+                        .extract(32)
+                        .internal_err("Unexpected error when extracing float from byte stream")?;
+                    if e.bits != 32 || e.offset != 0 || e.data.len() != 4 {
+                        Error::internal("Unexpected data after extracting float from byte stream")?
+                    }
+                    let s = e.data.as_slice();
+                    let v = f32::from_le_bytes(s.try_into().internal_err(WRONG_OFFSET)?);
                     result.push(v as f64);
                 }
                 Ok(result)
             }
             RecordType::ScaledInteger { min, max, scale } => {
-                let bit_size = f64::ceil(f64::log2((*max as f64) - (*min as f64) + 1.0)) as usize;
+                let bit_size = f64::ceil(f64::log2((*max as f64) - (*min as f64) + 1.0)) as u64;
                 if bit_size % 8 != 0 {
                     Error::not_implemented(
                         "Scaled integers are only supported for multiples of 8 bit",
                     )?
                 }
-                let byte_size = f64::ceil((bit_size as f64) / 8.0) as usize;
-                let mut result = Vec::new();
-                let mut count = 0;
+                let byte_size = f64::ceil((bit_size as f64) / 8.) as usize;
+                let mut result = Vec::with_capacity((stream.available() / bit_size) as usize);
                 loop {
-                    let byte_index = (count * bit_size) / 8;
-                    if byte_index + byte_size > buffer.len() {
+                    if stream.available() < bit_size {
                         break;
                     }
+                    let e = stream.extract(bit_size).internal_err(
+                        "Unexpected error when extracing scaled integer from byte stream",
+                    )?;
+                    if e.bits != bit_size || e.offset != 0 {
+                        Error::internal(
+                            "Unexpected data after extracting scaled integer from byte stream",
+                        )?
+                    }
                     let mut tmp = [0_u8; 8];
-                    tmp[..byte_size].copy_from_slice(&buffer[byte_index..(byte_index + byte_size)]);
+                    tmp[..byte_size].copy_from_slice(&e.data);
                     let int_value = min + u64::from_le_bytes(tmp) as i64;
                     let float_value = int_value as f64 * scale;
                     result.push(float_value);
-                    count += 1;
                 }
                 Ok(result)
             }
@@ -67,28 +83,33 @@ impl BitPack {
         }
     }
 
-    pub fn unpack_unit_float(buffer: &[u8], rt: &RecordType) -> Result<Vec<f32>> {
+    pub fn unpack_unit_float(stream: &mut ByteStream, rt: &RecordType) -> Result<Vec<f32>> {
         match rt {
             RecordType::Integer { min, max } => {
                 let range = max - min;
-                let bit_size = f64::ceil(f64::log2(range as f64 + 1.0)) as usize;
+                let bit_size = f64::ceil(f64::log2(range as f64 + 1.0)) as u64;
                 if bit_size % 8 != 0 {
                     Error::not_implemented("Integers are only supported for multiples of 8 bit")?
                 }
                 let byte_size = f64::ceil((bit_size as f64) / 8.0) as usize;
-                let mut result = Vec::new();
-                let mut count = 0;
+                let mut result = Vec::with_capacity((stream.available() / bit_size) as usize);
                 loop {
-                    let byte_index = (count * bit_size) / 8;
-                    if byte_index + byte_size > buffer.len() {
+                    if stream.available() < bit_size {
                         break;
                     }
+                    let e = stream.extract(bit_size).internal_err(
+                        "Unexpected error when extracing scaled integer from byte stream",
+                    )?;
+                    if e.bits != bit_size || e.offset != 0 {
+                        Error::internal(
+                            "Unexpected data after extracting scaled integer from byte stream",
+                        )?
+                    }
                     let mut tmp = [0_u8; 8];
-                    tmp[..byte_size].copy_from_slice(&buffer[byte_index..(byte_index + byte_size)]);
+                    tmp[..byte_size].copy_from_slice(&e.data);
                     let int_value = u64::from_le_bytes(tmp) as i64;
                     let float_value = int_value as f32 / range as f32;
                     result.push(float_value);
-                    count += 1;
                 }
                 Ok(result)
             }
@@ -98,26 +119,31 @@ impl BitPack {
         }
     }
 
-    pub fn unpack_u8(buffer: &[u8], rt: &RecordType) -> Result<Vec<u8>> {
+    pub fn unpack_u8(stream: &mut ByteStream, rt: &RecordType) -> Result<Vec<u8>> {
         match rt {
             RecordType::Integer { min, max } => {
                 let range = max - min;
-                let bit_size = f64::ceil(f64::log2(range as f64 + 1.0)) as usize;
+                let bit_size = f64::ceil(f64::log2(range as f64 + 1.0)) as u64;
                 if bit_size != 1 {
                     Error::not_implemented(
                         "Unpacking to u8 is currently only possible for binary values",
                     )?
                 }
-                let mut result = Vec::with_capacity(buffer.len() * 8);
-                let mut count = 0;
+                let mut result = Vec::with_capacity((stream.available() / bit_size) as usize);
                 loop {
-                    let byte_index = count / 8;
-                    if byte_index >= buffer.len() {
+                    if stream.available() < bit_size {
                         break;
                     }
-                    let mask = 1 << (count % 8);
-                    result.push(if buffer[byte_index] & mask == 0 { 0 } else { 1 });
-                    count += 1;
+                    let e = stream
+                        .extract(bit_size)
+                        .internal_err("Unexpected error when extracing integer from byte stream")?;
+                    if e.bits != bit_size {
+                        Error::internal(
+                            "Unexpected data after extracting integer from byte stream",
+                        )?
+                    }
+                    let mask = 1 << e.offset;
+                    result.push(if e.data[0] & mask == 0 { 0 } else { 1 });
                 }
                 Ok(result)
             }

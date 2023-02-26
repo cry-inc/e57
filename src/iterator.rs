@@ -1,4 +1,5 @@
 use crate::bitpack::BitPack;
+use crate::byte_stream::ByteStream;
 use crate::comp_vector::CompressedVectorHeader;
 use crate::comp_vector::PacketHeader;
 use crate::error::Converter;
@@ -19,6 +20,7 @@ pub struct PointCloudIterator<'a, T: Read + Seek> {
     buffer_index: usize,
     extracted: u64,
     read: u64,
+    byte_streams: Vec<ByteStream>,
 }
 
 impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
@@ -30,7 +32,9 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
         reader
             .seek_physical(section_header.data_start_offset)
             .read_err("Cannot seek to packet header")?;
+        let byte_streams = vec![ByteStream::new(); pc.prototype.len()];
         let pc = pc.clone();
+
         Ok(PointCloudIterator {
             pc,
             reader,
@@ -38,6 +42,7 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
             buffer_index: 0,
             extracted: 0,
             read: 0,
+            byte_streams,
         })
     }
 
@@ -60,23 +65,26 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
             PacketHeader::Data {
                 bytestream_count, ..
             } => {
-                if bytestream_count as usize != self.pc.prototype.len() {
+                if bytestream_count as usize != self.byte_streams.len() {
                     Error::invalid("Bytestream count does not match prototype size")?
                 }
 
-                let mut buffer_sizes = Vec::with_capacity(self.pc.prototype.len());
+                let mut buffer_sizes = Vec::with_capacity(self.byte_streams.len());
                 for _ in 0..bytestream_count {
                     let mut buf = [0_u8; 2];
-                    self.reader.read_exact(&mut buf).unwrap();
+                    self.reader
+                        .read_exact(&mut buf)
+                        .read_err("Failed to read data packet buffer sizes")?;
                     let len = u16::from_le_bytes(buf) as usize;
                     buffer_sizes.push(len);
                 }
 
-                let mut buffers = Vec::with_capacity(buffer_sizes.len());
-                for l in buffer_sizes {
-                    let mut buffer = vec![0_u8; l];
-                    self.reader.read_exact(&mut buffer).unwrap();
-                    buffers.push(buffer);
+                for (i, bs) in buffer_sizes.iter().enumerate() {
+                    let mut buffer = vec![0_u8; *bs];
+                    self.reader
+                        .read_exact(&mut buffer)
+                        .read_err("Failed to read data packet buffers")?;
+                    self.byte_streams[i].append(buffer);
                 }
 
                 let mut length = 0;
@@ -111,48 +119,48 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
 
                 for (i, r) in self.pc.prototype.iter().enumerate() {
                     match r {
-                        Record::CartesianX(xrt) => {
-                            x = BitPack::unpack_double(&buffers[i], xrt)?;
+                        Record::CartesianX(rt) => {
+                            x = BitPack::unpack_double(&mut self.byte_streams[i], rt)?;
                             handle_length(x.len(), r)?;
                         }
-                        Record::CartesianY(yrt) => {
-                            y = BitPack::unpack_double(&buffers[i], yrt)?;
+                        Record::CartesianY(rt) => {
+                            y = BitPack::unpack_double(&mut self.byte_streams[i], rt)?;
                             handle_length(y.len(), r)?;
                         }
-                        Record::CartesianZ(zrt) => {
-                            z = BitPack::unpack_double(&buffers[i], zrt)?;
+                        Record::CartesianZ(rt) => {
+                            z = BitPack::unpack_double(&mut self.byte_streams[i], rt)?;
                             handle_length(z.len(), r)?;
                         }
-                        Record::ColorRed(rrt) => {
-                            red = BitPack::unpack_unit_float(&buffers[i], rrt)?;
+                        Record::ColorRed(rt) => {
+                            red = BitPack::unpack_unit_float(&mut self.byte_streams[i], rt)?;
                             handle_length(red.len(), r)?;
                         }
-                        Record::ColorGreen(grt) => {
-                            green = BitPack::unpack_unit_float(&buffers[i], grt)?;
+                        Record::ColorGreen(rt) => {
+                            green = BitPack::unpack_unit_float(&mut self.byte_streams[i], rt)?;
                             handle_length(green.len(), r)?;
                         }
-                        Record::ColorBlue(brt) => {
-                            blue = BitPack::unpack_unit_float(&buffers[i], brt)?;
+                        Record::ColorBlue(rt) => {
+                            blue = BitPack::unpack_unit_float(&mut self.byte_streams[i], rt)?;
                             handle_length(blue.len(), r)?;
                         }
                         Record::Intensity(rt) => {
-                            intensity = BitPack::unpack_unit_float(&buffers[i], rt)?;
+                            intensity = BitPack::unpack_unit_float(&mut self.byte_streams[i], rt)?;
                             handle_length(intensity.len(), r)?;
                         }
                         Record::CartesianInvalidState(rt) => {
-                            cartesian_invalid = BitPack::unpack_u8(&buffers[i], rt)?;
+                            cartesian_invalid = BitPack::unpack_u8(&mut self.byte_streams[i], rt)?;
                         }
                         Record::SphericalInvalidState(rt) => {
-                            spherical_invalid = BitPack::unpack_u8(&buffers[i], rt)?;
+                            spherical_invalid = BitPack::unpack_u8(&mut self.byte_streams[i], rt)?;
                         }
                         Record::IsTimeStampInvalid(rt) => {
-                            time_invalid = BitPack::unpack_u8(&buffers[i], rt)?;
+                            time_invalid = BitPack::unpack_u8(&mut self.byte_streams[i], rt)?;
                         }
                         Record::IsIntensityInvalid(rt) => {
-                            intensity_invalid = BitPack::unpack_u8(&buffers[i], rt)?;
+                            intensity_invalid = BitPack::unpack_u8(&mut self.byte_streams[i], rt)?;
                         }
                         Record::IsColorInvalid(rt) => {
-                            color_invalid = BitPack::unpack_u8(&buffers[i], rt)?;
+                            color_invalid = BitPack::unpack_u8(&mut self.byte_streams[i], rt)?;
                         }
                         _ => Error::not_implemented(format!(
                             "Iterator support for record {r:?} is not implemented"
