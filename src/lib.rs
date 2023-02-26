@@ -2,6 +2,7 @@
 
 mod bitpack;
 mod bounds;
+mod byte_stream;
 mod comp_vector;
 mod date_time;
 mod e57;
