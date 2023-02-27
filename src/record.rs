@@ -4,8 +4,8 @@ use roxmltree::Node;
 
 #[derive(Debug, Clone)]
 pub enum RecordType {
-    Double { min: f64, max: f64 },
-    Single { min: f64, max: f64 },
+    Double,
+    Single,
     Integer { min: i64, max: i64 },
     ScaledInteger { min: i64, max: i64, scale: f64 },
 }
@@ -47,26 +47,11 @@ pub fn record_type_from_node(node: &Node) -> Result<RecordType> {
     ))?;
     Ok(match type_string {
         "Float" => {
-            let min = node
-                .attribute("minimum")
-                .invalid_err("Cannot find 'minimum' attribute of 'Float' type")?
-                .parse::<f64>()
-                .invalid_err("Cannot parse 'minimum' attribute of 'Float' type as f64")?;
-            let max = node
-                .attribute("maximum")
-                .invalid_err("Cannot find 'maximum' attribute of 'Float' type")?
-                .parse::<f64>()
-                .invalid_err("Cannot parse 'maximum' attribute of 'Float' type as f64")?;
-            if max <= min {
-                Error::invalid(format!(
-                    "Maximum value {max} and minimum value {min} of 'Float' type are invalid"
-                ))?
-            }
             let precision = node.attribute("precision").unwrap_or("double");
             if precision == "double" {
-                RecordType::Double { min, max }
+                RecordType::Double
             } else if precision == "single" {
-                RecordType::Single { min, max }
+                RecordType::Single
             } else {
                 Error::invalid(format!(
                     "Float 'precision' attribute value '{precision}' for 'Float' type is unknown"

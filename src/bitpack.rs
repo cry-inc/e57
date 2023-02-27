@@ -100,9 +100,9 @@ impl BitPack {
                     if stream.available() < bit_size {
                         break;
                     }
-                    let e = stream.extract(bit_size).internal_err(
-                        "Unexpected error when extracing integer from byte stream",
-                    )?;
+                    let e = stream
+                        .extract(bit_size)
+                        .internal_err("Unexpected error when extracing integer from byte stream")?;
                     let mut tmp = [0_u8; 8];
                     tmp[..e.data.len()].copy_from_slice(&e.data);
                     let uint_value = (u64::from_le_bytes(tmp) >> e.offset) & mask;
@@ -153,9 +153,7 @@ impl BitPack {
                 let range = max - min;
                 let bit_size = f64::ceil(f64::log2(range as f64 + 1.0)) as u64;
                 if bit_size > 8 {
-                    Error::internal(
-                        "Unpacking integers with {bit_size} bits to u8 does not work",
-                    )?
+                    Error::internal("Unpacking integers with {bit_size} bits to u8 does not work")?
                 }
                 let mut mask = 0_u64;
                 for i in 0..bit_size {
@@ -166,9 +164,9 @@ impl BitPack {
                     if stream.available() < bit_size {
                         break;
                     }
-                    let e = stream.extract(bit_size).internal_err(
-                        "Unexpected error when extracing integer from byte stream",
-                    )?;
+                    let e = stream
+                        .extract(bit_size)
+                        .internal_err("Unexpected error when extracing integer from byte stream")?;
                     let mut tmp = [0_u8; 8];
                     tmp[..e.data.len()].copy_from_slice(&e.data);
                     let uint_value = (u64::from_le_bytes(tmp) >> e.offset) & mask;
