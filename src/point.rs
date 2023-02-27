@@ -6,7 +6,7 @@ pub struct CartesianCoodinate {
     pub z: f64,
 }
 
-/// Simple spherical coordinates with an X, Y and Z value.
+/// Simple spherical coordinates with range, azimuth and elevation.
 #[derive(Clone, Debug)]
 pub struct SphericalCoodinate {
     pub range: f64,
