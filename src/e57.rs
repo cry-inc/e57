@@ -189,6 +189,8 @@ mod tests {
             "testdata/bunnyFloat.e57",
             "testdata/bunnyInt32.e57",
             "testdata/bunnyInt24.e57",
+            "testdata/bunnyInt21.e57",
+            "testdata/bunnyInt19.e57",
         ];
         for file in files {
             let mut reader = E57::from_file(file).unwrap();
@@ -248,7 +250,7 @@ mod tests {
     #[test]
     #[ignore]
     fn debug() {
-        let mut reader = E57::from_file("testdata/tinyCartesianFloatRgb.e57").unwrap();
+        let mut reader = E57::from_file("testdata/bunnyInt19.e57").unwrap();
         std::fs::write("dump.xml", reader.raw_xml()).unwrap();
 
         let pcs = reader.pointclouds();

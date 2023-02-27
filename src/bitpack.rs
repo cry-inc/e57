@@ -12,7 +12,7 @@ impl BitPack {
         match rt {
             RecordType::Double { .. } => {
                 if stream.available() % 64 != 0 {
-                    Error::invalid("Avalilabe bits do not match expected type size")?
+                    Error::invalid("Available bits do not match expected type size")?
                 }
                 let count = (stream.available() / 64) as usize;
                 let mut result = Vec::with_capacity(count);
@@ -20,9 +20,6 @@ impl BitPack {
                     let e = stream
                         .extract(64)
                         .internal_err("Unexpected error when extracing double from byte stream")?;
-                    if e.bits != 64 || e.offset != 0 || e.data.len() != 8 {
-                        Error::internal("Unexpected data after extracting double from byte stream")?
-                    }
                     let s = e.data.as_slice();
                     let v = f64::from_le_bytes(s.try_into().internal_err(WRONG_OFFSET)?);
                     result.push(v);
@@ -31,7 +28,7 @@ impl BitPack {
             }
             RecordType::Single { .. } => {
                 if stream.available() % 32 != 0 {
-                    Error::invalid("Avalilabe bits do not match expected type size")?
+                    Error::invalid("Available bits do not match expected type size")?
                 }
                 let count = (stream.available() / 32) as usize;
                 let mut result = Vec::with_capacity(count);
@@ -39,9 +36,6 @@ impl BitPack {
                     let e = stream
                         .extract(32)
                         .internal_err("Unexpected error when extracing float from byte stream")?;
-                    if e.bits != 32 || e.offset != 0 || e.data.len() != 4 {
-                        Error::internal("Unexpected data after extracting float from byte stream")?
-                    }
                     let s = e.data.as_slice();
                     let v = f32::from_le_bytes(s.try_into().internal_err(WRONG_OFFSET)?);
                     result.push(v as f64);
@@ -49,13 +43,19 @@ impl BitPack {
                 Ok(result)
             }
             RecordType::ScaledInteger { min, max, scale } => {
-                let bit_size = f64::ceil(f64::log2((*max as f64) - (*min as f64) + 1.0)) as u64;
-                if bit_size % 8 != 0 {
-                    Error::not_implemented(
-                        "Scaled integers are only supported for multiples of 8 bit",
-                    )?
+                let range = max - min;
+                let bit_size = f64::ceil(f64::log2(range as f64 + 1.0)) as u64;
+                if bit_size > 56 && bit_size != 64 {
+                    // These values can require 9 bytes before alignment
+                    // which would not fit into the u64 used for decoding!
+                    Error::not_implemented(format!(
+                        "Integers with {bit_size} bits are not supported"
+                    ))?
                 }
-                let byte_size = f64::ceil((bit_size as f64) / 8.) as usize;
+                let mut mask = 0_u64;
+                for i in 0..bit_size {
+                    mask |= 1 << i;
+                }
                 let mut result = Vec::with_capacity((stream.available() / bit_size) as usize);
                 loop {
                     if stream.available() < bit_size {
@@ -64,14 +64,10 @@ impl BitPack {
                     let e = stream.extract(bit_size).internal_err(
                         "Unexpected error when extracing scaled integer from byte stream",
                     )?;
-                    if e.bits != bit_size || e.offset != 0 {
-                        Error::internal(
-                            "Unexpected data after extracting scaled integer from byte stream",
-                        )?
-                    }
                     let mut tmp = [0_u8; 8];
-                    tmp[..byte_size].copy_from_slice(&e.data);
-                    let int_value = min + u64::from_le_bytes(tmp) as i64;
+                    tmp[..e.data.len()].copy_from_slice(&e.data);
+                    let uint_value = u64::from_le_bytes(tmp);
+                    let int_value = min + ((uint_value >> e.offset) & mask) as i64;
                     let float_value = int_value as f64 * scale;
                     result.push(float_value);
                 }
