@@ -177,4 +177,40 @@ impl BitPack {
             _ => Error::not_implemented(format!("Unpacking of {rt:?} as u8 is not supported")),
         }
     }
+
+    pub fn unpack_i64(stream: &mut ByteStream, rt: &RecordType) -> Result<Vec<i64>> {
+        match rt {
+            RecordType::Integer { min, max } => {
+                let range = max - min;
+                let bit_size = f64::ceil(f64::log2(range as f64 + 1.0)) as u64;
+                if bit_size > 56 && bit_size != 64 {
+                    // These values can require 9 bytes before alignment
+                    // which would not fit into the u64 used for decoding!
+                    Error::not_implemented(format!(
+                        "Integers with {bit_size} bits are not supported"
+                    ))?
+                }
+                let mut mask = 0_u64;
+                for i in 0..bit_size {
+                    mask |= 1 << i;
+                }
+                let mut result = Vec::with_capacity((stream.available() / bit_size) as usize);
+                loop {
+                    if stream.available() < bit_size {
+                        break;
+                    }
+                    let e = stream
+                        .extract(bit_size)
+                        .internal_err("Unexpected error when extracing integer from byte stream")?;
+                    let mut tmp = [0_u8; 8];
+                    tmp[..e.data.len()].copy_from_slice(&e.data);
+                    let uint_value = (u64::from_le_bytes(tmp) >> e.offset) & mask;
+                    let int_value = uint_value as i64 + min;
+                    result.push(int_value);
+                }
+                Ok(result)
+            }
+            _ => Error::not_implemented(format!("Unpacking of {rt:?} as i64 is not supported")),
+        }
+    }
 }

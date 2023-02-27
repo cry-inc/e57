@@ -275,6 +275,14 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
                             let v = BitPack::unpack_u8(&mut self.byte_streams[i], rt)?;
                             append_vec_to_queue(&v, &mut self.queue_color_invalid);
                         }
+                        Record::RowIndex(rt) => {
+                            let v = BitPack::unpack_i64(&mut self.byte_streams[i], rt)?;
+                            append_vec_to_queue(&v, &mut self.queue_row);
+                        }
+                        Record::ColumnIndex(rt) => {
+                            let v = BitPack::unpack_i64(&mut self.byte_streams[i], rt)?;
+                            append_vec_to_queue(&v, &mut self.queue_column);
+                        }
                         _ => Error::not_implemented(format!(
                             "Iterator support for record {r:?} is not implemented"
                         ))?,
