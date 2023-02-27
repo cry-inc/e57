@@ -270,6 +270,15 @@ mod tests {
                         (color.blue * 255.) as u8
                     ))
                     .unwrap();
+            } else if let Some(intensity) = p.intensity {
+                writer
+                    .write_fmt(format_args!(
+                        " {} {} {}",
+                        (intensity * 255.) as u8,
+                        (intensity * 255.) as u8,
+                        (intensity * 255.) as u8
+                    ))
+                    .unwrap();
             }
             writer.write_fmt(format_args!("\n")).unwrap();
         }
