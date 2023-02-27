@@ -259,6 +259,11 @@ mod tests {
         let mut writer = BufWriter::new(writer);
         for p in reader.pointcloud(pc).unwrap() {
             let p = p.unwrap();
+            if let Some(invalid) = p.cartesian_invalid {
+                if invalid != 0 {
+                    continue;
+                }
+            }
             let xyz = p.cartesian.unwrap();
             writer
                 .write_fmt(format_args!("{} {} {}", xyz.x, xyz.y, xyz.z))
