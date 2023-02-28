@@ -19,6 +19,11 @@ impl ByteStream {
     }
 
     pub fn append(&mut self, mut data: Vec<u8>) {
+        let bytes_to_remove = (self.offset / 8) as usize;
+        if bytes_to_remove > 0 {
+            self.buffer = self.buffer[bytes_to_remove..].to_vec();
+            self.offset -= bytes_to_remove as u64 * 8;
+        }
         self.buffer.append(&mut data);
     }
 
@@ -89,5 +94,24 @@ mod tests {
         assert_eq!(result.bits, 22);
         assert_eq!(result.offset, 2);
         assert_eq!(result.data, vec![23, 42, 13]);
+    }
+
+    #[test]
+    fn remove_consume_when_appending() {
+        let mut bs = ByteStream::new();
+        bs.append(vec![1, 2, 3, 4, 5]);
+        bs.extract(4 * 8 + 2).unwrap();
+
+        // We append one byte and the buffer should become smaller
+        // because all fully consumed bytes are removed.
+        bs.append(vec![6]);
+        assert!(bs.buffer.len() == 2);
+
+        // Offsets are updated correctly appended
+        // data can be extracted as expected.
+        let result = bs.extract(14).unwrap();
+        assert_eq!(result.bits, 14);
+        assert_eq!(result.offset, 2);
+        assert_eq!(result.data, vec![5, 6]);
     }
 }
