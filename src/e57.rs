@@ -259,15 +259,27 @@ mod tests {
         let mut writer = BufWriter::new(writer);
         for p in reader.pointcloud(pc).unwrap() {
             let p = p.unwrap();
-            if let Some(invalid) = p.cartesian_invalid {
-                if invalid != 0 {
-                    continue;
+            if let Some(c) = p.cartesian {
+                if let Some(invalid) = p.cartesian_invalid {
+                    if invalid != 0 {
+                        continue;
+                    }
                 }
+                writer
+                    .write_fmt(format_args!("{} {} {}", c.x, c.y, c.z))
+                    .unwrap();
+            } else if let Some(s) = p.spherical {
+                if let Some(invalid) = p.spherical_invalid {
+                    if invalid != 0 {
+                        continue;
+                    }
+                }
+                let cos_ele = f64::cos(s.elevation);
+                let x = s.range * cos_ele * f64::cos(s.azimuth);
+                let y = s.range * cos_ele * f64::sin(s.azimuth);
+                let z = s.range * f64::sin(s.elevation);
+                writer.write_fmt(format_args!("{x} {y} {z}")).unwrap();
             }
-            let xyz = p.cartesian.unwrap();
-            writer
-                .write_fmt(format_args!("{} {} {}", xyz.x, xyz.y, xyz.z))
-                .unwrap();
             if let Some(color) = p.color {
                 writer
                     .write_fmt(format_args!(

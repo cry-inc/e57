@@ -239,6 +239,18 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
                             let v = BitPack::unpack_double(&mut self.byte_streams[i], rt)?;
                             append_vec_to_queue(&v, &mut self.queue_z);
                         }
+                        Record::SphericalRange(rt) => {
+                            let v = BitPack::unpack_double(&mut self.byte_streams[i], rt)?;
+                            append_vec_to_queue(&v, &mut self.queue_range);
+                        }
+                        Record::SphericalAzimuth(rt) => {
+                            let v = BitPack::unpack_double(&mut self.byte_streams[i], rt)?;
+                            append_vec_to_queue(&v, &mut self.queue_azimuth);
+                        }
+                        Record::SphericalElevation(rt) => {
+                            let v = BitPack::unpack_double(&mut self.byte_streams[i], rt)?;
+                            append_vec_to_queue(&v, &mut self.queue_elevation);
+                        }
                         Record::ColorRed(rt) => {
                             let v = BitPack::unpack_unit_float(&mut self.byte_streams[i], rt)?;
                             append_vec_to_queue(&v, &mut self.queue_red);
