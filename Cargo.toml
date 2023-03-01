@@ -2,6 +2,11 @@
 name = "e57"
 version = "0.1.0"
 edition = "2021"
+readme = "README.md"
+repository = "https://github.com/cry-inc/e57"
+homepage = "https://github.com/cry-inc/e57"
+license = "MIT"
+keywords = ["e57", "lidar", "pointclouds", "laserscanning"]
 
 [dependencies]
 crc = "3"
