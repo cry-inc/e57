@@ -7,6 +7,13 @@ repository = "https://github.com/cry-inc/e57"
 homepage = "https://github.com/cry-inc/e57"
 license = "MIT"
 keywords = ["e57", "lidar", "pointclouds", "laserscanning"]
+description = "A pure Rust library for reading E57 files with point clouds."
+include = [
+    "**/*.rs",
+    "Cargo.toml",
+    "LICENSE",
+    "README.md"
+]
 
 [dependencies]
 crc = "3"
