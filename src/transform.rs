@@ -1,6 +1,7 @@
 use crate::{error::Converter, Result};
 use roxmltree::Node;
 
+/// Describes the rotation of a point cloud.
 #[derive(Clone, Debug)]
 pub struct Quaternion {
     /// The scalar part of the quaternion. Shall be nonnegative.
@@ -13,6 +14,7 @@ pub struct Quaternion {
     pub z: f64,
 }
 
+/// Describes the translation of a point cloud.
 #[derive(Clone, Debug)]
 pub struct Translation {
     /// The X coordinate of the translation in meters.
@@ -23,6 +25,7 @@ pub struct Translation {
     pub z: f64,
 }
 
+/// Describes a transformation of a point cloud with a rotation and translation component.
 #[derive(Clone, Debug)]
 pub struct Transform {
     /// A unit quaternion representing the rotation of the transform.

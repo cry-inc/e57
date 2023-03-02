@@ -9,6 +9,7 @@ fn extract_bound<T: FromStr>(bounds: &Node, tag_name: &str) -> Option<T> {
         .and_then(|t| t.parse::<T>().ok())
 }
 
+/// Optional minimum and maximum values for Cartesian X, Y and Z coordinates.
 #[derive(Clone, Debug)]
 pub struct CartesianBounds {
     pub x_min: Option<f64>,
@@ -36,6 +37,7 @@ pub fn cartesian_bounds_from_node(node: &Node) -> CartesianBounds {
     }
 }
 
+/// Optional minimum and maximum values for spherical coordinates.
 #[derive(Clone, Debug)]
 pub struct SphericalBounds {
     pub range_min: Option<f64>,
@@ -63,6 +65,7 @@ pub fn spherical_bounds_from_node(node: &Node) -> SphericalBounds {
     }
 }
 
+/// Optional minimum and maximum values for the row, column and return indices.
 #[derive(Clone, Debug)]
 pub struct IndexBounds {
     pub row_min: Option<i64>,

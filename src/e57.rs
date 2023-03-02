@@ -12,6 +12,7 @@ use std::io::Read;
 use std::io::Seek;
 use std::path::Path;
 
+/// Main interface for dealing with E57 files.
 pub struct E57<T: Read + Seek> {
     reader: PagedReader<T>,
     header: Header,

@@ -22,12 +22,14 @@ pub struct Color {
     pub blue: f32,
 }
 
+/// Return index and count. Only used for multi-return sensors.
 #[derive(Clone, Debug)]
 pub struct Return {
     pub index: i64,
     pub count: i64,
 }
 
+/// Represents a single individual point with all its different attributes.
 #[derive(Clone, Debug, Default)]
 pub struct Point {
     pub cartesian: Option<CartesianCoodinate>,

@@ -92,6 +92,7 @@ impl StdError for Error {
     }
 }
 
+/// Custom result type hardwired to use the Error type of this crate.
 pub type Result<T> = StdResult<T, Error>;
 
 /// Helper trait for types that can be converted into an Error.

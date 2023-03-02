@@ -11,6 +11,7 @@ use crate::{
 };
 use roxmltree::Node;
 
+/// Metadata for a single point cloud.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct PointCloud {

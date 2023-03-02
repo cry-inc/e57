@@ -2,6 +2,7 @@ use crate::error::Converter;
 use crate::{Error, Result};
 use roxmltree::Node;
 
+/// Basic primtive E57 data types that are used for the different point attributes.
 #[derive(Debug, Clone)]
 pub enum RecordType {
     Double,
@@ -10,6 +11,7 @@ pub enum RecordType {
     ScaledInteger { min: i64, max: i64, scale: f64 },
 }
 
+/// Used to describe the prototype records with all attributes that exit in the point cloud.
 #[derive(Debug, Clone)]
 pub enum Record {
     CartesianX(RecordType),

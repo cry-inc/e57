@@ -16,6 +16,7 @@ use crate::SphericalCoodinate;
 use std::collections::VecDeque;
 use std::io::{Read, Seek};
 
+/// Iterate over all points of a single point cloud.
 pub struct PointCloudIterator<'a, T: Read + Seek> {
     pc: PointCloud,
     reader: &'a mut PagedReader<T>,
