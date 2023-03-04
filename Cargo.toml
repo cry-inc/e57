@@ -6,7 +6,8 @@ readme = "README.md"
 repository = "https://github.com/cry-inc/e57"
 documentation = "https://docs.rs/e57"
 license = "MIT"
-keywords = ["e57", "lidar", "pointclouds", "laserscanning"]
+keywords = ["e57", "lidar", "pointclouds", "laserscanning", "geospatial"]
+categories = ["parser-implementations", "science::geo"]
 description = "A pure Rust library for reading E57 files with point clouds."
 include = [
     "**/*.rs",
