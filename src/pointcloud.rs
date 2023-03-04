@@ -11,20 +11,31 @@ use crate::{
 };
 use roxmltree::Node;
 
-/// Metadata for a single point cloud.
+/// Descriptor with metadata for a single point cloud.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct PointCloud {
+    /// Globally unique identifier for the point cloud.
     pub guid: String,
+    /// User-defined name for the point cloud.
     pub name: Option<String>,
+    /// Physical file offset of the start of the associated binary section.
     pub file_offset: u64,
+    /// Number of points in the point cloud.
     pub records: u64,
+    /// List of point attributes that exist for this point cloud.
     pub prototype: Vec<Record>,
+    /// Optional Cartesian bounds for the point cloud.
     pub cartesian_bounds: Option<CartesianBounds>,
+    /// Optional spherical bounds for the point cloud.
     pub spherical_bounds: Option<SphericalBounds>,
+    /// Optional index bounds (row, column, return values) for the point cloud.
     pub index_bounds: Option<IndexBounds>,
+    /// Optional intensity limits for the point cloud.
     pub intensity_limits: Option<IntensityLimits>,
+    /// Optional color limits for the point cloud.
     pub color_limits: Option<ColorLimits>,
+    /// Optional transformation to convert data from the local point cloud coordinates to the file-level coordinate system.
     pub transform: Option<Transform>,
 }
 
