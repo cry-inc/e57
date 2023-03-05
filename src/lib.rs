@@ -4,6 +4,7 @@ mod bitpack;
 mod bounds;
 mod byte_stream;
 mod comp_vector;
+mod crc32;
 mod date_time;
 mod e57;
 mod error;

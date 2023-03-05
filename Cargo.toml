@@ -17,5 +17,4 @@ include = [
 ]
 
 [dependencies]
-crc = "3"
 roxmltree = "0.18"
