@@ -9,7 +9,7 @@ use crate::{
     CartesianBounds, ColorLimits, Error, IndexBounds, IntensityLimits, Record, Result,
     SphericalBounds, Transform,
 };
-use roxmltree::Node;
+use roxmltree::{Document, Node};
 
 /// Descriptor with metadata for a single point cloud.
 #[derive(Debug, Clone)]
@@ -39,7 +39,23 @@ pub struct PointCloud {
     pub transform: Option<Transform>,
 }
 
-pub fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
+pub fn pointclouds_from_document(document: &Document) -> Result<Vec<PointCloud>> {
+    let data3d_node = document
+        .descendants()
+        .find(|n| n.has_tag_name("data3D"))
+        .invalid_err("Cannot find 'data3D' tag in XML document")?;
+
+    let mut data3d = Vec::new();
+    for n in data3d_node.children() {
+        if n.has_tag_name("vectorChild") && n.attribute("type") == Some("Structure") {
+            let point_cloud = extract_pointcloud(&n)?;
+            data3d.push(point_cloud);
+        }
+    }
+    Ok(data3d)
+}
+
+fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
     let guid = node
         .children()
         .find(|n| n.has_tag_name("guid") && n.attribute("type") == Some("String"))

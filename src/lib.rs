@@ -15,8 +15,8 @@ mod paged_reader;
 mod point;
 mod pointcloud;
 mod record;
+mod root;
 mod transform;
-mod xml;
 
 pub use self::bounds::CartesianBounds;
 pub use self::bounds::IndexBounds;

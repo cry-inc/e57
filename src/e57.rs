@@ -1,12 +1,15 @@
 use crate::error::Converter;
 use crate::iterator::pointcloud_iterator;
 use crate::paged_reader::PagedReader;
-use crate::xml::XmlDocument;
+use crate::pointcloud::pointclouds_from_document;
+use crate::root::root_from_document;
+use crate::root::Root;
 use crate::DateTime;
 use crate::Header;
 use crate::PointCloud;
 use crate::PointCloudIterator;
 use crate::Result;
+use roxmltree::Document;
 use std::fs::File;
 use std::io::Read;
 use std::io::Seek;
@@ -16,7 +19,9 @@ use std::path::Path;
 pub struct E57<T: Read + Seek> {
     reader: PagedReader<T>,
     header: Header,
-    xml: XmlDocument,
+    xml: String,
+    root: Root,
+    pointclouds: Vec<PointCloud>,
 }
 
 impl<T: Read + Seek> E57<T> {
@@ -45,17 +50,21 @@ impl<T: Read + Seek> E57<T> {
 
         // Parse XML data
         let xml = String::from_utf8(xml).read_err("Failed to parse XML as UTF8")?;
-        let xml = XmlDocument::parse(xml)?;
+        let document = Document::parse(&xml).invalid_err("Failed to parse XML data")?;
+        let root = root_from_document(&document)?;
+        let pointclouds = pointclouds_from_document(&document)?;
 
         Ok(Self {
             reader,
             header,
             xml,
+            root,
+            pointclouds,
         })
     }
 
-    /// Returns the E57 file header structure.
-    pub fn get_header(&self) -> Header {
+    /// Returns the contens of E57binary  file header structure.
+    pub fn header(&self) -> Header {
         self.header.clone()
     }
 
@@ -74,22 +83,22 @@ impl<T: Read + Seek> E57<T> {
 
     /// Returns the raw XML data of the E57 file as bytes.
     pub fn raw_xml(&self) -> &str {
-        self.xml.raw_xml()
+        &self.xml
     }
 
     /// Returns format name stored in the XML section.
-    pub fn format_name(&self) -> Option<&str> {
-        self.xml.format_name().map(|x| &**x)
+    pub fn format_name(&self) -> &str {
+        &self.root.format
     }
 
     /// Returns GUID stored in the XML section.
-    pub fn guid(&self) -> Option<&str> {
-        self.xml.guid().map(|x| &**x)
+    pub fn guid(&self) -> &str {
+        &self.root.guid
     }
 
     /// Returns a list of all point clouds in the file.
     pub fn pointclouds(&self) -> Vec<PointCloud> {
-        self.xml.pointclouds()
+        self.pointclouds.clone()
     }
 
     /// Returns an iterator for the requested point cloud.
@@ -97,9 +106,19 @@ impl<T: Read + Seek> E57<T> {
         pointcloud_iterator(pc, &mut self.reader)
     }
 
-    /// If available returns the creation date and time of the file.
+    /// Returns the optional creation date and time of the file.
     pub fn creation(&self) -> Option<DateTime> {
-        self.xml.creation()
+        self.root.creation.clone()
+    }
+
+    /// Returns the optional coordinate system metadata.
+    /// This should contain a Coordinate Reference System that is specified by
+    /// a string in a well-known text format for a spatial reference system,
+    /// as defined by the Coordinate Transformation Service specification
+    /// developed by the Open Geospatial Consortium.
+    /// See also: https://www.ogc.org/standard/wkt-crs/
+    pub fn coordinate_metadata(&self) -> Option<&str> {
+        self.root.coordinate_metadata.as_deref()
     }
 }
 
@@ -121,7 +140,7 @@ mod tests {
     fn header() {
         let reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
 
-        let header = reader.get_header();
+        let header = reader.header();
         assert_eq!(header.major, 1);
         assert_eq!(header.minor, 0);
         assert_eq!(header.page_size, 1024);
@@ -136,7 +155,7 @@ mod tests {
     #[test]
     fn raw_xml() {
         let reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
-        let header = reader.get_header();
+        let header = reader.header();
         let xml = reader.raw_xml();
         assert_eq!(xml.len() as u64, header.xml_length);
     }
@@ -145,14 +164,14 @@ mod tests {
     fn format_name() {
         let reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
         let format = reader.format_name();
-        assert_eq!(format, Some("ASTM E57 3D Imaging Data File"));
+        assert_eq!(format, "ASTM E57 3D Imaging Data File");
     }
 
     #[test]
     fn guid() {
         let reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
         let guid = reader.guid();
-        assert_eq!(guid, Some("{19AA90ED-145E-4B3B-922C-80BC00648844}"));
+        assert_eq!(guid, "{19AA90ED-145E-4B3B-922C-80BC00648844}");
     }
 
     #[test]
