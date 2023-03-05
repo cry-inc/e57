@@ -6,8 +6,11 @@ use roxmltree::Node;
 /// Minimum or maximum value represented as Float, Integer or ScaledInteger.
 #[derive(Clone, Debug, PartialEq)]
 pub enum LimitValue {
+    /// Floating point limit.
     Float(f64),
+    /// Integer limit.
     Integer(i64),
+    /// Scaled integer limit converted to a floating point value.
     ScaledInteger(f64),
 }
 

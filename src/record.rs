@@ -5,9 +5,13 @@ use roxmltree::Node;
 /// Basic primtive E57 data types that are used for the different point attributes.
 #[derive(Debug, Clone)]
 pub enum RecordType {
+    /// 64-bit IEEE 754-2008 floating point value.
     Double,
+    /// 32-bit IEEE 754-2008 floating point value.
     Single,
+    /// Signed 64-bit integer value.
     Integer { min: i64, max: i64 },
+    /// Signed 64-bit integer scaled with a fixed 64-bit floating point value.
     ScaledInteger { min: i64, max: i64, scale: f64 },
 }
 
