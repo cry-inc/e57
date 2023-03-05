@@ -1,4 +1,4 @@
-use crate::{error::Converter, Result};
+use crate::{error::Converter, xml::required_double, Result};
 use roxmltree::Node;
 
 /// Describes the rotation of a point cloud.
@@ -49,27 +49,17 @@ pub fn transform_from_node(node: &Node) -> Result<Transform> {
     })
 }
 
-fn float_value_from_child(node: &Node, child_name: &str) -> Result<f64> {
-    node.children()
-        .find(|n| n.has_tag_name(child_name))
-        .invalid_err(format!("Cannot find tag with name '{child_name}'"))?
-        .text()
-        .unwrap_or("0")
-        .parse::<f64>()
-        .invalid_err(format!("Cannot parse '{child_name}' value"))
-}
-
 pub fn quaternion_from_node(node: &Node) -> Result<Quaternion> {
-    let w = float_value_from_child(node, "w")?;
-    let x = float_value_from_child(node, "x")?;
-    let y = float_value_from_child(node, "y")?;
-    let z = float_value_from_child(node, "z")?;
+    let w = required_double(node, "w")?;
+    let x = required_double(node, "x")?;
+    let y = required_double(node, "y")?;
+    let z = required_double(node, "z")?;
     Ok(Quaternion { w, x, y, z })
 }
 
 pub fn translation_from_node(node: &Node) -> Result<Translation> {
-    let x = float_value_from_child(node, "x")?;
-    let y = float_value_from_child(node, "y")?;
-    let z = float_value_from_child(node, "z")?;
+    let x = required_double(node, "x")?;
+    let y = required_double(node, "y")?;
+    let z = required_double(node, "z")?;
     Ok(Translation { x, y, z })
 }

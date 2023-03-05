@@ -14,11 +14,11 @@ pub fn date_time_from_node(node: &Node) -> Result<Option<DateTime>> {
     let gps_time_text = node
         .children()
         .find(|n| n.has_tag_name("dateTimeValue") && n.attribute("type") == Some("Float"))
-        .invalid_err("Unable to find tag 'dateTimeValue' with type 'Float'")?
+        .invalid_err("Unable to find XML tag 'dateTimeValue' with type 'Float'")?
         .text();
     let gps_time = if let Some(text) = gps_time_text {
         text.parse::<f64>()
-            .invalid_err("Failed to parse 'dateTimeValue' text as f64")?
+            .invalid_err("Failed to parse inner text of XML tag 'dateTimeValue' as double")?
     } else {
         return Ok(None);
     };
