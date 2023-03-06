@@ -14,14 +14,14 @@ pub enum Error {
     /// The file content is invalid and does not confirm with the E57 format specification.
     Invalid {
         desc: String,
-        source: Option<Box<dyn StdError>>,
+        source: Option<Box<dyn StdError + Send + Sync + 'static>>,
     },
 
     /// Something went wrong while reading data from an E57 file.
     /// Typically this is caused by an IO error outside the library or because of an incomplete file.
     Read {
         desc: String,
-        source: Option<Box<dyn StdError>>,
+        source: Option<Box<dyn StdError + Send + Sync + 'static>>,
     },
 
     /// Some feature or aspect of E57 that is not yet implement by this library.
@@ -32,7 +32,7 @@ pub enum Error {
     /// Please file an issue, if possible.
     Internal {
         desc: String,
-        source: Option<Box<dyn StdError>>,
+        source: Option<Box<dyn StdError + Send + Sync + 'static>>,
     },
 }
 
@@ -84,9 +84,15 @@ impl Display for Error {
 impl StdError for Error {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
-            Error::Invalid { source, .. } => source.as_ref().map(|s| s.as_ref()),
-            Error::Read { source, .. } => source.as_ref().map(|s| s.as_ref()),
-            Error::Internal { source, .. } => source.as_ref().map(|s| s.as_ref()),
+            Error::Invalid { source, .. } => source
+                .as_ref()
+                .map(|s| s.as_ref() as &(dyn StdError + 'static)),
+            Error::Read { source, .. } => source
+                .as_ref()
+                .map(|s| s.as_ref() as &(dyn StdError + 'static)),
+            Error::Internal { source, .. } => source
+                .as_ref()
+                .map(|s| s.as_ref() as &(dyn StdError + 'static)),
             Error::NotImplemented { .. } => None,
         }
     }
