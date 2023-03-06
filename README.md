@@ -27,4 +27,5 @@ I thought it would be nice to have a pure Rust solution without any unsafe code.
 In my oppinion Rust is an excellent choice for parsers of untrusted data,
 especially if you plan to use the code in something like a cloud backend.
 
-This also allows to avoid the hassle of dealing bindings for C++ code when you want to load E57 files inside a Rust project.
+When you want to handle E57 files inside a Rust project this crate will also avoid
+all the issues that come with integrating C++ code.
