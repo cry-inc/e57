@@ -111,6 +111,27 @@ impl BitPack {
                 }
                 Ok(result)
             }
+            RecordType::Single { min, max } => {
+                let min = min
+                    .invalid_err("Cannot extract type 'Single' as unit float without min value")?;
+                let max = max
+                    .invalid_err("Cannot extract type 'Single' as unit float without max value")?;
+                let range = max - min;
+                if stream.available() % 32 != 0 {
+                    Error::invalid("Available bits do not match expected type size")?
+                }
+                let count = (stream.available() / 32) as usize;
+                let mut result = Vec::with_capacity(count);
+                for _ in 0..count {
+                    let e = stream
+                        .extract(32)
+                        .internal_err("Unexpected error when extracing float from byte stream")?;
+                    let s = e.data.as_slice();
+                    let v = f32::from_le_bytes(s.try_into().internal_err(WRONG_OFFSET)?);
+                    result.push((v - min) / range);
+                }
+                Ok(result)
+            }
             RecordType::ScaledInteger { min, max, .. } => {
                 let range = max - min;
                 let bit_size = f64::ceil(f64::log2(range as f64 + 1.0)) as u64;
