@@ -1,14 +1,17 @@
 use crate::error::Converter;
 use crate::{Error, Result};
 use roxmltree::Node;
+use std::error::Error as StdError;
+use std::fmt::Debug;
+use std::str::FromStr;
 
 /// Basic primtive E57 data types that are used for the different point attributes.
 #[derive(Debug, Clone)]
 pub enum RecordType {
     /// 64-bit IEEE 754-2008 floating point value.
-    Double,
+    Double { min: Option<f64>, max: Option<f64> },
     /// 32-bit IEEE 754-2008 floating point value.
-    Single,
+    Single { min: Option<f32>, max: Option<f32> },
     /// Signed 64-bit integer value.
     Integer { min: i64, max: i64 },
     /// Signed 64-bit integer scaled with a fixed 64-bit floating point value.
@@ -72,17 +75,21 @@ pub enum Record {
 }
 
 pub fn record_type_from_node(node: &Node) -> Result<RecordType> {
-    let type_string = node.attribute("type").invalid_err(format!(
-        "Missing type attribute for tag {}",
-        node.tag_name().name()
-    ))?;
-    Ok(match type_string {
+    let tag_name = node.tag_name().name();
+    let type_name = node
+        .attribute("type")
+        .invalid_err(format!("Missing type attribute for XML tag '{tag_name}'"))?;
+    Ok(match type_name {
         "Float" => {
             let precision = node.attribute("precision").unwrap_or("double");
             if precision == "double" {
-                RecordType::Double
+                let min = optional_attribute(node, "minimum", tag_name, type_name)?;
+                let max = optional_attribute(node, "maximum", tag_name, type_name)?;
+                RecordType::Double { min, max }
             } else if precision == "single" {
-                RecordType::Single
+                let min = optional_attribute(node, "minimum", tag_name, type_name)?;
+                let max = optional_attribute(node, "maximum", tag_name, type_name)?;
+                RecordType::Single { min, max }
             } else {
                 Error::invalid(format!(
                     "Float 'precision' attribute value '{precision}' for 'Float' type is unknown"
@@ -90,44 +97,59 @@ pub fn record_type_from_node(node: &Node) -> Result<RecordType> {
             }
         }
         "Integer" => {
-            let min = node
-                .attribute("minimum")
-                .invalid_err("Cannot find 'minimum' attribute of 'Integer' type")?
-                .parse::<i64>()
-                .invalid_err("Cannot parse 'minimum' attribute of 'Integer' type as i64")?;
-            let max = node
-                .attribute("maximum")
-                .invalid_err("Cannot find 'maximum' attribute of 'Integer' type")?
-                .parse::<i64>()
-                .invalid_err("Cannot parse 'maximum' attribute of 'Integer' type as i64")?;
+            let min = required_attribute(node, "minimum", tag_name, type_name)?;
+            let max = required_attribute(node, "maximum", tag_name, type_name)?;
             if max <= min {
                 Error::invalid(format!(
-                    "Maximum value {max} and minimum value {min} of 'Integer' type are invalid"
+                    "Maximum value '{max}' and minimum value '{min}' of type '{type_name}' in XML tag '{tag_name}' are inconsistent"
                 ))?
             }
             RecordType::Integer { min, max }
         }
         "ScaledInteger" => {
-            let min = node
-                .attribute("minimum")
-                .invalid_err("Cannot find 'minimum' attribute of 'ScaledInteger' type")?
-                .parse::<i64>()
-                .invalid_err("Cannot parse 'minimum' attribute of 'ScaledInteger' type as i64")?;
-            let max = node
-                .attribute("maximum")
-                .invalid_err("Cannot find 'maximum' attribute of 'ScaledInteger' type")?
-                .parse::<i64>()
-                .invalid_err("Cannot parse 'maximum' attribute of 'ScaledInteger' type as i64")?;
+            let min = required_attribute(node, "minimum", tag_name, type_name)?;
+            let max = required_attribute(node, "maximum", tag_name, type_name)?;
             if max <= min {
-                Error::invalid(format!("Maximum value {max} and minimum value {min} of 'ScaledInteger' type are invalid"))?
+                Error::invalid(format!(
+                    "Maximum value '{max}' and minimum value '{min}' of type '{type_name}' in XML tag '{tag_name}' are inconsistent"
+                ))?
             }
-            let scale = node
-                .attribute("scale")
-                .invalid_err("Cannot find 'scale' attribute of 'ScaledInteger' type")?
-                .parse::<f64>()
-                .invalid_err("Cannot parse 'scale' attribute of 'ScaledInteger' type as f64")?;
+            let scale = required_attribute(node, "scale", tag_name, type_name)?;
             RecordType::ScaledInteger { min, max, scale }
         }
-        _ => Error::not_implemented(format!("Unsupported record type {type_string} detected"))?,
+        _ => Error::not_implemented(format!(
+            "Unsupported type '{type_name}' in XML tag '{tag_name}' detected"
+        ))?,
     })
+}
+
+fn optional_attribute<T>(
+    node: &Node,
+    attribute: &str,
+    tag_name: &str,
+    type_name: &str,
+) -> Result<Option<T>>
+where
+    T: FromStr,
+    T::Err: StdError + Send + Sync + 'static,
+{
+    Ok(if let Some(attr) = node.attribute(attribute) {
+        let parsed = attr.parse::<T>();
+        Some(parsed.invalid_err(format!(
+            "Failed to parse attribute '{attribute}' for type '{type_name}' in XML tag '{tag_name}'"
+        ))?)
+    } else {
+        None
+    })
+}
+
+fn required_attribute<T>(node: &Node, attribute: &str, tag_name: &str, type_name: &str) -> Result<T>
+where
+    T: FromStr,
+    T::Err: StdError + Send + Sync + 'static,
+{
+    let value = optional_attribute(node, attribute, tag_name, type_name)?;
+    value.invalid_err(format!(
+        "Cannot find '{attribute}' for type '{type_name}' in XML tag '{tag_name}'"
+    ))
 }
