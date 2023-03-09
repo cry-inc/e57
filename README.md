@@ -1,8 +1,8 @@
 # E57 Rust Library
-![Build Status](https://github.com/cry-inc/e57/workflows/CI/badge.svg)
+[![Build Status](https://github.com/cry-inc/e57/workflows/CI/badge.svg)](https://github.com/cry-inc/e57/actions)
 [![Crates.io](https://img.shields.io/crates/v/e57.svg)](https://crates.io/crates/e57)
 [![Documentation](https://docs.rs/e57/badge.svg)](https://docs.rs/e57)
-![No Unsafe](https://img.shields.io/badge/unsafe-forbidden-brightgreen.svg)
+[![No Unsafe](https://img.shields.io/badge/unsafe-forbidden-brightgreen.svg)](https://doc.rust-lang.org/nomicon/meet-safe-and-unsafe.html)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Dependencies](https://deps.rs/repo/github/cry-inc/e57/status.svg)](https://deps.rs/repo/github/cry-inc/e57)
 
