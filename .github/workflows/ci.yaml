@@ -9,10 +9,10 @@ jobs:
       - name: Update Rust
         run: rustup update
       - name: Release Build
-        run: cargo build --release
+        run: cargo build --release --all
       - name: Execute Tests
-        run: cargo test --release
+        run: cargo test --release --all
       - name: Run Clippy
-        run: cargo clippy --release -- -D warnings
+        run: cargo clippy --release --all -- -D warnings
       - name: Check Formatting
         run: cargo fmt --all -- --check

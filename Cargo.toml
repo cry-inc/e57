@@ -16,5 +16,11 @@ include = [
     "README.md"
 ]
 
+[workspace]
+members = [
+    "tools/extract-xml",
+    "tools/e57-to-xyz",
+]
+
 [dependencies]
 roxmltree = "0.18"
