@@ -20,6 +20,7 @@ include = [
 members = [
     "tools/extract-xml",
     "tools/e57-to-xyz",
+    "tools/crc-validator"
 ]
 
 [dependencies]
