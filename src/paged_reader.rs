@@ -3,6 +3,7 @@ use std::io::{Error, ErrorKind, Read, Result, Seek, SeekFrom};
 
 const CHECKSUM_SIZE: u64 = 4;
 const ALIGNMENT_SIZE: u64 = 4;
+const MAX_PAGE_SIZE: u64 = 1024 * 1024;
 
 pub struct PagedReader<T: Read + Seek> {
     page_size: u64,
@@ -19,6 +20,12 @@ pub struct PagedReader<T: Read + Seek> {
 impl<T: Read + Seek> PagedReader<T> {
     /// Create and initialize a paged reader that abstracts the E57 CRC scheme
     pub fn new(mut reader: T, page_size: u64) -> Result<Self> {
+        if page_size > MAX_PAGE_SIZE {
+            Err(Error::new(
+                ErrorKind::InvalidInput,
+                format!("Page size {page_size} is bigger than the allowed maximum page size of {MAX_PAGE_SIZE} bytes"),
+            ))?;
+        }
         if page_size <= CHECKSUM_SIZE {
             Err(Error::new(
                 ErrorKind::InvalidInput,

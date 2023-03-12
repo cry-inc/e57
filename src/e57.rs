@@ -63,22 +63,38 @@ impl<T: Read + Seek> E57<T> {
         })
     }
 
-    /// Returns the contens of E57binary  file header structure.
+    /// Returns the contents of E57 binary file header structure.
     pub fn header(&self) -> Header {
         self.header.clone()
     }
 
-    /// Iterate over the whole file to check for CRC errors.
-    pub fn validate_crc(&mut self) -> Result<()> {
-        self.reader.rewind().unwrap();
-        let mut buffer = vec![0_u8; self.header.page_size as usize];
-        while self
-            .reader
+    /// Iterate over an reader to check an E57 file for CRC errors.
+    /// This standalone function does only the minimal parsing required
+    /// to get the E57 page size and without any other checks or validation.
+    /// After that it will CRC-validate the whole file.
+    /// It will not read or check any other file header and XML data!
+    /// This method returns the page size of the E57 file.
+    pub fn validate_crc(mut reader: T) -> Result<u64> {
+        reader
+            .seek(std::io::SeekFrom::Start(40))
+            .read_err("Cannot seek to page sizte offset")?;
+        let mut buf = [0_u8; 8];
+        reader
+            .read_exact(&mut buf)
+            .read_err("Cannot read page size bytes")?;
+        let page_size = u64::from_le_bytes(buf);
+        let mut paged_reader =
+            PagedReader::new(reader, page_size).read_err("Failed creating CRC reader")?;
+        let mut buffer = vec![0_u8; page_size as usize];
+        let mut page = 0;
+        while paged_reader
             .read(&mut buffer)
-            .read_err("Failed to read for file validation")?
+            .read_err(format!("Failed to validate CRC for page {page}"))?
             != 0
-        {}
-        Ok(())
+        {
+            page += 1;
+        }
+        Ok(page_size)
     }
 
     /// Returns the raw XML data of the E57 file as bytes.
@@ -148,8 +164,11 @@ mod tests {
 
     #[test]
     fn validate() {
-        let mut reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
-        reader.validate_crc().unwrap();
+        let file = File::open("testdata/bunnyDouble.e57").unwrap();
+        assert_eq!(E57::validate_crc(file).unwrap(), 1024);
+
+        let file = File::open("testdata/corrupt_crc.e57").unwrap();
+        assert!(E57::validate_crc(file).is_err());
     }
 
     #[test]
