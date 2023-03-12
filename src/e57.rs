@@ -100,16 +100,18 @@ impl<T: Read + Seek> E57<T> {
     }
 
     /// Returns the optional coordinate system metadata.
+    ///
     /// This should contain a Coordinate Reference System that is specified by
     /// a string in a well-known text format for a spatial reference system,
     /// as defined by the Coordinate Transformation Service specification
     /// developed by the Open Geospatial Consortium.
-    /// See also: https://www.ogc.org/standard/wkt-crs/
+    /// See also: <https://www.ogc.org/standard/wkt-crs/>
     pub fn coordinate_metadata(&self) -> Option<&str> {
         self.root.coordinate_metadata.as_deref()
     }
 
     /// Iterate over an reader to check an E57 file for CRC errors.
+    ///
     /// This standalone function does only the minimal parsing required
     /// to get the E57 page size and without any other checks or validation.
     /// After that it will CRC-validate the whole file.
@@ -132,6 +134,7 @@ impl<T: Read + Seek> E57<T> {
     }
 
     /// Returns the raw unparsed binary XML data of the E57 file as bytes.
+    ///
     /// This standalone function does only the minimal parsing required
     /// to get the XML section without any other checks or any other
     /// validation than basic CRC ckecking for the XML section itself.

@@ -13,6 +13,9 @@ use crate::{
 use roxmltree::{Document, Node};
 
 /// Descriptor with metadata for a single point cloud.
+///
+/// This struct does not contain any actual point data,
+/// it just describes the properties and attributes of a point cloud.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct PointCloud {
