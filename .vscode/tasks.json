@@ -1,0 +1,112 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build",
+            "command": "cargo",
+            "args": [
+                "build",
+                "--all"
+            ],
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+        {
+            "label": "Format",
+            "command": "cargo",
+            "args": [
+                "fmt",
+                "--all"
+            ],
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+        {
+            "label": "Check",
+            "command": "cargo",
+            "args": [
+                "clippy",
+                "--all"
+            ],
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+        {
+            "label": "Test",
+            "command": "cargo",
+            "args": [
+                "test",
+                "--all"
+            ],
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+        {
+            "label": "Full Check",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Format",
+                "Check",
+                "Test",
+                "Build"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Measure Coverage",
+            "command": "cargo",
+            "args": [
+                "test",
+                "--all"
+            ],
+            "options": {
+                "env": {
+                    "CARGO_INCREMENTAL": "0",
+                    "RUSTFLAGS": "-Cinstrument-coverage",
+                    "LLVM_PROFILE_FILE": "coverage.profraw"
+                }
+            },
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+        {
+            "label": "Export Coverage",
+            "command": "grcov",
+            "args": [
+                "coverage.profraw",
+                "--binary-path",
+                "target/debug/deps/",
+                "--source-dir",
+                ".",
+                "--output-type",
+                "html",
+                "--output-path",
+                "target/coverage_html",
+                "--keep-only",
+                "src/**/*"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Show Coverage",
+            "type": "shell",
+            "command": "target/coverage_html/index.html",
+            "problemMatcher": []
+        },
+        {
+            "label": "Code Coverage",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Measure Coverage",
+                "Export Coverage",
+                "Show Coverage"
+            ],
+            "problemMatcher": []
+        }
+    ]
+}

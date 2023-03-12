@@ -31,3 +31,8 @@ especially if you plan to use the code in something like a cloud backend.
 
 When you want to handle E57 files inside a Rust project this crate will also avoid
 all the issues that come with integrating C++ code.
+
+## Code Coverage
+The Visual Studio Code tasks included in this repository contain some tasks for code coverage measurement.
+To be able to run them, you need to install `grcov` with the command `cargo install grcov` and the
+LLVM tools by running `rustup component add llvm-tools`.
