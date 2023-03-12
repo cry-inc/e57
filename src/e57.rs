@@ -12,6 +12,7 @@ use crate::PointCloudIterator;
 use crate::Result;
 use roxmltree::Document;
 use std::fs::File;
+use std::io::BufReader;
 use std::io::Read;
 use std::io::Seek;
 use std::path::Path;
@@ -175,11 +176,12 @@ impl<T: Read + Seek> E57<T> {
     }
 }
 
-impl E57<File> {
+impl E57<BufReader<File>> {
     /// Creates an E57 instance from a Path.
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self> {
         let file = File::open(path).read_err("Unable to open file")?;
-        Self::from_reader(file)
+        let reader = BufReader::new(file);
+        Self::from_reader(reader)
     }
 }
 

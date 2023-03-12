@@ -6,7 +6,9 @@
 
 use anyhow::{anyhow, bail, Context, Result};
 use e57::E57;
-use std::{fs::File, path::Path};
+use std::fs::File;
+use std::io::BufReader;
+use std::path::Path;
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
@@ -75,20 +77,20 @@ fn check_files(files: &[String]) -> bool {
     all_ok
 }
 
-fn check_file(file: &str) -> bool {
-    match File::open(file) {
-        Ok(e57) => match E57::validate_crc(e57) {
+fn check_file(file_str: &str) -> bool {
+    match File::open(file_str) {
+        Ok(file) => match E57::validate_crc(BufReader::new(file)) {
             Ok(_) => {
-                println!("Validated file '{file}' successfully");
+                println!("Validated file '{file_str}' successfully");
                 true
             }
             Err(err) => {
-                eprintln!("Failed to validate file '{file}': {err:#}");
+                eprintln!("Failed to validate file '{file_str}': {err:#}");
                 false
             }
         },
         Err(err) => {
-            eprintln!("Failed to validate file '{file}': Failed to open file: {err:#}");
+            eprintln!("Failed to validate file '{file_str}': Failed to open file: {err:#}");
             false
         }
     }

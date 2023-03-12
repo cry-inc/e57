@@ -5,7 +5,7 @@
 use anyhow::{bail, Context, Result};
 use e57::E57;
 use std::fs::File;
-use std::io::{stdout, Write};
+use std::io::{stdout, BufReader, Write};
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
@@ -14,7 +14,8 @@ fn main() -> Result<()> {
     }
 
     let file = File::open(&args[1]).context("Failed to open E57 file")?;
-    let xml = E57::raw_xml(file).context("Failed to extract XML data")?;
+    let reader = BufReader::new(file);
+    let xml = E57::raw_xml(reader).context("Failed to extract XML data")?;
 
     stdout()
         .write_all(&xml)
