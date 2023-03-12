@@ -1,6 +1,6 @@
 /// Simple structure for cartesian coordinates with an X, Y and Z value.
 #[derive(Clone, Debug)]
-pub struct CartesianCoodinate {
+pub struct CartesianCoordinate {
     pub x: f64,
     pub y: f64,
     pub z: f64,
@@ -8,7 +8,7 @@ pub struct CartesianCoodinate {
 
 /// Simple spherical coordinates with range, azimuth and elevation.
 #[derive(Clone, Debug)]
-pub struct SphericalCoodinate {
+pub struct SphericalCoordinate {
     pub range: f64,
     pub azimuth: f64,
     pub elevation: f64,
@@ -32,8 +32,8 @@ pub struct Return {
 /// Represents a single individual point with all its different attributes.
 #[derive(Clone, Debug, Default)]
 pub struct Point {
-    pub cartesian: Option<CartesianCoodinate>,
-    pub spherical: Option<SphericalCoodinate>,
+    pub cartesian: Option<CartesianCoordinate>,
+    pub spherical: Option<SphericalCoordinate>,
     pub color: Option<Color>,
     pub ret: Option<Return>,
     pub row: Option<i64>,

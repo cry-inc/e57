@@ -5,14 +5,14 @@ use crate::comp_vector::PacketHeader;
 use crate::error::Converter;
 use crate::paged_reader::PagedReader;
 use crate::point::Return;
-use crate::CartesianCoodinate;
+use crate::CartesianCoordinate;
 use crate::Color;
 use crate::Error;
 use crate::Point;
 use crate::PointCloud;
 use crate::Record;
 use crate::Result;
-use crate::SphericalCoodinate;
+use crate::SphericalCoordinate;
 use std::collections::VecDeque;
 use std::io::{Read, Seek};
 
@@ -128,7 +128,7 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
         for r in &self.pc.prototype {
             match r {
                 Record::CartesianX(_) => {
-                    point.cartesian = Some(CartesianCoodinate {
+                    point.cartesian = Some(CartesianCoordinate {
                         x: self.queue_x.pop_front().unwrap(),
                         y: self.queue_y.pop_front().unwrap(),
                         z: self.queue_z.pop_front().unwrap(),
@@ -141,7 +141,7 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
                         Some(self.queue_cartesian_invalid.pop_front().unwrap())
                 }
                 Record::SphericalRange(_) => {
-                    point.spherical = Some(SphericalCoodinate {
+                    point.spherical = Some(SphericalCoordinate {
                         range: self.queue_range.pop_front().unwrap(),
                         azimuth: self.queue_azimuth.pop_front().unwrap(),
                         elevation: self.queue_elevation.pop_front().unwrap(),
