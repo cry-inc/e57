@@ -4,6 +4,8 @@
 
 use anyhow::{bail, Context, Result};
 use e57::E57;
+use std::fs::File;
+use std::io::{stdout, Write};
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
@@ -11,9 +13,10 @@ fn main() -> Result<()> {
         bail!("Usage: extract-xml <path/to/my.e57>");
     }
 
-    let file = E57::from_file(&args[1]).context("Failed to open E57 file")?;
-    let xml = file.raw_xml();
-    println!("{xml}");
+    let file = File::open(&args[1]).context("Failed to open E57 file")?;
+    let xml = E57::raw_xml(file).context("Failed to extract XML data")?;
 
-    Ok(())
+    stdout()
+        .write_all(&xml)
+        .context("Failed to write XML data to stdout")
 }

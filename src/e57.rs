@@ -5,6 +5,7 @@ use crate::pointcloud::pointclouds_from_document;
 use crate::root::root_from_document;
 use crate::root::Root;
 use crate::DateTime;
+use crate::Error;
 use crate::Header;
 use crate::PointCloud;
 use crate::PointCloudIterator;
@@ -14,6 +15,8 @@ use std::fs::File;
 use std::io::Read;
 use std::io::Seek;
 use std::path::Path;
+
+const MAX_XML_SIZE: usize = 1024 * 1024 * 10;
 
 /// Main interface for dealing with E57 files.
 pub struct E57<T: Read + Seek> {
@@ -27,6 +30,7 @@ pub struct E57<T: Read + Seek> {
 impl<T: Read + Seek> E57<T> {
     /// Creates a new E57 instance for from a reader.
     pub fn from_reader(mut reader: T) -> Result<Self> {
+        // Read binary file header
         let mut header_bytes = [0_u8; 48];
         reader
             .read_exact(&mut header_bytes)
@@ -36,20 +40,16 @@ impl<T: Read + Seek> E57<T> {
         let header = Header::from_array(&header_bytes)?;
 
         // Set up paged reader for the CRC page layer
-        let mut reader =
-            PagedReader::new(reader, header.page_size).read_err("Failed creating CRC reader")?;
+        let mut reader = PagedReader::new(reader, header.page_size)
+            .read_err("Failed creating paged CRC reader")?;
 
-        // Read XML data
-        reader
-            .seek_physical(header.phys_xml_offset)
-            .read_err("Cannot seek to XML offset")?;
-        let mut xml = vec![0_u8; header.xml_length as usize];
-        reader
-            .read_exact(&mut xml)
-            .read_err("Failed to read XML data")?;
-
-        // Parse XML data
-        let xml = String::from_utf8(xml).read_err("Failed to parse XML as UTF8")?;
+        // Read and parse XML data
+        let xml_raw = Self::extract_xml(
+            &mut reader,
+            header.phys_xml_offset,
+            header.xml_length as usize,
+        )?;
+        let xml = String::from_utf8(xml_raw).read_err("Failed to parse XML as UTF8")?;
         let document = Document::parse(&xml).invalid_err("Failed to parse XML data")?;
         let root = root_from_document(&document)?;
         let pointclouds = pointclouds_from_document(&document)?;
@@ -68,37 +68,8 @@ impl<T: Read + Seek> E57<T> {
         self.header.clone()
     }
 
-    /// Iterate over an reader to check an E57 file for CRC errors.
-    /// This standalone function does only the minimal parsing required
-    /// to get the E57 page size and without any other checks or validation.
-    /// After that it will CRC-validate the whole file.
-    /// It will not read or check any other file header and XML data!
-    /// This method returns the page size of the E57 file.
-    pub fn validate_crc(mut reader: T) -> Result<u64> {
-        reader
-            .seek(std::io::SeekFrom::Start(40))
-            .read_err("Cannot seek to page sizte offset")?;
-        let mut buf = [0_u8; 8];
-        reader
-            .read_exact(&mut buf)
-            .read_err("Cannot read page size bytes")?;
-        let page_size = u64::from_le_bytes(buf);
-        let mut paged_reader =
-            PagedReader::new(reader, page_size).read_err("Failed creating CRC reader")?;
-        let mut buffer = vec![0_u8; page_size as usize];
-        let mut page = 0;
-        while paged_reader
-            .read(&mut buffer)
-            .read_err(format!("Failed to validate CRC for page {page}"))?
-            != 0
-        {
-            page += 1;
-        }
-        Ok(page_size)
-    }
-
-    /// Returns the raw XML data of the E57 file as bytes.
-    pub fn raw_xml(&self) -> &str {
+    /// Returns the XML section of the E57 file.
+    pub fn xml(&self) -> &str {
         &self.xml
     }
 
@@ -136,6 +107,72 @@ impl<T: Read + Seek> E57<T> {
     pub fn coordinate_metadata(&self) -> Option<&str> {
         self.root.coordinate_metadata.as_deref()
     }
+
+    /// Iterate over an reader to check an E57 file for CRC errors.
+    /// This standalone function does only the minimal parsing required
+    /// to get the E57 page size and without any other checks or validation.
+    /// After that it will CRC-validate the whole file.
+    /// It will not read or check any other file header and XML data!
+    /// This method returns the page size of the E57 file.
+    pub fn validate_crc(mut reader: T) -> Result<u64> {
+        let page_size = Self::get_u64(&mut reader, 40, "page size")?;
+        let mut paged_reader =
+            PagedReader::new(reader, page_size).read_err("Failed creating paged CRC reader")?;
+        let mut buffer = vec![0_u8; page_size as usize];
+        let mut page = 0;
+        while paged_reader
+            .read(&mut buffer)
+            .read_err(format!("Failed to validate CRC for page {page}"))?
+            != 0
+        {
+            page += 1;
+        }
+        Ok(page_size)
+    }
+
+    /// Returns the raw unparsed binary XML data of the E57 file as bytes.
+    /// This standalone function does only the minimal parsing required
+    /// to get the XML section without any other checks or any other
+    /// validation than basic CRC ckecking for the XML section itself.
+    pub fn raw_xml(mut reader: T) -> Result<Vec<u8>> {
+        let page_size = Self::get_u64(&mut reader, 40, "page size")?;
+        let xml_offset = Self::get_u64(&mut reader, 24, "XML offset")?;
+        let xml_length = Self::get_u64(&mut reader, 32, "XML length")?;
+
+        // Create paged CRC reader
+        let mut paged_reader =
+            PagedReader::new(reader, page_size).read_err("Failed creating paged CRC reader")?;
+
+        // Read XML data
+        Self::extract_xml(&mut paged_reader, xml_offset, xml_length as usize)
+    }
+
+    fn get_u64(reader: &mut T, offset: u64, name: &str) -> Result<u64> {
+        reader
+            .seek(std::io::SeekFrom::Start(offset))
+            .read_err(format!("Cannot seek to {name} offset"))?;
+        let mut buf = [0_u8; 8];
+        reader
+            .read_exact(&mut buf)
+            .read_err(format!("Cannot read {name} bytes"))?;
+        Ok(u64::from_le_bytes(buf))
+    }
+
+    fn extract_xml(reader: &mut PagedReader<T>, offset: u64, length: usize) -> Result<Vec<u8>> {
+        if length > MAX_XML_SIZE {
+            Error::not_implemented(format!(
+                "XML sections larger than {MAX_XML_SIZE} bytes are not supported"
+            ))?
+        }
+        reader
+            .seek_physical(offset)
+            .read_err("Cannot seek to XML offset")?;
+        let mut xml = vec![0_u8; length];
+        reader
+            .read_exact(&mut xml)
+            .read_err("Failed to read XML data")?;
+        Ok(xml)
+    }
 }
 
 impl E57<File> {
@@ -172,11 +209,21 @@ mod tests {
     }
 
     #[test]
+    fn xml() {
+        let reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
+        let header = reader.header();
+        let xml = reader.xml();
+        assert_eq!(xml.as_bytes().len(), header.xml_length as usize);
+    }
+
+    #[test]
     fn raw_xml() {
         let reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
         let header = reader.header();
-        let xml = reader.raw_xml();
-        assert_eq!(xml.len() as u64, header.xml_length);
+
+        let reader = File::open("testdata/bunnyDouble.e57").unwrap();
+        let xml = E57::raw_xml(reader).unwrap();
+        assert_eq!(xml.len(), header.xml_length as usize);
     }
 
     #[test]
@@ -290,7 +337,7 @@ mod tests {
     #[ignore]
     fn debug() {
         let mut reader = E57::from_file("testdata/bunnyInt19.e57").unwrap();
-        std::fs::write("dump.xml", reader.raw_xml()).unwrap();
+        std::fs::write("dump.xml", reader.xml()).unwrap();
 
         let pcs = reader.pointclouds();
         let pc = pcs.first().unwrap();
