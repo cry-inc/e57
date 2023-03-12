@@ -8,14 +8,14 @@ use std::str::FromStr;
 /// Basic primtive E57 data types that are used for the different point attributes.
 #[derive(Debug, Clone)]
 pub enum RecordType {
-    /// 64-bit IEEE 754-2008 floating point value.
-    Double { min: Option<f64>, max: Option<f64> },
     /// 32-bit IEEE 754-2008 floating point value.
     Single { min: Option<f32>, max: Option<f32> },
-    /// Signed 64-bit integer value.
-    Integer { min: i64, max: i64 },
+    /// 64-bit IEEE 754-2008 floating point value.
+    Double { min: Option<f64>, max: Option<f64> },
     /// Signed 64-bit integer scaled with a fixed 64-bit floating point value.
     ScaledInteger { min: i64, max: i64, scale: f64 },
+    /// Signed 64-bit integer value.
+    Integer { min: i64, max: i64 },
 }
 
 /// Used to describe the prototype records with all attributes that exit in the point cloud.
