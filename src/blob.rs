@@ -4,6 +4,7 @@ use crate::{Error, Result};
 use roxmltree::Node;
 use std::io::{copy, Read, Seek, Write};
 
+/// Describes a binary data blob stored inside an E57 file.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct Blob {

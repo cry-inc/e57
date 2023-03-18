@@ -24,7 +24,7 @@ use std::path::Path;
 
 const MAX_XML_SIZE: usize = 1024 * 1024 * 10;
 
-/// Main interface for dealing with E57 files.
+/// Main interface for reading E57 files.
 pub struct E57<T: Read + Seek> {
     reader: PagedReader<T>,
     header: Header,

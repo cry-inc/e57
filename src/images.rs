@@ -24,6 +24,7 @@ pub struct Image {
     pub sensor_serial: Option<String>,
 }
 
+/// Contains one of the tree possible types for projectable images.
 #[derive(Debug, Clone)]
 pub enum Representation {
     Pinhole(PinholeRepresentation),
@@ -31,12 +32,14 @@ pub enum Representation {
     Cylindrical(CylindricalRepresentation),
 }
 
+/// File format of an image stored inside the E57 file as blob.
 #[derive(Debug, Clone)]
 pub enum ImageFormat {
     Png,
     Jpeg,
 }
 
+/// Contains a blob with image data and the corresponding file type.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct ImageBlob {
@@ -44,6 +47,9 @@ pub struct ImageBlob {
     pub format: ImageFormat,
 }
 
+/// A visual reference image for preview and illustration purposes.
+///
+/// Such images cannot be mapped to points and are not projectable!
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct VisualReference {
@@ -53,6 +59,7 @@ pub struct VisualReference {
     pub height: u32,
 }
 
+/// Describes an image with a pinhole camera projection model.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct PinholeRepresentation {
@@ -67,6 +74,7 @@ pub struct PinholeRepresentation {
     pub principal_y: f64,
 }
 
+/// Describes an image with a spherical projection model.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct SphericalRepresentation {
@@ -78,6 +86,7 @@ pub struct SphericalRepresentation {
     pub pixel_height: f64,
 }
 
+/// Describes an image with a cylindrical projection model.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct CylindricalRepresentation {

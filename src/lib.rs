@@ -1,3 +1,7 @@
+//! A pure Rust library for reading E57 files without unsafe code.
+//!
+//! Some example code can be found [here](https://github.com/cry-inc/e57/tree/master/tools) in the GitHub repository.
+
 #![forbid(unsafe_code)]
 
 mod bitpack;
