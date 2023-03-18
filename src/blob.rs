@@ -8,7 +8,9 @@ use std::io::{copy, Read, Seek, Write};
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct Blob {
+    /// Physical file offset of the binary blob section in the E57 file.
     pub offset: u64,
+    /// The logical size of the associated binary blob in bytes.
     pub length: u64,
 }
 

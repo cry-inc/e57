@@ -11,31 +11,47 @@ use roxmltree::{Document, Node};
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct Image {
+    /// Globally unique identifier for the image object.
     pub guid: String,
+    /// Preview/illustration image that does not define any camera projection model.
     pub visual_reference: Option<VisualReference>,
+    /// Image that includes a projection model.
     pub representation: Option<Representation>,
+    /// Transforms the local coordinate system of the image to the file-level coordinate system.
     pub transform: Option<Transform>,
+    /// GUID of the pointcloud that was captured with this image.
     pub pointcloud_guid: Option<String>,
+    /// User-defined name for the image.
     pub name: Option<String>,
+    /// User-defined description for the image.
     pub description: Option<String>,
+    /// Date and time when this image was captured.
     pub acquisition: Option<DateTime>,
+    /// The name of the manufacturer for the sensor used to capture the image.
     pub sensor_vendor: Option<String>,
+    /// The model name or number for the sensor used to capture the image.
     pub sensor_model: Option<String>,
+    /// The serial number of the sensor used to capture the image.
     pub sensor_serial: Option<String>,
 }
 
 /// Contains one of the tree possible types for projectable images.
 #[derive(Debug, Clone)]
 pub enum Representation {
+    /// Image with a pinhole projection model.
     Pinhole(PinholeRepresentation),
+    /// Image with a spherical projection model.
     Spherical(SphericalRepresentation),
+    /// Image with a cylindrical projection model.
     Cylindrical(CylindricalRepresentation),
 }
 
 /// File format of an image stored inside the E57 file as blob.
 #[derive(Debug, Clone)]
 pub enum ImageFormat {
+    /// Portable Network Graphics (PNG) image format.
     Png,
+    /// JPEG File Interchange Format (JFIF) image format.
     Jpeg,
 }
 
@@ -43,7 +59,9 @@ pub enum ImageFormat {
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct ImageBlob {
+    /// Descriptor for the binary blob of the image.
     pub data: Blob,
+    /// Image format of the file referenced by the blob.
     pub format: ImageFormat,
 }
 
@@ -53,9 +71,18 @@ pub struct ImageBlob {
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct VisualReference {
+    /// Reference to the binary image data.
     pub blob: ImageBlob,
+    /// Reference to a PNG image with a mask for non-rectangular images.
+    ///
+    /// The mask is used to indicate which pixels in the image are valid.
+    /// The mask dimension are the same as the image itself.
+    /// It has non-zero-valued pixels at locations where the image is valid
+    /// and zero-valued pixels at locations where it is invalid.
     pub mask: Option<Blob>,
+    /// Width of the image in pixels.
     pub width: u32,
+    /// Height of the image in pixels.
     pub height: u32,
 }
 
@@ -63,14 +90,28 @@ pub struct VisualReference {
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct PinholeRepresentation {
+    /// Reference to the binary image data.
     pub blob: ImageBlob,
+    /// Reference to a PNG image with a mask for non-rectangular images.
+    ///
+    /// The mask is used to indicate which pixels in the image are valid.
+    /// The mask dimension are the same as the image itself.
+    /// It has non-zero-valued pixels at locations where the image is valid
+    /// and zero-valued pixels at locations where it is invalid.
     pub mask: Option<Blob>,
+    /// Width of the image in pixels.
     pub width: u32,
+    /// Height of the image in pixels.
     pub height: u32,
+    /// The cameras focal length in meters.
     pub focal_length: f64,
+    /// The width of a pixel in meters.
     pub pixel_width: f64,
+    /// The height of a pixel in meters.
     pub pixel_height: f64,
+    /// The X coordinate of the principal point in pixels.
     pub principal_x: f64,
+    /// The Y coordinate of the principal point in pixels.
     pub principal_y: f64,
 }
 
@@ -78,11 +119,22 @@ pub struct PinholeRepresentation {
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct SphericalRepresentation {
+    /// Reference to the binary image data.
     pub blob: ImageBlob,
+    /// Reference to a PNG image with a mask for non-rectangular images.
+    ///
+    /// The mask is used to indicate which pixels in the image are valid.
+    /// The mask dimension are the same as the image itself.
+    /// It has non-zero-valued pixels at locations where the image is valid
+    /// and zero-valued pixels at locations where it is invalid.
     pub mask: Option<Blob>,
+    /// Width of the image in pixels.
     pub width: u32,
+    /// Height of the image in pixels.
     pub height: u32,
+    /// The width of a pixel in radians.
     pub pixel_width: f64,
+    /// The height of a pixel in radians.
     pub pixel_height: f64,
 }
 
@@ -90,13 +142,26 @@ pub struct SphericalRepresentation {
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct CylindricalRepresentation {
+    /// Reference to the binary image data.
     pub blob: ImageBlob,
+    /// Reference to a PNG image with a mask for non-rectangular images.
+    ///
+    /// The mask is used to indicate which pixels in the image are valid.
+    /// The mask dimension are the same as the image itself.
+    /// It has non-zero-valued pixels at locations where the image is valid
+    /// and zero-valued pixels at locations where it is invalid.
     pub mask: Option<Blob>,
+    /// Width of the image in pixels.
     pub width: u32,
+    /// Height of the image in pixels.
     pub height: u32,
+    /// The closest distance from the cylindrical image surface to the center of projection in meters.
     pub radius: f64,
+    /// The Y coordinate of the principal point in pixels.
     pub principal_y: f64,
+    /// The width of a pixel in radians.
     pub pixel_width: f64,
+    /// The height of a pixel in radians.
     pub pixel_height: f64,
 }
 
