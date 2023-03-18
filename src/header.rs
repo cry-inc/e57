@@ -2,6 +2,7 @@ use crate::error::Converter;
 use crate::error::WRONG_OFFSET;
 use crate::Error;
 use crate::Result;
+use std::io::Read;
 
 const EXPECTED_SIGNATURE: &[u8] = "ASTM-E57".as_bytes();
 const EXPECTED_MAJOR_VERSION: u32 = 1;
@@ -63,5 +64,13 @@ impl Header {
         }
 
         Ok(header)
+    }
+
+    pub fn read(reader: &mut dyn Read) -> Result<Self> {
+        let mut buffer = [0_u8; 48];
+        reader
+            .read_exact(&mut buffer)
+            .read_err("Failed to read E57 file header")?;
+        Self::from_array(&buffer)
     }
 }

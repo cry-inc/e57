@@ -37,14 +37,8 @@ pub struct E57<T: Read + Seek> {
 impl<T: Read + Seek> E57<T> {
     /// Creates a new E57 instance for from a reader.
     pub fn from_reader(mut reader: T) -> Result<Self> {
-        // Read binary file header
-        let mut header_bytes = [0_u8; 48];
-        reader
-            .read_exact(&mut header_bytes)
-            .read_err("Failed to read file header")?;
-
-        // Parse and validate E57 header
-        let header = Header::from_array(&header_bytes)?;
+        // Read, parse and validate E57 header
+        let header = Header::read(&mut reader)?;
 
         // Set up paged reader for the CRC page layer
         let mut reader = PagedReader::new(reader, header.page_size)
