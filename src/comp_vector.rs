@@ -6,18 +6,20 @@ use crate::Result;
 use std::io::{Read, Seek};
 
 #[derive(Debug)]
-pub struct CompressedVectorHeader {
-    pub _section_length: u64,
+pub struct CompressedVectorSectionHeader {
+    _section_id: u8,
+    _section_length: u64,
     pub data_start_offset: u64,
-    pub _index_start_offset: u64,
+    _index_start_offset: u64,
 }
 
-impl CompressedVectorHeader {
+impl CompressedVectorSectionHeader {
     pub fn from_array(buffer: &[u8; 32]) -> Result<Self> {
         if buffer[0] != 1 {
             Error::invalid("Section ID of the compressed vector section header is not 1")?
         }
         Ok(Self {
+            _section_id: buffer[0],
             _section_length: u64::from_le_bytes(
                 buffer[8..16].try_into().internal_err(WRONG_OFFSET)?,
             ),
@@ -32,12 +34,12 @@ impl CompressedVectorHeader {
 
     pub fn from_reader<T: Read + Seek>(
         reader: &mut PagedReader<T>,
-    ) -> Result<CompressedVectorHeader> {
+    ) -> Result<CompressedVectorSectionHeader> {
         let mut buffer = [0_u8; 32];
         reader
             .read_exact(&mut buffer)
             .read_err("Failed to read compressed vector section header")?;
-        CompressedVectorHeader::from_array(&buffer)
+        CompressedVectorSectionHeader::from_array(&buffer)
     }
 }
 
@@ -116,7 +118,7 @@ impl PacketHeader {
 
 #[derive(Debug)]
 pub struct PacketFlags {
-    pub _compressor_restart: bool,
+    _compressor_restart: bool,
 }
 
 impl PacketFlags {

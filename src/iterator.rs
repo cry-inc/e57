@@ -1,6 +1,6 @@
 use crate::bitpack::BitPack;
 use crate::byte_stream::ByteStream;
-use crate::comp_vector::CompressedVectorHeader;
+use crate::comp_vector::CompressedVectorSectionHeader;
 use crate::comp_vector::PacketHeader;
 use crate::error::Converter;
 use crate::paged_reader::PagedReader;
@@ -49,7 +49,7 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
         reader
             .seek_physical(pc.file_offset)
             .read_err("Cannot seek to compressed vector header")?;
-        let section_header = CompressedVectorHeader::from_reader(reader)?;
+        let section_header = CompressedVectorSectionHeader::from_reader(reader)?;
         reader
             .seek_physical(section_header.data_start_offset)
             .read_err("Cannot seek to packet header")?;
