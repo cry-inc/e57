@@ -10,6 +10,8 @@ A pure Rust library for reading E57 files. No unsafe code, no bloaty dependencie
 
 The scope is for now limited to reading E57 files, but this might change in the future.
 
+Check out the [tools folder](tools/) for some code examples that show how to use the library.
+
 ## Please report incompatible files!
 If you found an E57 file that works with other software but produces an error with this crate,
 please let me know and create an issue on Github.
