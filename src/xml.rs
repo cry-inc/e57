@@ -1,4 +1,7 @@
-use crate::{date_time::date_time_from_node, error::Converter, DateTime, Error, Result};
+use crate::{
+    date_time::date_time_from_node, error::Converter, transform::transform_from_node, DateTime,
+    Error, Result, Transform,
+};
 use roxmltree::Node;
 use std::str::FromStr;
 
@@ -63,11 +66,14 @@ pub fn required_double(parent_node: &Node, tag_name: &str) -> Result<f64> {
     double.invalid_err(format!("XML tag '{tag_name}' was not found"))
 }
 
-pub fn optional_integer(parent_node: &Node, tag_name: &str) -> Result<Option<i64>> {
+pub fn optional_integer<T: FromStr + Sync + Send>(
+    parent_node: &Node,
+    tag_name: &str,
+) -> Result<Option<T>> {
     optional_number(parent_node, tag_name, "Integer")
 }
 
-pub fn required_integer(parent_node: &Node, tag_name: &str) -> Result<i64> {
+pub fn required_integer<T: FromStr + Send + Sync>(parent_node: &Node, tag_name: &str) -> Result<T> {
     let integer = optional_number(parent_node, tag_name, "Integer")?;
     integer.invalid_err(format!("XML tag '{tag_name}' was not found"))
 }
@@ -85,6 +91,15 @@ pub fn optional_date_time(parent_node: &Node, tag_name: &str) -> Result<Option<D
             Error::invalid(format!("XML tag '{tag_name}' has no 'type' attribute"))?
         }
         date_time_from_node(&tag)
+    } else {
+        Ok(None)
+    }
+}
+
+pub fn optional_transform(parent_node: &Node, tag_name: &str) -> Result<Option<Transform>> {
+    let node = parent_node.children().find(|n| n.has_tag_name(tag_name));
+    if let Some(node) = node {
+        Ok(Some(transform_from_node(&node)?))
     } else {
         Ok(None)
     }

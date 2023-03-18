@@ -1,12 +1,16 @@
+use crate::blob::extract_blob;
 use crate::error::Converter;
+use crate::images::images_from_document;
 use crate::iterator::pointcloud_iterator;
 use crate::paged_reader::PagedReader;
 use crate::pointcloud::pointclouds_from_document;
 use crate::root::root_from_document;
 use crate::root::Root;
+use crate::Blob;
 use crate::DateTime;
 use crate::Error;
 use crate::Header;
+use crate::Image;
 use crate::PointCloud;
 use crate::PointCloudIterator;
 use crate::Result;
@@ -15,6 +19,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::io::Read;
 use std::io::Seek;
+use std::io::Write;
 use std::path::Path;
 
 const MAX_XML_SIZE: usize = 1024 * 1024 * 10;
@@ -26,6 +31,7 @@ pub struct E57<T: Read + Seek> {
     xml: String,
     root: Root,
     pointclouds: Vec<PointCloud>,
+    images: Vec<Image>,
 }
 
 impl<T: Read + Seek> E57<T> {
@@ -54,6 +60,7 @@ impl<T: Read + Seek> E57<T> {
         let document = Document::parse(&xml).invalid_err("Failed to parse XML data")?;
         let root = root_from_document(&document)?;
         let pointclouds = pointclouds_from_document(&document)?;
+        let images = images_from_document(&document)?;
 
         Ok(Self {
             reader,
@@ -61,6 +68,7 @@ impl<T: Read + Seek> E57<T> {
             xml,
             root,
             pointclouds,
+            images,
         })
     }
 
@@ -92,6 +100,16 @@ impl<T: Read + Seek> E57<T> {
     /// Returns an iterator for the requested point cloud.
     pub fn pointcloud(&mut self, pc: &PointCloud) -> Result<PointCloudIterator<T>> {
         pointcloud_iterator(pc, &mut self.reader)
+    }
+
+    /// Returns a list of all images in the file.
+    pub fn images(&self) -> Vec<Image> {
+        self.images.clone()
+    }
+
+    /// Writes the content of a blob to the supplied writer and returns the number of written bytes.
+    pub fn blob(&mut self, blob: &Blob, writer: &mut dyn Write) -> Result<u64> {
+        extract_blob(&mut self.reader, blob, writer)
     }
 
     /// Returns the optional creation date and time of the file.
@@ -191,6 +209,7 @@ impl E57<BufReader<File>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::images::Representation;
     use crate::{LimitValue, Point, Record};
     use std::io::{BufWriter, Write};
 
@@ -340,7 +359,7 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn debug() {
+    fn debug_pointclouds() {
         let mut reader = E57::from_file("testdata/bunnyInt19.e57").unwrap();
         std::fs::write("dump.xml", reader.xml()).unwrap();
 
@@ -391,6 +410,37 @@ mod tests {
                     .unwrap();
             }
             writer.write_fmt(format_args!("\n")).unwrap();
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn debug_images() {
+        let file = "./testdata/pumpA_visual_image.e57";
+        let mut reader = E57::from_file(file).unwrap();
+        std::fs::write("dump.xml", reader.xml()).unwrap();
+        let images = reader.images();
+        for (index, img) in images.iter().enumerate() {
+            println!("Image {index}: {img:#?}");
+            if let Some(preview) = &img.visual_reference {
+                let ext = format!("{:?}", preview.blob.format).to_lowercase();
+                let filename = format!("preview_{index}.{ext}");
+                let mut file = File::create(filename).unwrap();
+                let size = reader.blob(&preview.blob.data, &mut file).unwrap();
+                println!("Exported preview image with {size} bytes");
+            }
+            if let Some(rep) = &img.representation {
+                let (blob, type_name) = match rep {
+                    Representation::Pinhole(rep) => (&rep.blob, "pinhole"),
+                    Representation::Spherical(rep) => (&rep.blob, "spherical"),
+                    Representation::Cylindrical(rep) => (&rep.blob, "cylindrical"),
+                };
+                let ext = format!("{:?}", blob.format).to_lowercase();
+                let filename = format!("{type_name}_{index}.{ext}");
+                let mut file = File::create(filename).unwrap();
+                let size = reader.blob(&blob.data, &mut file).unwrap();
+                println!("Exported image image with {size} bytes");
+            }
         }
     }
 }

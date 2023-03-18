@@ -4,8 +4,9 @@ use crate::bounds::{
 use crate::error::Converter;
 use crate::limits::{color_limits_from_node, intensity_limits_from_node};
 use crate::record::record_type_from_node;
-use crate::transform::transform_from_node;
-use crate::xml::{optional_date_time, optional_double, optional_string, required_string};
+use crate::xml::{
+    optional_date_time, optional_double, optional_string, optional_transform, required_string,
+};
 use crate::{
     CartesianBounds, ColorLimits, DateTime, Error, IndexBounds, IntensityLimits, Record, Result,
     SphericalBounds, Transform,
@@ -74,14 +75,14 @@ pub fn pointclouds_from_document(document: &Document) -> Result<Vec<PointCloud>>
         .find(|n| n.has_tag_name("data3D"))
         .invalid_err("Cannot find 'data3D' tag in XML document")?;
 
-    let mut data3d = Vec::new();
+    let mut pointclouds = Vec::new();
     for n in data3d_node.children() {
         if n.has_tag_name("vectorChild") && n.attribute("type") == Some("Structure") {
-            let point_cloud = extract_pointcloud(&n)?;
-            data3d.push(point_cloud);
+            let pointcloud = extract_pointcloud(&n)?;
+            pointclouds.push(pointcloud);
         }
     }
-    Ok(data3d)
+    Ok(pointclouds)
 }
 
 fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
@@ -99,8 +100,7 @@ fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
     let atmospheric_pressure = optional_double(node, "atmosphericPressure")?;
     let acquisition_start = optional_date_time(node, "acquisitionStart")?;
     let acquisition_end = optional_date_time(node, "acquisitionEnd")?;
-
-    let transform = node.children().find(|n| n.has_tag_name("pose"));
+    let transform = optional_transform(node, "pose")?;
     let cartesian_bounds = node.children().find(|n| n.has_tag_name("cartesianBounds"));
     let spherical_bounds = node.children().find(|n| n.has_tag_name("sphericalBounds"));
     let index_bounds = node.children().find(|n| n.has_tag_name("indexBounds"));
@@ -204,11 +204,7 @@ fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
         } else {
             None
         },
-        transform: if let Some(node) = transform {
-            Some(transform_from_node(&node)?)
-        } else {
-            None
-        },
+        transform,
         description,
         acquisition_start,
         acquisition_end,
