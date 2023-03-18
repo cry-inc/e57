@@ -24,6 +24,13 @@ pub enum Error {
         source: Option<Box<dyn StdError + Send + Sync + 'static>>,
     },
 
+    /// Something went wrong while writing data to an E57 file.
+    /// Typically this is caused by an IO error outside the library.
+    Write {
+        desc: String,
+        source: Option<Box<dyn StdError + Send + Sync + 'static>>,
+    },
+
     /// Some feature or aspect of E57 that is not yet implement by this library.
     NotImplemented { desc: String },
 
@@ -77,6 +84,7 @@ impl Display for Error {
             Error::Read { desc, .. } => write!(f, "Failed to read E57: {desc}"),
             Error::Internal { desc, .. } => write!(f, "Internal error: {desc}"),
             Error::NotImplemented { desc } => write!(f, "Not implemented: {desc}"),
+            Error::Write { desc, .. } => write!(f, "Failed to write E57: {desc}"),
         }
     }
 }
@@ -91,6 +99,9 @@ impl StdError for Error {
                 .as_ref()
                 .map(|s| s.as_ref() as &(dyn StdError + 'static)),
             Error::Internal { source, .. } => source
+                .as_ref()
+                .map(|s| s.as_ref() as &(dyn StdError + 'static)),
+            Error::Write { source, .. } => source
                 .as_ref()
                 .map(|s| s.as_ref() as &(dyn StdError + 'static)),
             Error::NotImplemented { .. } => None,
@@ -112,6 +123,10 @@ pub trait Converter<T, E> {
         C: Display + Send + Sync + 'static;
 
     fn internal_err<C>(self, context: C) -> Result<T>
+    where
+        C: Display + Send + Sync + 'static;
+
+    fn write_err<C>(self, context: C) -> Result<T>
     where
         C: Display + Send + Sync + 'static;
 }
@@ -159,6 +174,19 @@ where
             }),
         }
     }
+
+    fn write_err<C>(self, desc: C) -> Result<T>
+    where
+        C: Display + Send + Sync + 'static,
+    {
+        match self {
+            Ok(ok) => Ok(ok),
+            Err(error) => Err(Error::Write {
+                desc: desc.to_string(),
+                source: Some(Box::new(error)),
+            }),
+        }
+    }
 }
 
 /// Create an library Error from Option instances.
@@ -196,6 +224,19 @@ impl<T> Converter<T, Infallible> for Option<T> {
         match self {
             Some(ok) => Ok(ok),
             None => Err(Error::Internal {
+                desc: desc.to_string(),
+                source: None,
+            }),
+        }
+    }
+
+    fn write_err<C>(self, desc: C) -> Result<T>
+    where
+        C: Display + Send + Sync + 'static,
+    {
+        match self {
+            Some(ok) => Ok(ok),
+            None => Err(Error::Write {
                 desc: desc.to_string(),
                 source: None,
             }),
