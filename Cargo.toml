@@ -13,14 +13,15 @@ include = [
     "**/*.rs",
     "Cargo.toml",
     "LICENSE",
-    "README.md"
+    "README.md",
 ]
 
 [workspace]
 members = [
     "tools/extract-xml",
     "tools/e57-to-xyz",
-    "tools/crc-validator"
+    "tools/crc-validator",
+    "tools/extract-images",
 ]
 
 [dependencies]
