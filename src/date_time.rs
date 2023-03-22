@@ -37,3 +37,18 @@ pub fn date_time_from_node(node: &Node) -> Result<Option<DateTime>> {
         atomic_reference,
     }))
 }
+
+pub fn serialize_date_time(dt: &DateTime, tag_name: &str) -> String {
+    let mut xml = String::new();
+    xml += &format!("<{tag_name} type=\"Structure\">\n");
+    xml += &format!(
+        "<dateTimeValue type=\"Float\">{}</dateTimeValue>\n",
+        dt.gps_time
+    );
+    xml += &format!(
+        "<isAtomicClockReferenced type=\"Integer\">{}</dateTimeValue>\n",
+        if dt.atomic_reference { "1" } else { "0" }
+    );
+    xml += &format!("</{tag_name}>\n");
+    xml
+}

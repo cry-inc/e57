@@ -153,3 +153,60 @@ where
         "Cannot find '{attribute}' for type '{type_name}' in XML tag '{tag_name}'"
     ))
 }
+
+fn serialize_record_type(rt: &RecordType) -> String {
+    match rt {
+        RecordType::Single { min, max } => {
+            let mut str = String::from("type=\"Float\" precision=\"Single\"");
+            if let Some(min) = min {
+                str += &format!(" minimum=\"{min}\"");
+            }
+            if let Some(max) = max {
+                str += &format!(" maximum=\"{max}\"");
+            }
+            str
+        }
+        RecordType::Double { min, max } => {
+            let mut str = String::from("type=\"Float\"");
+            if let Some(min) = min {
+                str += &format!(" minimum=\"{min}\"");
+            }
+            if let Some(max) = max {
+                str += &format!(" maximum=\"{max}\"");
+            }
+            str
+        }
+        RecordType::ScaledInteger { min, max, scale } => {
+            format!("type=\"ScaledInteger\" minimum=\"{min}\" maximum=\"{max}\"  scale=\"{scale}\"")
+        }
+        RecordType::Integer { min, max } => {
+            format!("type=\"Integer\" minimum=\"{min}\" maximum=\"{max}\"")
+        }
+    }
+}
+
+pub fn serialize_record(record: &Record) -> String {
+    let (tag_name, type_attrs) = match record {
+        Record::CartesianX(t) => ("cartesianX", serialize_record_type(t)),
+        Record::CartesianY(t) => ("cartesianY", serialize_record_type(t)),
+        Record::CartesianZ(t) => ("cartesianZ", serialize_record_type(t)),
+        Record::CartesianInvalidState(t) => ("cartesianInvalidState", serialize_record_type(t)),
+        Record::SphericalRange(t) => ("sphericalRange", serialize_record_type(t)),
+        Record::SphericalAzimuth(t) => ("sphericalAzimuth", serialize_record_type(t)),
+        Record::SphericalElevation(t) => ("sphericalElevation", serialize_record_type(t)),
+        Record::SphericalInvalidState(t) => ("sphericalInvalidState", serialize_record_type(t)),
+        Record::Intensity(t) => ("intensity", serialize_record_type(t)),
+        Record::IsIntensityInvalid(t) => ("isIntensityInvalid", serialize_record_type(t)),
+        Record::ColorRed(t) => ("colorRed", serialize_record_type(t)),
+        Record::ColorGreen(t) => ("colorGreen", serialize_record_type(t)),
+        Record::ColorBlue(t) => ("colorBlue", serialize_record_type(t)),
+        Record::IsColorInvalid(t) => ("isColorInvalid", serialize_record_type(t)),
+        Record::RowIndex(t) => ("rowIndex", serialize_record_type(t)),
+        Record::ColumnIndex(t) => ("columnIndex", serialize_record_type(t)),
+        Record::ReturnCount(t) => ("returnCount", serialize_record_type(t)),
+        Record::ReturnIndex(t) => ("returnIndex", serialize_record_type(t)),
+        Record::TimeStamp(t) => ("timeStamp", serialize_record_type(t)),
+        Record::IsTimeStampInvalid(t) => ("isTimeStampInvalid", serialize_record_type(t)),
+    };
+    format!("<{tag_name} {type_attrs}/>\n")
+}

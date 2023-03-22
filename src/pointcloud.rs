@@ -3,7 +3,7 @@ use crate::bounds::{
 };
 use crate::error::Converter;
 use crate::limits::{color_limits_from_node, intensity_limits_from_node};
-use crate::record::record_type_from_node;
+use crate::record::{record_type_from_node, serialize_record};
 use crate::xml::{
     optional_date_time, optional_double, optional_string, optional_transform, required_string,
 };
@@ -17,7 +17,7 @@ use roxmltree::{Document, Node};
 ///
 /// This struct does not contain any actual point data,
 /// it just describes the properties and attributes of a point cloud.
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, Default)]
 #[non_exhaustive]
 pub struct PointCloud {
     /// Globally unique identifier for the point cloud.
@@ -218,4 +218,28 @@ fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
         humidity,
         atmospheric_pressure,
     })
+}
+
+pub fn serialize_pointcloud(pointcloud: &PointCloud) -> Result<String> {
+    let mut xml = String::new();
+    xml += "<vectorChild type=\"Structure\">\n";
+    if pointcloud.guid.is_empty() {
+        Error::invalid("Empty point cloud GUID is not allowed")?
+    }
+    xml += &format!(
+        "<guid type=\"String\"><![CDATA[{}]]></guid>\n",
+        pointcloud.guid
+    );
+    xml += &format!(
+        "<points type=\"CompressedVector\" fileOffset=\"{}\" recordCount=\"{}\">\n",
+        pointcloud.file_offset, pointcloud.records
+    );
+    xml += "<prototype type=\"Structure\">\n";
+    for record in &pointcloud.prototype {
+        xml += &serialize_record(record);
+    }
+    xml += "</prototype>\n";
+    xml += "</points>\n";
+    xml += "</vectorChild>\n";
+    Ok(xml)
 }
