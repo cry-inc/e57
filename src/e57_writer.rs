@@ -40,6 +40,7 @@ impl<T: Write + Read + Seek> E57Writer<T> {
             .write_err("Failed to write temporary compressed vector section header")?;
 
         let mut point = 0;
+        let mut section_length = 32;
         let max_points_per_buffer: usize = 64000 / 3 / 8;
         while point < points.len() {
             let mut buffer_x = Vec::new();
@@ -60,8 +61,14 @@ impl<T: Write + Read + Seek> E57Writer<T> {
 
             let mut data_packet_header = [0_u8; 6];
             data_packet_header[0] = 1;
-            let data_packet_length =
-                (6 + 3 * 2 + buffer_x.len() + buffer_y.len() + buffer_z.len() - 1) as u16;
+            let mut data_packet_length =
+                6 + 3 * 2 + buffer_x.len() + buffer_y.len() + buffer_z.len();
+            if data_packet_length % 4 != 0 {
+                let missing = 4 - (data_packet_length % 4);
+                data_packet_length += missing;
+            }
+            section_length += data_packet_length as u64;
+            let data_packet_length = (data_packet_length - 1) as u16;
             data_packet_header[2..4].copy_from_slice(&data_packet_length.to_le_bytes());
             data_packet_header[4..6].copy_from_slice(&3_u16.to_le_bytes());
             self.writer
@@ -95,6 +102,23 @@ impl<T: Write + Read + Seek> E57Writer<T> {
                 "Failed to align writer on next 4-byte offset after writing data packet",
             )?;
         }
+
+        // We need to write the section header again with the final length
+        // which was previously unknown and is now available.
+        let end_offset = self
+            .writer
+            .physical_position()
+            .write_err("Failed to get section end offset")?;
+        self.writer
+            .physical_seek(offset)
+            .write_err("Failed to seek to section start for final update")?;
+        comp_vec_header[8..16].copy_from_slice(&section_length.to_le_bytes());
+        self.writer
+            .write_all(&comp_vec_header)
+            .write_err("Failed to write final compressed vector section header")?;
+        self.writer
+            .physical_seek(end_offset)
+            .write_err("Failed to seek behind finalized section")?;
 
         let pointcloud = PointCloud {
             guid: guid.to_owned(),
@@ -169,7 +193,7 @@ impl E57Writer<File> {
 mod tests {
     use super::*;
     use crate::{CartesianCoordinate, E57Reader, Point};
-    use std::fs::File;
+    use std::fs::{remove_file, File};
     use std::path::Path;
 
     #[test]
@@ -219,7 +243,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn copy_double_test() {
         let in_path = Path::new("testdata/bunnyDouble.e57");
         let out_path = Path::new("bunny_copy.e57");
@@ -237,5 +260,17 @@ mod tests {
             writer.add_xyz_pointcloud("pc_guid", &points).unwrap();
             writer.finalize("file_guid").unwrap();
         }
+
+        let points_read = {
+            let mut reader = E57Reader::from_file(out_path).unwrap();
+            let pcs = reader.pointclouds();
+            let pc = pcs.first().unwrap();
+            let iter = reader.pointcloud(pc).unwrap();
+            iter.collect::<Result<Vec<Point>>>().unwrap()
+        };
+
+        assert_eq!(points.len(), points_read.len());
+
+        remove_file(out_path).unwrap();
     }
 }
