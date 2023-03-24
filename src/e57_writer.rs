@@ -91,7 +91,9 @@ impl<T: Write + Read + Seek> E57Writer<T> {
                 .write_all(&buffer_z)
                 .write_err("Cannot write data for Z")?;
 
-            // todo skip to 4 byte alignment?
+            self.writer.align().write_err(
+                "Failed to align writer on next 4-byte offset after writing data packet",
+            )?;
         }
 
         let pointcloud = PointCloud {

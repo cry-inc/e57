@@ -322,7 +322,7 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
 
         self.reader
             .align()
-            .read_err("Failed to align on 4-byte offset for next packet")?;
+            .read_err("Failed to align reader on next 4-byte offset after reading packet")?;
 
         Ok(())
     }

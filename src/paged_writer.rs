@@ -98,6 +98,18 @@ impl<T: Write + Read + Seek> PagedWriter<T> {
             .write_err("Cannot seek to previois position")?;
         Ok(size)
     }
+
+    /// Write some zeros to next 4-byte-aligned offset, if needed.
+    pub fn align(&mut self) -> Result<()> {
+        let mod_offset = self.offset % 4;
+        if mod_offset != 0 {
+            let skip = 4 - mod_offset;
+            let zeros = vec![0_u8; skip];
+            self.write_all(&zeros)
+                .write_err("Failed to write zero bytes for alignment")?;
+        }
+        Ok(())
+    }
 }
 
 impl<T: Write + Read + Seek> Write for PagedWriter<T> {
@@ -351,6 +363,31 @@ mod tests {
         // We expect the physical size to be two pages with CRC sums
         let size = writer.physical_size().unwrap();
         assert_eq!(size, PAGE_SIZE * 2);
+
+        remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn align() {
+        let path = Path::new("align.bin");
+        let file = File::create(&path).unwrap();
+        let mut writer = PagedWriter::new(file).unwrap();
+
+        writer.align().unwrap();
+        assert_eq!(writer.physical_position().unwrap(), 0);
+
+        let data = vec![1_u8; 2];
+        writer.write_all(&data).unwrap();
+        writer.align().unwrap();
+        assert_eq!(writer.physical_position().unwrap(), 4);
+
+        // Check file content
+        drop(writer);
+        let content = std::fs::read(path).unwrap();
+        assert_eq!(content[0], 1_u8);
+        assert_eq!(content[1], 1_u8);
+        assert_eq!(content[2], 0_u8);
+        assert_eq!(content[3], 0_u8);
 
         remove_file(path).unwrap();
     }

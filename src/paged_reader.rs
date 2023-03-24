@@ -111,8 +111,7 @@ impl<T: Read + Seek> PagedReader<T> {
     }
 
     /// Do some skipping to next 4-byte-aligned offset, if needed.
-    /// Returns the new logical offset relative to the beginning of the file.
-    pub fn align(&mut self) -> Result<u64> {
+    pub fn align(&mut self) -> Result<()> {
         let off_alignment = self.offset % 4;
         if off_alignment != 0 {
             let skip = ALIGNMENT_SIZE - off_alignment;
@@ -124,7 +123,7 @@ impl<T: Read + Seek> PagedReader<T> {
             }
             self.offset += skip;
         }
-        Ok(self.offset)
+        Ok(())
     }
 }
 
@@ -279,14 +278,14 @@ mod tests {
         let cursor = Cursor::new(data);
         let mut reader = PagedReader::new(cursor, 128).unwrap();
 
-        let pos = reader.align().unwrap();
-        assert_eq!(pos, 0);
+        reader.align().unwrap();
+        assert_eq!(reader.stream_position().unwrap(), 0);
 
         reader.seek(SeekFrom::Start(1)).unwrap();
-        let pos = reader.align().unwrap();
-        assert_eq!(pos, ALIGNMENT_SIZE);
+        reader.align().unwrap();
+        assert_eq!(reader.stream_position().unwrap(), ALIGNMENT_SIZE);
 
-        let pos = reader.align().unwrap();
-        assert_eq!(pos, ALIGNMENT_SIZE);
+        reader.align().unwrap();
+        assert_eq!(reader.stream_position().unwrap(), ALIGNMENT_SIZE);
     }
 }
