@@ -215,4 +215,25 @@ mod tests {
             println!("Points: {points:#?}");
         }
     }
+
+    #[test]
+    #[ignore]
+    fn copy_double_test() {
+        let in_path = Path::new("testdata/bunnyDouble.e57");
+        let out_path = Path::new("bunny_copy.e57");
+
+        let points = {
+            let mut reader = E57Reader::from_file(in_path).unwrap();
+            let pcs = reader.pointclouds();
+            let pc = pcs.first().unwrap();
+            let iter = reader.pointcloud(pc).unwrap();
+            iter.collect::<Result<Vec<Point>>>().unwrap()
+        };
+
+        {
+            let mut writer = E57Writer::from_file(out_path).unwrap();
+            writer.add_xyz_pointcloud("pc_guid", &points).unwrap();
+            writer.finalize("file_guid").unwrap();
+        }
+    }
 }
