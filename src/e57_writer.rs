@@ -1,3 +1,4 @@
+use crate::comp_vector::CompressedVectorSectionHeader;
 use crate::error::Converter;
 use crate::paged_writer::PagedWriter;
 use crate::root::{serialize_root, Root};
@@ -32,15 +33,12 @@ impl<T: Write + Read + Seek> E57Writer<T> {
 
     pub fn add_xyz_pointcloud(&mut self, guid: &str, points: &[Point]) -> Result<()> {
         let offset = self.writer.physical_position()?;
-        let mut comp_vec_header = [0_u8; 32];
-        comp_vec_header[0] = 1;
-        comp_vec_header[16..24].copy_from_slice(&(offset + 32).to_le_bytes());
-        self.writer
-            .write_all(&comp_vec_header)
-            .write_err("Failed to write temporary compressed vector section header")?;
+        let mut section_header = CompressedVectorSectionHeader::default();
+        section_header.data_offset = offset + CompressedVectorSectionHeader::SIZE;
+        section_header.write(&mut self.writer)?;
 
         let mut point = 0;
-        let mut section_length = 32;
+        let mut section_length = CompressedVectorSectionHeader::SIZE;
         let max_points_per_buffer: usize = 64000 / 3 / 8;
         while point < points.len() {
             let mut buffer_x = Vec::new();
@@ -112,10 +110,8 @@ impl<T: Write + Read + Seek> E57Writer<T> {
         self.writer
             .physical_seek(offset)
             .write_err("Failed to seek to section start for final update")?;
-        comp_vec_header[8..16].copy_from_slice(&section_length.to_le_bytes());
-        self.writer
-            .write_all(&comp_vec_header)
-            .write_err("Failed to write final compressed vector section header")?;
+        section_header.section_length = section_length;
+        section_header.write(&mut self.writer)?;
         self.writer
             .physical_seek(end_offset)
             .write_err("Failed to seek behind finalized section")?;

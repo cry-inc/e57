@@ -49,9 +49,9 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
         reader
             .seek_physical(pc.file_offset)
             .read_err("Cannot seek to compressed vector header")?;
-        let section_header = CompressedVectorSectionHeader::from_reader(reader)?;
+        let section_header = CompressedVectorSectionHeader::read(reader)?;
         reader
-            .seek_physical(section_header.data_start_offset)
+            .seek_physical(section_header.data_offset)
             .read_err("Cannot seek to packet header")?;
         let byte_streams = vec![ByteStream::new(); pc.prototype.len()];
         let pc = pc.clone();
