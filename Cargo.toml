@@ -8,7 +8,7 @@ documentation = "https://docs.rs/e57"
 license = "MIT"
 keywords = ["e57", "lidar", "pointclouds", "laserscanning", "geospatial"]
 categories = ["parser-implementations", "science::geo"]
-description = "A pure Rust library for reading E57 files with point clouds."
+description = "A pure Rust library for reading and writing E57 files with point clouds and related image data."
 include = [
     "**/*.rs",
     "Cargo.toml",
