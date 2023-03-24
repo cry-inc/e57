@@ -6,6 +6,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
 use std::path::Path;
 
+/// Main interface for writing E57 files.
 pub struct E57Writer<T: Read + Write + Seek> {
     writer: PagedWriter<T>,
     pointclouds: Vec<PointCloud>,
@@ -165,7 +166,7 @@ impl E57Writer<File> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{CartesianCoordinate, Point, E57};
+    use crate::{CartesianCoordinate, E57Reader, Point};
     use std::fs::File;
     use std::path::Path;
 
@@ -200,11 +201,11 @@ mod tests {
 
         {
             let file = File::open(path).unwrap();
-            let xml = E57::raw_xml(file).unwrap();
+            let xml = E57Reader::raw_xml(file).unwrap();
             std::fs::write("test.xml", xml).unwrap();
         }
 
-        let mut e57 = E57::from_file(path).unwrap();
+        let mut e57 = E57Reader::from_file(path).unwrap();
         let pointclouds = e57.pointclouds();
         for pc in pointclouds {
             println!("PC: {pc:#?}");

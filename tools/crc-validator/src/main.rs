@@ -5,7 +5,7 @@
  */
 
 use anyhow::{anyhow, bail, Context, Result};
-use e57::E57;
+use e57::E57Reader;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
@@ -79,7 +79,7 @@ fn check_files(files: &[String]) -> bool {
 
 fn check_file(file_str: &str) -> bool {
     match File::open(file_str) {
-        Ok(file) => match E57::validate_crc(BufReader::new(file)) {
+        Ok(file) => match E57Reader::validate_crc(BufReader::new(file)) {
             Ok(_) => {
                 println!("Validated file '{file_str}' successfully");
                 true

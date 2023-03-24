@@ -25,7 +25,7 @@ use std::path::Path;
 const MAX_XML_SIZE: usize = 1024 * 1024 * 10;
 
 /// Main interface for reading E57 files.
-pub struct E57<T: Read + Seek> {
+pub struct E57Reader<T: Read + Seek> {
     reader: PagedReader<T>,
     header: Header,
     xml: String,
@@ -34,9 +34,9 @@ pub struct E57<T: Read + Seek> {
     images: Vec<Image>,
 }
 
-impl<T: Read + Seek> E57<T> {
+impl<T: Read + Seek> E57Reader<T> {
     /// Creates a new E57 instance for from a reader.
-    pub fn from_reader(mut reader: T) -> Result<Self> {
+    pub fn new(mut reader: T) -> Result<Self> {
         // Read, parse and validate E57 header
         let header = Header::read(&mut reader)?;
 
@@ -191,12 +191,12 @@ impl<T: Read + Seek> E57<T> {
     }
 }
 
-impl E57<BufReader<File>> {
+impl E57Reader<BufReader<File>> {
     /// Creates an E57 instance from a Path.
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self> {
         let file = File::open(path).read_err("Unable to open file")?;
         let reader = BufReader::new(file);
-        Self::from_reader(reader)
+        Self::new(reader)
     }
 }
 
@@ -209,7 +209,7 @@ mod tests {
 
     #[test]
     fn header() {
-        let reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
+        let reader = E57Reader::from_file("testdata/bunnyDouble.e57").unwrap();
 
         let header = reader.header();
         assert_eq!(header.major, 1);
@@ -220,15 +220,15 @@ mod tests {
     #[test]
     fn validate() {
         let file = File::open("testdata/bunnyDouble.e57").unwrap();
-        assert_eq!(E57::validate_crc(file).unwrap(), 1024);
+        assert_eq!(E57Reader::validate_crc(file).unwrap(), 1024);
 
         let file = File::open("testdata/corrupt_crc.e57").unwrap();
-        assert!(E57::validate_crc(file).is_err());
+        assert!(E57Reader::validate_crc(file).is_err());
     }
 
     #[test]
     fn xml() {
-        let reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
+        let reader = E57Reader::from_file("testdata/bunnyDouble.e57").unwrap();
         let header = reader.header();
         let xml = reader.xml();
         assert_eq!(xml.as_bytes().len(), header.xml_length as usize);
@@ -236,31 +236,31 @@ mod tests {
 
     #[test]
     fn raw_xml() {
-        let reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
+        let reader = E57Reader::from_file("testdata/bunnyDouble.e57").unwrap();
         let header = reader.header();
 
         let reader = File::open("testdata/bunnyDouble.e57").unwrap();
-        let xml = E57::raw_xml(reader).unwrap();
+        let xml = E57Reader::raw_xml(reader).unwrap();
         assert_eq!(xml.len(), header.xml_length as usize);
     }
 
     #[test]
     fn format_name() {
-        let reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
+        let reader = E57Reader::from_file("testdata/bunnyDouble.e57").unwrap();
         let format = reader.format_name();
         assert_eq!(format, "ASTM E57 3D Imaging Data File");
     }
 
     #[test]
     fn guid() {
-        let reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
+        let reader = E57Reader::from_file("testdata/bunnyDouble.e57").unwrap();
         let guid = reader.guid();
         assert_eq!(guid, "{19AA90ED-145E-4B3B-922C-80BC00648844}");
     }
 
     #[test]
     fn creation() {
-        let reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
+        let reader = E57Reader::from_file("testdata/bunnyDouble.e57").unwrap();
         let creation = reader.creation().unwrap();
         assert_eq!(creation.gps_time, 987369380.8049808);
         assert_eq!(creation.atomic_reference, false);
@@ -268,7 +268,7 @@ mod tests {
 
     #[test]
     fn pointclouds() {
-        let reader = E57::from_file("testdata/bunnyDouble.e57").unwrap();
+        let reader = E57Reader::from_file("testdata/bunnyDouble.e57").unwrap();
         let pcs = reader.pointclouds();
         assert_eq!(pcs.len(), 1);
         let pc = pcs.first().unwrap();
@@ -297,7 +297,7 @@ mod tests {
             "testdata/bunnyInt19.e57",
         ];
         for file in files {
-            let mut reader = E57::from_file(file).unwrap();
+            let mut reader = E57Reader::from_file(file).unwrap();
             let pcs = reader.pointclouds();
             let pc = pcs.first().unwrap();
             let points: Vec<Point> = reader.pointcloud(pc).unwrap().map(|p| p.unwrap()).collect();
@@ -308,7 +308,7 @@ mod tests {
     #[test]
     fn cartesian_bounds() {
         let file = "testdata/tinyCartesianFloatRgb.e57";
-        let reader = E57::from_file(file).unwrap();
+        let reader = E57Reader::from_file(file).unwrap();
         let pcs = reader.pointclouds();
         let pc = pcs.first().unwrap();
         let bounds = pc.cartesian_bounds.as_ref().unwrap();
@@ -323,7 +323,7 @@ mod tests {
     #[test]
     fn color_limits() {
         let file = "testdata/tinyCartesianFloatRgb.e57";
-        let reader = E57::from_file(file).unwrap();
+        let reader = E57Reader::from_file(file).unwrap();
         let pcs = reader.pointclouds();
         let pc = pcs.first().unwrap();
         let limits = pc.color_limits.as_ref().unwrap();
@@ -338,7 +338,7 @@ mod tests {
     #[test]
     fn simple_iterator_test() {
         let file = "testdata/tinyCartesianFloatRgb.e57";
-        let mut reader = E57::from_file(file).unwrap();
+        let mut reader = E57Reader::from_file(file).unwrap();
         let pcs = reader.pointclouds();
         let pc = pcs.first().unwrap();
         let mut counter = 0;
@@ -354,7 +354,7 @@ mod tests {
     #[test]
     #[ignore]
     fn debug_pointclouds() {
-        let mut reader = E57::from_file("testdata/bunnyInt19.e57").unwrap();
+        let mut reader = E57Reader::from_file("testdata/bunnyInt19.e57").unwrap();
         std::fs::write("dump.xml", reader.xml()).unwrap();
 
         let pcs = reader.pointclouds();
@@ -411,7 +411,7 @@ mod tests {
     #[ignore]
     fn debug_images() {
         let file = "./testdata/pumpA_visual_image.e57";
-        let mut reader = E57::from_file(file).unwrap();
+        let mut reader = E57Reader::from_file(file).unwrap();
         std::fs::write("dump.xml", reader.xml()).unwrap();
         let images = reader.images();
         for (index, img) in images.iter().enumerate() {

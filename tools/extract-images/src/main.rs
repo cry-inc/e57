@@ -3,7 +3,7 @@
  */
 
 use anyhow::{bail, Context, Result};
-use e57::{Representation, E57};
+use e57::{E57Reader, Representation};
 use std::fs::{write, File};
 
 fn main() -> Result<()> {
@@ -13,7 +13,7 @@ fn main() -> Result<()> {
     }
 
     // Open E57 and extract image metadata
-    let mut e57 = E57::from_file(&args[1]).context("Failed to open E57 file")?;
+    let mut e57 = E57Reader::from_file(&args[1]).context("Failed to open E57 file")?;
     let images = e57.images();
     let image_count = images.len();
     println!("Found {image_count} image(s) in the E57 file");

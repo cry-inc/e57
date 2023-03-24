@@ -10,7 +10,7 @@
  */
 
 use anyhow::{bail, Context, Result};
-use e57::E57;
+use e57::E57Reader;
 use std::env::args;
 use std::fs::File;
 use std::io::BufWriter;
@@ -25,7 +25,7 @@ fn main() -> Result<()> {
     let in_file = args[1].clone();
     let out_file = in_file.clone() + ".xyz";
 
-    let mut file = E57::from_file(in_file).context("Failed to open E57 file")?;
+    let mut file = E57Reader::from_file(in_file).context("Failed to open E57 file")?;
     let pc = file
         .pointclouds()
         .first()
