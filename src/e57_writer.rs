@@ -2,7 +2,9 @@ use crate::error::Converter;
 use crate::paged_writer::PagedWriter;
 use crate::root::{serialize_root, Root};
 use crate::{Header, Point, PointCloud, Record, RecordType, Result};
+use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
+use std::path::Path;
 
 pub struct E57Writer<T: Read + Write + Seek> {
     writer: PagedWriter<T>,
@@ -10,6 +12,9 @@ pub struct E57Writer<T: Read + Write + Seek> {
 }
 
 impl<T: Write + Read + Seek> E57Writer<T> {
+    /// Creates a new E57 generator from a writer that must also implement Read and Seek.
+    ///
+    /// Keep in mind that File::create() will not work as input because it only opens the file for writing!
     pub fn new(writer: T) -> Result<Self> {
         // Set up paged writer abstraction for CRC
         let mut writer = PagedWriter::new(writer)?;
@@ -143,25 +148,32 @@ impl<T: Write + Read + Seek> E57Writer<T> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{CartesianCoordinate, Point, E57};
-    use std::fs::{File, OpenOptions};
-    use std::path::Path;
-
-    #[test]
-    #[ignore]
-    fn write_read_cycle() {
-        let path = Path::new("test.e57");
+impl E57Writer<File> {
+    /// Creates an E57 writer instance from a Path.
+    pub fn from_file(path: impl AsRef<Path>) -> Result<Self> {
         let file = OpenOptions::new()
             .create(true)
             .write(true)
             .read(true)
             .truncate(true)
             .open(path)
-            .unwrap();
-        let mut e57_writer = E57Writer::new(file).unwrap();
+            .read_err("Unable to create file for writing, reading and seeking")?;
+        Self::new(file)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{CartesianCoordinate, Point, E57};
+    use std::fs::File;
+    use std::path::Path;
+
+    #[test]
+    #[ignore]
+    fn write_read_cycle() {
+        let path = Path::new("test.e57");
+        let mut e57_writer = E57Writer::from_file(path).unwrap();
         let points = [
             Point {
                 cartesian: Some(CartesianCoordinate {
