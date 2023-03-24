@@ -1,8 +1,8 @@
 use crate::bitpack::BitPack;
 use crate::byte_stream::ByteStream;
-use crate::comp_vector::CompressedVectorSectionHeader;
-use crate::comp_vector::PacketHeader;
+use crate::cv_section::CompressedVectorSectionHeader;
 use crate::error::Converter;
+use crate::packet::PacketHeader;
 use crate::paged_reader::PagedReader;
 use crate::point::Return;
 use crate::CartesianCoordinate;
@@ -193,23 +193,21 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
     }
 
     fn advance(&mut self) -> Result<()> {
-        let packet_header = PacketHeader::from_reader(self.reader)?;
+        let packet_header = PacketHeader::read(self.reader)?;
         match packet_header {
-            PacketHeader::Index { .. } => {
+            PacketHeader::Index(_) => {
                 Error::not_implemented("Index packets are not yet supported")?
             }
-            PacketHeader::Ignored { .. } => {
+            PacketHeader::Ignored(_) => {
                 Error::not_implemented("Ignored packets are not yet supported")?
             }
-            PacketHeader::Data {
-                bytestream_count, ..
-            } => {
-                if bytestream_count as usize != self.byte_streams.len() {
+            PacketHeader::Data(header) => {
+                if header.bytestream_count as usize != self.byte_streams.len() {
                     Error::invalid("Bytestream count does not match prototype size")?
                 }
 
                 let mut buffer_sizes = Vec::with_capacity(self.byte_streams.len());
-                for _ in 0..bytestream_count {
+                for _ in 0..header.bytestream_count {
                     let mut buf = [0_u8; 2];
                     self.reader
                         .read_exact(&mut buf)

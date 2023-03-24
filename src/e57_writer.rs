@@ -1,5 +1,6 @@
-use crate::comp_vector::CompressedVectorSectionHeader;
+use crate::cv_section::CompressedVectorSectionHeader;
 use crate::error::Converter;
+use crate::packet::DataPacketHeader;
 use crate::paged_writer::PagedWriter;
 use crate::root::{serialize_root, Root};
 use crate::{Header, Point, PointCloud, Record, RecordType, Result};
@@ -57,21 +58,19 @@ impl<T: Write + Read + Seek> E57Writer<T> {
                 point += 1;
             }
 
-            let mut data_packet_header = [0_u8; 6];
-            data_packet_header[0] = 1;
-            let mut data_packet_length =
-                6 + 3 * 2 + buffer_x.len() + buffer_y.len() + buffer_z.len();
-            if data_packet_length % 4 != 0 {
-                let missing = 4 - (data_packet_length % 4);
-                data_packet_length += missing;
+            let mut packet_length = 6 + 3 * 2 + points.len() as u64 * 3;
+            if packet_length % 4 != 0 {
+                let missing = 4 - (packet_length % 4);
+                packet_length += missing;
             }
-            section_length += data_packet_length as u64;
-            let data_packet_length = (data_packet_length - 1) as u16;
-            data_packet_header[2..4].copy_from_slice(&data_packet_length.to_le_bytes());
-            data_packet_header[4..6].copy_from_slice(&3_u16.to_le_bytes());
-            self.writer
-                .write_all(&data_packet_header)
-                .write_err("Failed to write temporary data packet header")?;
+            section_length += packet_length;
+
+            DataPacketHeader {
+                comp_restart_flag: false,
+                packet_length,
+                bytestream_count: 3,
+            }
+            .write(&mut self.writer)?;
 
             let x_buffer_size = (buffer_x.len() as u16).to_le_bytes();
             self.writer
