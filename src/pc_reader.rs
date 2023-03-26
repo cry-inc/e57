@@ -17,7 +17,7 @@ use std::collections::VecDeque;
 use std::io::{Read, Seek};
 
 /// Iterate over all points of a single point cloud.
-pub struct PointCloudIterator<'a, T: Read + Seek> {
+pub struct PointCloudReader<'a, T: Read + Seek> {
     pc: PointCloud,
     reader: &'a mut PagedReader<T>,
     byte_streams: Vec<ByteStream>,
@@ -44,7 +44,7 @@ pub struct PointCloudIterator<'a, T: Read + Seek> {
     queue_color_invalid: VecDeque<u8>,
 }
 
-impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
+impl<'a, T: Read + Seek> PointCloudReader<'a, T> {
     fn new(pc: &PointCloud, reader: &'a mut PagedReader<T>) -> Result<Self> {
         reader
             .seek_physical(pc.file_offset)
@@ -56,7 +56,7 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
         let byte_streams = vec![ByteStream::new(); pc.prototype.len()];
         let pc = pc.clone();
 
-        Ok(PointCloudIterator {
+        Ok(PointCloudReader {
             pc,
             reader,
             read: 0,
@@ -326,7 +326,7 @@ impl<'a, T: Read + Seek> PointCloudIterator<'a, T> {
     }
 }
 
-impl<'a, T: Read + Seek> Iterator for PointCloudIterator<'a, T> {
+impl<'a, T: Read + Seek> Iterator for PointCloudReader<'a, T> {
     type Item = Result<Point>;
     fn next(&mut self) -> Option<Self::Item> {
         // Already read all points?
@@ -352,11 +352,11 @@ impl<'a, T: Read + Seek> Iterator for PointCloudIterator<'a, T> {
     }
 }
 
-pub fn pointcloud_iterator<'a, T: Read + Seek>(
+pub fn pointcloud_reader<'a, T: Read + Seek>(
     pc: &PointCloud,
     reader: &'a mut PagedReader<T>,
-) -> Result<PointCloudIterator<'a, T>> {
-    PointCloudIterator::new(pc, reader)
+) -> Result<PointCloudReader<'a, T>> {
+    PointCloudReader::new(pc, reader)
 }
 
 fn append_vec_to_queue<T: Copy>(v: &Vec<T>, q: &mut VecDeque<T>) {
