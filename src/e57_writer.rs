@@ -115,7 +115,9 @@ mod tests {
             },
         ];
         let mut pc_writer = e57_writer.add_xyz_pointcloud("guid_pointcloud").unwrap();
-        pc_writer.add_points(&points).unwrap();
+        for p in points {
+            pc_writer.add_point(p).unwrap();
+        }
         pc_writer.finalize().unwrap();
         e57_writer.finalize("guid_file").unwrap();
         drop(e57_writer);
@@ -153,7 +155,9 @@ mod tests {
         {
             let mut writer = E57Writer::from_file(out_path).unwrap();
             let mut pc_writer = writer.add_xyz_pointcloud("pc_guid").unwrap();
-            pc_writer.add_points(&points).unwrap();
+            for p in &points {
+                pc_writer.add_point(p.clone()).unwrap();
+            }
             pc_writer.finalize().unwrap();
             writer.finalize("file_guid").unwrap();
         }

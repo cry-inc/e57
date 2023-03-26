@@ -7,6 +7,7 @@ use crate::PointCloud;
 use crate::Record;
 use crate::RecordType;
 use crate::Result;
+use std::collections::VecDeque;
 use std::io::{Read, Seek, Write};
 
 pub struct PointCloudWriter<'a, T: Read + Write + Seek> {
@@ -16,6 +17,8 @@ pub struct PointCloudWriter<'a, T: Read + Write + Seek> {
     section_header: CompressedVectorSectionHeader,
     prototype: Vec<Record>,
     point_count: u64,
+    buffer: VecDeque<Point>,
+    max_points_per_packet: usize,
 }
 
 impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
@@ -49,18 +52,22 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             section_header,
             prototype,
             point_count: 0,
+            buffer: VecDeque::new(),
+            max_points_per_packet: 64000 / 3 / 8,
         })
     }
 
-    pub fn add_points(&mut self, points: &[Point]) -> Result<()> {
-        let max_points_per_buffer: usize = 64000 / 3 / 8;
-        while self.point_count < points.len() as u64 {
+    fn write_buffer_to_disk(&mut self) -> Result<()> {
+        let packet_points = self.max_points_per_packet.min(self.buffer.len());
+        if packet_points > 0 {
             let mut buffer_x = Vec::new();
             let mut buffer_y = Vec::new();
             let mut buffer_z = Vec::new();
-            let packet_points = max_points_per_buffer.min(points.len() - self.point_count as usize);
             for _ in 0..packet_points {
-                let p = &points[self.point_count as usize];
+                let p = self
+                    .buffer
+                    .pop_front()
+                    .internal_err("Failed to get next point for writing")?;
                 let c = p
                     .cartesian
                     .as_ref()
@@ -68,9 +75,9 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
                 buffer_x.extend_from_slice(&c.x.to_le_bytes());
                 buffer_y.extend_from_slice(&c.y.to_le_bytes());
                 buffer_z.extend_from_slice(&c.z.to_le_bytes());
-                self.point_count += 1;
             }
 
+            // Calculate packet length for header
             let mut packet_length = DataPacketHeader::SIZE + 3 * 2 + packet_points as u64 * 8 * 3;
             if packet_length % 4 != 0 {
                 let missing = 4 - (packet_length % 4);
@@ -78,6 +85,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             }
             self.section_header.section_length += packet_length;
 
+            // Write header
             DataPacketHeader {
                 comp_restart_flag: false,
                 packet_length,
@@ -85,6 +93,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             }
             .write(&mut self.parent.writer)?;
 
+            // Write bytestream sizes as u16 values
             let x_buffer_size = (buffer_x.len() as u16).to_le_bytes();
             self.parent
                 .writer
@@ -101,6 +110,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
                 .write_all(&z_buffer_size)
                 .write_err("Cannot write data packet buffer size for Z")?;
 
+            // Write actual bytestream buffers with data
             self.parent
                 .writer
                 .write_all(&buffer_x)
@@ -118,11 +128,24 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
                 "Failed to align writer on next 4-byte offset after writing data packet",
             )?;
         }
+        Ok(())
+    }
 
+    pub fn add_point(&mut self, point: Point) -> Result<()> {
+        self.buffer.push_back(point);
+        self.point_count += 1;
+        if self.buffer.len() >= self.max_points_per_packet {
+            self.write_buffer_to_disk()?;
+        }
         Ok(())
     }
 
     pub fn finalize(&mut self) -> Result<()> {
+        // Flush remaining points from buffer
+        while !self.buffer.is_empty() {
+            self.write_buffer_to_disk()?;
+        }
+
         // We need to write the section header again with the final length
         // which was previously unknown and is now available.
         let end_offset = self
