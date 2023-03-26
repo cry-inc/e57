@@ -10,10 +10,10 @@ keywords = ["e57", "lidar", "pointclouds", "laserscanning", "geospatial"]
 categories = ["parser-implementations", "science::geo"]
 description = "A pure Rust library for reading and writing E57 files with point clouds and related image data."
 include = [
-    "**/*.rs",
-    "Cargo.toml",
-    "LICENSE",
-    "README.md",
+    "/src/**/*.rs",
+    "/Cargo.toml",
+    "/LICENSE",
+    "/README.md",
 ]
 
 [workspace]
