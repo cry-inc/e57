@@ -70,6 +70,8 @@ pub struct DataPacketHeader {
 }
 
 impl DataPacketHeader {
+    pub const SIZE: u64 = 6;
+
     pub fn read(reader: &mut dyn Read) -> Result<Self> {
         let mut buffer = [0_u8; 5];
         reader
@@ -102,7 +104,7 @@ impl DataPacketHeader {
     }
 
     pub fn write(&self, writer: &mut dyn Write) -> Result<()> {
-        let mut buffer = [0_u8; 6];
+        let mut buffer = [0_u8; Self::SIZE as usize];
         buffer[0] = 1;
         let flags = if self.comp_restart_flag { 1_u8 } else { 0_u8 };
         buffer[1] = flags;

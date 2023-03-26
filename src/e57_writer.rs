@@ -1,17 +1,16 @@
-use crate::cv_section::CompressedVectorSectionHeader;
 use crate::error::Converter;
-use crate::packet::DataPacketHeader;
 use crate::paged_writer::PagedWriter;
+use crate::pc_writer::PointCloudWriter;
 use crate::root::{serialize_root, Root};
-use crate::{Header, Point, PointCloud, Record, RecordType, Result};
+use crate::{Header, PointCloud, Result};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
 use std::path::Path;
 
 /// Main interface for writing E57 files.
 pub struct E57Writer<T: Read + Write + Seek> {
-    writer: PagedWriter<T>,
-    pointclouds: Vec<PointCloud>,
+    pub(crate) writer: PagedWriter<T>,
+    pub(crate) pointclouds: Vec<PointCloud>,
 }
 
 impl<T: Write + Read + Seek> E57Writer<T> {
@@ -32,114 +31,15 @@ impl<T: Write + Read + Seek> E57Writer<T> {
         })
     }
 
-    pub fn add_xyz_pointcloud(&mut self, guid: &str, points: &[Point]) -> Result<()> {
-        let offset = self.writer.physical_position()?;
-        let mut section_header = CompressedVectorSectionHeader::default();
-        section_header.data_offset = offset + CompressedVectorSectionHeader::SIZE;
-        section_header.write(&mut self.writer)?;
-
-        let mut point = 0;
-        let mut section_length = CompressedVectorSectionHeader::SIZE;
-        let max_points_per_buffer: usize = 64000 / 3 / 8;
-        while point < points.len() {
-            let mut buffer_x = Vec::new();
-            let mut buffer_y = Vec::new();
-            let mut buffer_z = Vec::new();
-            let packet_points = max_points_per_buffer.min(points.len() - point);
-            for _ in 0..packet_points {
-                let p = &points[point];
-                let c = p
-                    .cartesian
-                    .as_ref()
-                    .invalid_err("Missing cartesian coordinates")?;
-                buffer_x.extend_from_slice(&c.x.to_le_bytes());
-                buffer_y.extend_from_slice(&c.y.to_le_bytes());
-                buffer_z.extend_from_slice(&c.z.to_le_bytes());
-                point += 1;
-            }
-
-            let mut packet_length = 6 + 3 * 2 + points.len() as u64 * 3;
-            if packet_length % 4 != 0 {
-                let missing = 4 - (packet_length % 4);
-                packet_length += missing;
-            }
-            section_length += packet_length;
-
-            DataPacketHeader {
-                comp_restart_flag: false,
-                packet_length,
-                bytestream_count: 3,
-            }
-            .write(&mut self.writer)?;
-
-            let x_buffer_size = (buffer_x.len() as u16).to_le_bytes();
-            self.writer
-                .write_all(&x_buffer_size)
-                .write_err("Cannot write data packet buffer size for X")?;
-            let y_buffer_size = (buffer_y.len() as u16).to_le_bytes();
-            self.writer
-                .write_all(&y_buffer_size)
-                .write_err("Cannot write data packet buffer size for Y")?;
-            let z_buffer_size = (buffer_z.len() as u16).to_le_bytes();
-            self.writer
-                .write_all(&z_buffer_size)
-                .write_err("Cannot write data packet buffer size for Z")?;
-
-            self.writer
-                .write_all(&buffer_x)
-                .write_err("Cannot write data for X")?;
-            self.writer
-                .write_all(&buffer_y)
-                .write_err("Cannot write data for Y")?;
-            self.writer
-                .write_all(&buffer_z)
-                .write_err("Cannot write data for Z")?;
-
-            self.writer.align().write_err(
-                "Failed to align writer on next 4-byte offset after writing data packet",
-            )?;
-        }
-
-        // We need to write the section header again with the final length
-        // which was previously unknown and is now available.
-        let end_offset = self
-            .writer
-            .physical_position()
-            .write_err("Failed to get section end offset")?;
-        self.writer
-            .physical_seek(offset)
-            .write_err("Failed to seek to section start for final update")?;
-        section_header.section_length = section_length;
-        section_header.write(&mut self.writer)?;
-        self.writer
-            .physical_seek(end_offset)
-            .write_err("Failed to seek behind finalized section")?;
-
-        let pointcloud = PointCloud {
-            guid: guid.to_owned(),
-            records: points.len() as u64,
-            file_offset: offset,
-            prototype: vec![
-                Record::CartesianX(RecordType::Double {
-                    min: None,
-                    max: None,
-                }),
-                Record::CartesianY(RecordType::Double {
-                    min: None,
-                    max: None,
-                }),
-                Record::CartesianZ(RecordType::Double {
-                    min: None,
-                    max: None,
-                }),
-            ],
-            ..Default::default()
-        };
-        self.pointclouds.push(pointcloud);
-
-        Ok(())
+    /// Creates a new writer for adding a new point cloud to the E57 file.
+    pub fn add_xyz_pointcloud(&mut self, guid: &str) -> Result<PointCloudWriter<T>> {
+        PointCloudWriter::new(self, guid)
     }
 
+    /// Needs to be called after adding all point clouds and images.
+    ///
+    /// This will generate and write the XML metadata to finalize and complete the E57 file.
+    /// Without calling this method before dropping the E57 file will be incomplete and invalid!
     pub fn finalize(&mut self, guid: &str) -> Result<()> {
         // Serialize XML data and write
         let root = Root {
@@ -214,9 +114,9 @@ mod tests {
                 ..Default::default()
             },
         ];
-        e57_writer
-            .add_xyz_pointcloud("guid_pointcloud", &points)
-            .unwrap();
+        let mut pc_writer = e57_writer.add_xyz_pointcloud("guid_pointcloud").unwrap();
+        pc_writer.add_points(&points).unwrap();
+        pc_writer.finalize().unwrap();
         e57_writer.finalize("guid_file").unwrap();
         drop(e57_writer);
 
@@ -252,7 +152,9 @@ mod tests {
 
         {
             let mut writer = E57Writer::from_file(out_path).unwrap();
-            writer.add_xyz_pointcloud("pc_guid", &points).unwrap();
+            let mut pc_writer = writer.add_xyz_pointcloud("pc_guid").unwrap();
+            pc_writer.add_points(&points).unwrap();
+            pc_writer.finalize().unwrap();
             writer.finalize("file_guid").unwrap();
         }
 

@@ -21,6 +21,7 @@ mod limits;
 mod packet;
 mod paged_reader;
 mod paged_writer;
+mod pc_writer;
 mod point;
 mod pointcloud;
 mod record;
