@@ -32,7 +32,7 @@ impl<T: Write + Read + Seek> E57Writer<T> {
     }
 
     /// Creates a new writer for adding a new point cloud to the E57 file.
-    pub fn add_xyz_pointcloud(&mut self, guid: &str) -> Result<PointCloudWriter<T>> {
+    pub fn add_xyz_rgb_pointcloud(&mut self, guid: &str) -> Result<PointCloudWriter<T>> {
         PointCloudWriter::new(self, guid)
     }
 
@@ -87,7 +87,7 @@ impl E57Writer<File> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{CartesianCoordinate, E57Reader, Point};
+    use crate::{CartesianCoordinate, Color, E57Reader, Point};
     use std::fs::{remove_file, File};
     use std::path::Path;
 
@@ -103,6 +103,11 @@ mod tests {
                     y: 2.2,
                     z: 3.3,
                 }),
+                color: Some(Color {
+                    red: 1.0,
+                    green: 0.0,
+                    blue: 0.0,
+                }),
                 ..Default::default()
             },
             Point {
@@ -111,10 +116,17 @@ mod tests {
                     y: 5.5,
                     z: 6.6,
                 }),
+                color: Some(Color {
+                    red: 0.0,
+                    green: 0.0,
+                    blue: 1.0,
+                }),
                 ..Default::default()
             },
         ];
-        let mut pc_writer = e57_writer.add_xyz_pointcloud("guid_pointcloud").unwrap();
+        let mut pc_writer = e57_writer
+            .add_xyz_rgb_pointcloud("guid_pointcloud")
+            .unwrap();
         for p in points {
             pc_writer.add_point(p).unwrap();
         }
@@ -141,8 +153,8 @@ mod tests {
 
     #[test]
     fn copy_double_test() {
-        let in_path = Path::new("testdata/bunnyDouble.e57");
-        let out_path = Path::new("bunny_copy.e57");
+        let in_path = Path::new("testdata/tinyCartesianFloatRgb.e57");
+        let out_path = Path::new("tiny_copy.e57");
 
         let points = {
             let mut reader = E57Reader::from_file(in_path).unwrap();
@@ -154,7 +166,7 @@ mod tests {
 
         {
             let mut writer = E57Writer::from_file(out_path).unwrap();
-            let mut pc_writer = writer.add_xyz_pointcloud("pc_guid").unwrap();
+            let mut pc_writer = writer.add_xyz_rgb_pointcloud("pc_guid").unwrap();
             for p in &points {
                 pc_writer.add_point(p.clone()).unwrap();
             }

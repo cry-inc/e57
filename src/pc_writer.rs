@@ -43,6 +43,9 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
                 min: None,
                 max: None,
             }),
+            Record::ColorRed(RecordType::Integer { min: 0, max: 255 }),
+            Record::ColorGreen(RecordType::Integer { min: 0, max: 255 }),
+            Record::ColorBlue(RecordType::Integer { min: 0, max: 255 }),
         ];
 
         Ok(PointCloudWriter {
@@ -53,7 +56,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             prototype,
             point_count: 0,
             buffer: VecDeque::new(),
-            max_points_per_packet: 64000 / 3 / 8,
+            max_points_per_packet: 64000 / 27,
         })
     }
 
@@ -63,22 +66,31 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             let mut buffer_x = Vec::new();
             let mut buffer_y = Vec::new();
             let mut buffer_z = Vec::new();
+            let mut buffer_r = Vec::new();
+            let mut buffer_g = Vec::new();
+            let mut buffer_b = Vec::new();
             for _ in 0..packet_points {
                 let p = self
                     .buffer
                     .pop_front()
                     .internal_err("Failed to get next point for writing")?;
-                let c = p
+                let coords = p
                     .cartesian
                     .as_ref()
                     .invalid_err("Missing cartesian coordinates")?;
-                buffer_x.extend_from_slice(&c.x.to_le_bytes());
-                buffer_y.extend_from_slice(&c.y.to_le_bytes());
-                buffer_z.extend_from_slice(&c.z.to_le_bytes());
+                buffer_x.extend_from_slice(&coords.x.to_le_bytes());
+                buffer_y.extend_from_slice(&coords.y.to_le_bytes());
+                buffer_z.extend_from_slice(&coords.z.to_le_bytes());
+                let colors = p.color.as_ref().invalid_err("Missing color values")?;
+                buffer_r.push((&colors.red * 255.0) as u8);
+                buffer_g.push((&colors.green * 255.0) as u8);
+                buffer_b.push((&colors.blue * 255.0) as u8);
             }
 
             // Calculate packet length for header
-            let mut packet_length = DataPacketHeader::SIZE + 3 * 2 + packet_points as u64 * 8 * 3;
+            let mut packet_length = DataPacketHeader::SIZE
+                + self.prototype.len() as u64 * 2
+                + packet_points as u64 * 27;
             if packet_length % 4 != 0 {
                 let missing = 4 - (packet_length % 4);
                 packet_length += missing;
@@ -89,7 +101,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             DataPacketHeader {
                 comp_restart_flag: false,
                 packet_length,
-                bytestream_count: 3,
+                bytestream_count: self.prototype.len() as u16,
             }
             .write(&mut self.parent.writer)?;
 
@@ -109,6 +121,21 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
                 .writer
                 .write_all(&z_buffer_size)
                 .write_err("Cannot write data packet buffer size for Z")?;
+            let r_buffer_size = (buffer_r.len() as u16).to_le_bytes();
+            self.parent
+                .writer
+                .write_all(&r_buffer_size)
+                .write_err("Cannot write data packet buffer size for red")?;
+            let g_buffer_size = (buffer_g.len() as u16).to_le_bytes();
+            self.parent
+                .writer
+                .write_all(&g_buffer_size)
+                .write_err("Cannot write data packet buffer size for green")?;
+            let b_buffer_size = (buffer_b.len() as u16).to_le_bytes();
+            self.parent
+                .writer
+                .write_all(&b_buffer_size)
+                .write_err("Cannot write data packet buffer size for blue")?;
 
             // Write actual bytestream buffers with data
             self.parent
@@ -123,6 +150,18 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
                 .writer
                 .write_all(&buffer_z)
                 .write_err("Cannot write data for Z")?;
+            self.parent
+                .writer
+                .write_all(&buffer_r)
+                .write_err("Cannot write data for red")?;
+            self.parent
+                .writer
+                .write_all(&buffer_g)
+                .write_err("Cannot write data for green")?;
+            self.parent
+                .writer
+                .write_all(&buffer_b)
+                .write_err("Cannot write data for blue")?;
 
             self.parent.writer.align().write_err(
                 "Failed to align writer on next 4-byte offset after writing data packet",
