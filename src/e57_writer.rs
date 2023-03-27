@@ -33,7 +33,7 @@ impl<T: Write + Read + Seek> E57Writer<T> {
 
     /// Creates a new writer for adding a new point cloud to the E57 file.
     pub fn add_xyz_rgb_pointcloud(&mut self, guid: &str) -> Result<PointCloudWriter<T>> {
-        PointCloudWriter::new(self, guid)
+        PointCloudWriter::new(&mut self.writer, &mut self.pointclouds, guid)
     }
 
     /// Needs to be called after adding all point clouds and images.

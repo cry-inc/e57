@@ -1,7 +1,7 @@
 use crate::cv_section::CompressedVectorSectionHeader;
 use crate::error::Converter;
 use crate::packet::DataPacketHeader;
-use crate::E57Writer;
+use crate::paged_writer::PagedWriter;
 use crate::Point;
 use crate::PointCloud;
 use crate::Record;
@@ -12,7 +12,8 @@ use std::io::{Read, Seek, Write};
 
 /// Creates a new point cloud by consuming points and writing them into an E57 file.
 pub struct PointCloudWriter<'a, T: Read + Write + Seek> {
-    parent: &'a mut E57Writer<T>,
+    writer: &'a mut PagedWriter<T>,
+    pointclouds: &'a mut Vec<PointCloud>,
     guid: String,
     section_offset: u64,
     section_header: CompressedVectorSectionHeader,
@@ -23,13 +24,17 @@ pub struct PointCloudWriter<'a, T: Read + Write + Seek> {
 }
 
 impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
-    pub fn new(parent: &'a mut E57Writer<T>, guid: &str) -> Result<Self> {
-        let section_offset = parent.writer.physical_position()?;
+    pub(crate) fn new(
+        writer: &'a mut PagedWriter<T>,
+        pointclouds: &'a mut Vec<PointCloud>,
+        guid: &str,
+    ) -> Result<Self> {
+        let section_offset = writer.physical_position()?;
 
         let mut section_header = CompressedVectorSectionHeader::default();
         section_header.data_offset = section_offset + CompressedVectorSectionHeader::SIZE;
         section_header.section_length = CompressedVectorSectionHeader::SIZE;
-        section_header.write(&mut parent.writer)?;
+        section_header.write(writer)?;
 
         let prototype = vec![
             Record::CartesianX(RecordType::Double {
@@ -50,7 +55,8 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         ];
 
         Ok(PointCloudWriter {
-            parent,
+            writer,
+            pointclouds,
             guid: guid.to_owned(),
             section_offset,
             section_header,
@@ -104,67 +110,55 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
                 packet_length,
                 bytestream_count: self.prototype.len() as u16,
             }
-            .write(&mut self.parent.writer)?;
+            .write(&mut self.writer)?;
 
             // Write bytestream sizes as u16 values
             let x_buffer_size = (buffer_x.len() as u16).to_le_bytes();
-            self.parent
-                .writer
+            self.writer
                 .write_all(&x_buffer_size)
                 .write_err("Cannot write data packet buffer size for X")?;
             let y_buffer_size = (buffer_y.len() as u16).to_le_bytes();
-            self.parent
-                .writer
+            self.writer
                 .write_all(&y_buffer_size)
                 .write_err("Cannot write data packet buffer size for Y")?;
             let z_buffer_size = (buffer_z.len() as u16).to_le_bytes();
-            self.parent
-                .writer
+            self.writer
                 .write_all(&z_buffer_size)
                 .write_err("Cannot write data packet buffer size for Z")?;
             let r_buffer_size = (buffer_r.len() as u16).to_le_bytes();
-            self.parent
-                .writer
+            self.writer
                 .write_all(&r_buffer_size)
                 .write_err("Cannot write data packet buffer size for red")?;
             let g_buffer_size = (buffer_g.len() as u16).to_le_bytes();
-            self.parent
-                .writer
+            self.writer
                 .write_all(&g_buffer_size)
                 .write_err("Cannot write data packet buffer size for green")?;
             let b_buffer_size = (buffer_b.len() as u16).to_le_bytes();
-            self.parent
-                .writer
+            self.writer
                 .write_all(&b_buffer_size)
                 .write_err("Cannot write data packet buffer size for blue")?;
 
             // Write actual bytestream buffers with data
-            self.parent
-                .writer
+            self.writer
                 .write_all(&buffer_x)
                 .write_err("Cannot write data for X")?;
-            self.parent
-                .writer
+            self.writer
                 .write_all(&buffer_y)
                 .write_err("Cannot write data for Y")?;
-            self.parent
-                .writer
+            self.writer
                 .write_all(&buffer_z)
                 .write_err("Cannot write data for Z")?;
-            self.parent
-                .writer
+            self.writer
                 .write_all(&buffer_r)
                 .write_err("Cannot write data for red")?;
-            self.parent
-                .writer
+            self.writer
                 .write_all(&buffer_g)
                 .write_err("Cannot write data for green")?;
-            self.parent
-                .writer
+            self.writer
                 .write_all(&buffer_b)
                 .write_err("Cannot write data for blue")?;
 
-            self.parent.writer.align().write_err(
+            self.writer.align().write_err(
                 "Failed to align writer on next 4-byte offset after writing data packet",
             )?;
         }
@@ -191,21 +185,18 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         // We need to write the section header again with the final length
         // which was previously unknown and is now available.
         let end_offset = self
-            .parent
             .writer
             .physical_position()
             .write_err("Failed to get section end offset")?;
-        self.parent
-            .writer
+        self.writer
             .physical_seek(self.section_offset)
             .write_err("Failed to seek to section start for final update")?;
-        self.section_header.write(&mut self.parent.writer)?;
-        self.parent
-            .writer
+        self.section_header.write(&mut self.writer)?;
+        self.writer
             .physical_seek(end_offset)
             .write_err("Failed to seek behind finalized section")?;
 
-        self.parent.pointclouds.push(PointCloud {
+        self.pointclouds.push(PointCloud {
             guid: self.guid.clone(),
             records: self.point_count,
             file_offset: self.section_offset,

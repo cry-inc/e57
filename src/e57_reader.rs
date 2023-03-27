@@ -2,7 +2,6 @@ use crate::blob::extract_blob;
 use crate::error::Converter;
 use crate::images::images_from_document;
 use crate::paged_reader::PagedReader;
-use crate::pc_reader::pointcloud_reader;
 use crate::pc_reader::PointCloudReader;
 use crate::pointcloud::pointclouds_from_document;
 use crate::root::root_from_document;
@@ -93,7 +92,7 @@ impl<T: Read + Seek> E57Reader<T> {
 
     /// Returns an iterator for the requested point cloud.
     pub fn pointcloud(&mut self, pc: &PointCloud) -> Result<PointCloudReader<T>> {
-        pointcloud_reader(pc, &mut self.reader)
+        PointCloudReader::new(pc, &mut self.reader)
     }
 
     /// Returns a list of all images in the file.

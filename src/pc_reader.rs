@@ -45,7 +45,7 @@ pub struct PointCloudReader<'a, T: Read + Seek> {
 }
 
 impl<'a, T: Read + Seek> PointCloudReader<'a, T> {
-    fn new(pc: &PointCloud, reader: &'a mut PagedReader<T>) -> Result<Self> {
+    pub(crate) fn new(pc: &PointCloud, reader: &'a mut PagedReader<T>) -> Result<Self> {
         reader
             .seek_physical(pc.file_offset)
             .read_err("Cannot seek to compressed vector header")?;
@@ -353,13 +353,6 @@ impl<'a, T: Read + Seek> Iterator for PointCloudReader<'a, T> {
             None
         }
     }
-}
-
-pub fn pointcloud_reader<'a, T: Read + Seek>(
-    pc: &PointCloud,
-    reader: &'a mut PagedReader<T>,
-) -> Result<PointCloudReader<'a, T>> {
-    PointCloudReader::new(pc, reader)
 }
 
 fn append_vec_to_queue<T: Copy>(v: &Vec<T>, q: &mut VecDeque<T>) {
