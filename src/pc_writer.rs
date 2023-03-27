@@ -10,6 +10,7 @@ use crate::Result;
 use std::collections::VecDeque;
 use std::io::{Read, Seek, Write};
 
+/// Creates a new point cloud by consuming points and writing them into an E57 file.
 pub struct PointCloudWriter<'a, T: Read + Write + Seek> {
     parent: &'a mut E57Writer<T>,
     guid: String,
@@ -170,6 +171,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         Ok(())
     }
 
+    /// Adds a new point to the point cloud.
     pub fn add_point(&mut self, point: Point) -> Result<()> {
         self.buffer.push_back(point);
         self.point_count += 1;
@@ -179,6 +181,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         Ok(())
     }
 
+    /// Called after all points have been added to finalize the creation of the new point cloud.
     pub fn finalize(&mut self) -> Result<()> {
         // Flush remaining points from buffer
         while !self.buffer.is_empty() {
