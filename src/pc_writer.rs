@@ -5,7 +5,8 @@ use crate::paged_writer::PagedWriter;
 use crate::Point;
 use crate::PointCloud;
 use crate::Record;
-use crate::RecordType;
+use crate::RecordDataType;
+use crate::RecordName;
 use crate::Result;
 use std::collections::VecDeque;
 use std::io::{Read, Seek, Write};
@@ -37,21 +38,39 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         section_header.write(writer)?;
 
         let prototype = vec![
-            Record::CartesianX(RecordType::Double {
-                min: None,
-                max: None,
-            }),
-            Record::CartesianY(RecordType::Double {
-                min: None,
-                max: None,
-            }),
-            Record::CartesianZ(RecordType::Double {
-                min: None,
-                max: None,
-            }),
-            Record::ColorRed(RecordType::Integer { min: 0, max: 255 }),
-            Record::ColorGreen(RecordType::Integer { min: 0, max: 255 }),
-            Record::ColorBlue(RecordType::Integer { min: 0, max: 255 }),
+            Record {
+                name: RecordName::CartesianX,
+                data_type: RecordDataType::Double {
+                    min: None,
+                    max: None,
+                },
+            },
+            Record {
+                name: RecordName::CartesianY,
+                data_type: RecordDataType::Double {
+                    min: None,
+                    max: None,
+                },
+            },
+            Record {
+                name: RecordName::CartesianZ,
+                data_type: RecordDataType::Double {
+                    min: None,
+                    max: None,
+                },
+            },
+            Record {
+                name: RecordName::ColorRed,
+                data_type: RecordDataType::Integer { min: 0, max: 255 },
+            },
+            Record {
+                name: RecordName::ColorGreen,
+                data_type: RecordDataType::Integer { min: 0, max: 255 },
+            },
+            Record {
+                name: RecordName::ColorBlue,
+                data_type: RecordDataType::Integer { min: 0, max: 255 },
+            },
         ];
 
         Ok(PointCloudWriter {

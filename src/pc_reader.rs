@@ -10,7 +10,7 @@ use crate::Color;
 use crate::Error;
 use crate::Point;
 use crate::PointCloud;
-use crate::Record;
+use crate::RecordName;
 use crate::Result;
 use crate::SphericalCoordinate;
 use std::collections::VecDeque;
@@ -87,27 +87,27 @@ impl<'a, T: Read + Seek> PointCloudReader<'a, T> {
     fn available_in_queue(&self) -> usize {
         let mut available: Option<usize> = None;
         for r in &self.pc.prototype {
-            let len = match r {
-                Record::CartesianX(_) => self.queue_x.len(),
-                Record::CartesianY(_) => self.queue_y.len(),
-                Record::CartesianZ(_) => self.queue_z.len(),
-                Record::CartesianInvalidState(_) => self.queue_cartesian_invalid.len(),
-                Record::SphericalRange(_) => self.queue_range.len(),
-                Record::SphericalAzimuth(_) => self.queue_azimuth.len(),
-                Record::SphericalElevation(_) => self.queue_elevation.len(),
-                Record::SphericalInvalidState(_) => self.queue_spherical_invalid.len(),
-                Record::Intensity(_) => self.queue_intensity.len(),
-                Record::IsIntensityInvalid(_) => self.queue_intensity_invalid.len(),
-                Record::ColorRed(_) => self.queue_red.len(),
-                Record::ColorGreen(_) => self.queue_green.len(),
-                Record::ColorBlue(_) => self.queue_blue.len(),
-                Record::IsColorInvalid(_) => self.queue_color_invalid.len(),
-                Record::RowIndex(_) => self.queue_row.len(),
-                Record::ColumnIndex(_) => self.queue_column.len(),
-                Record::ReturnCount(_) => self.queue_return_count.len(),
-                Record::ReturnIndex(_) => self.queue_return_index.len(),
-                Record::TimeStamp(_) => self.queue_time.len(),
-                Record::IsTimeStampInvalid(_) => self.queue_time_invalid.len(),
+            let len = match r.name {
+                RecordName::CartesianX => self.queue_x.len(),
+                RecordName::CartesianY => self.queue_y.len(),
+                RecordName::CartesianZ => self.queue_z.len(),
+                RecordName::CartesianInvalidState => self.queue_cartesian_invalid.len(),
+                RecordName::SphericalRange => self.queue_range.len(),
+                RecordName::SphericalAzimuth => self.queue_azimuth.len(),
+                RecordName::SphericalElevation => self.queue_elevation.len(),
+                RecordName::SphericalInvalidState => self.queue_spherical_invalid.len(),
+                RecordName::Intensity => self.queue_intensity.len(),
+                RecordName::IsIntensityInvalid => self.queue_intensity_invalid.len(),
+                RecordName::ColorRed => self.queue_red.len(),
+                RecordName::ColorGreen => self.queue_green.len(),
+                RecordName::ColorBlue => self.queue_blue.len(),
+                RecordName::IsColorInvalid => self.queue_color_invalid.len(),
+                RecordName::RowIndex => self.queue_row.len(),
+                RecordName::ColumnIndex => self.queue_column.len(),
+                RecordName::ReturnCount => self.queue_return_count.len(),
+                RecordName::ReturnIndex => self.queue_return_index.len(),
+                RecordName::TimeStamp => self.queue_time.len(),
+                RecordName::IsTimeStampInvalid => self.queue_time_invalid.len(),
             };
             match available {
                 Some(old_len) => {
@@ -126,65 +126,65 @@ impl<'a, T: Read + Seek> PointCloudReader<'a, T> {
     fn pop_queue_point(&mut self) -> Point {
         let mut point = Point::default();
         for r in &self.pc.prototype {
-            match r {
-                Record::CartesianX(_) => {
+            match r.name {
+                RecordName::CartesianX => {
                     point.cartesian = Some(CartesianCoordinate {
                         x: self.queue_x.pop_front().unwrap(),
                         y: self.queue_y.pop_front().unwrap(),
                         z: self.queue_z.pop_front().unwrap(),
                     })
                 }
-                Record::CartesianY(_) => {}
-                Record::CartesianZ(_) => {}
-                Record::CartesianInvalidState(_) => {
+                RecordName::CartesianY => {}
+                RecordName::CartesianZ => {}
+                RecordName::CartesianInvalidState => {
                     point.cartesian_invalid =
                         Some(self.queue_cartesian_invalid.pop_front().unwrap())
                 }
-                Record::SphericalRange(_) => {
+                RecordName::SphericalRange => {
                     point.spherical = Some(SphericalCoordinate {
                         range: self.queue_range.pop_front().unwrap(),
                         azimuth: self.queue_azimuth.pop_front().unwrap(),
                         elevation: self.queue_elevation.pop_front().unwrap(),
                     })
                 }
-                Record::SphericalAzimuth(_) => {}
-                Record::SphericalElevation(_) => {}
-                Record::SphericalInvalidState(_) => {
+                RecordName::SphericalAzimuth => {}
+                RecordName::SphericalElevation => {}
+                RecordName::SphericalInvalidState => {
                     point.spherical_invalid =
                         Some(self.queue_spherical_invalid.pop_front().unwrap())
                 }
-                Record::Intensity(_) => {
+                RecordName::Intensity => {
                     point.intensity = Some(self.queue_intensity.pop_front().unwrap())
                 }
-                Record::IsIntensityInvalid(_) => {
+                RecordName::IsIntensityInvalid => {
                     point.intensity_invalid =
                         Some(self.queue_intensity_invalid.pop_front().unwrap())
                 }
-                Record::ColorRed(_) => {
+                RecordName::ColorRed => {
                     point.color = Some(Color {
                         red: self.queue_red.pop_front().unwrap(),
                         green: self.queue_green.pop_front().unwrap(),
                         blue: self.queue_blue.pop_front().unwrap(),
                     })
                 }
-                Record::ColorGreen(_) => {}
-                Record::ColorBlue(_) => {}
-                Record::IsColorInvalid(_) => {
+                RecordName::ColorGreen => {}
+                RecordName::ColorBlue => {}
+                RecordName::IsColorInvalid => {
                     point.color_invalid = Some(self.queue_color_invalid.pop_front().unwrap())
                 }
-                Record::RowIndex(_) => point.row = Some(self.queue_row.pop_front().unwrap()),
-                Record::ColumnIndex(_) => {
+                RecordName::RowIndex => point.row = Some(self.queue_row.pop_front().unwrap()),
+                RecordName::ColumnIndex => {
                     point.column = Some(self.queue_column.pop_front().unwrap())
                 }
-                Record::ReturnCount(_) => {
+                RecordName::ReturnCount => {
                     point.ret = Some(Return {
                         count: self.queue_return_count.pop_front().unwrap(),
                         index: self.queue_return_index.pop_front().unwrap(),
                     })
                 }
-                Record::ReturnIndex(_) => {}
-                Record::TimeStamp(_) => point.time = Some(self.queue_time.pop_front().unwrap()),
-                Record::IsTimeStampInvalid(_) => {
+                RecordName::ReturnIndex => {}
+                RecordName::TimeStamp => point.time = Some(self.queue_time.pop_front().unwrap()),
+                RecordName::IsTimeStampInvalid => {
                     point.time_invalid = Some(self.queue_time_invalid.pop_front().unwrap())
                 }
             };
@@ -225,72 +225,73 @@ impl<'a, T: Read + Seek> PointCloudReader<'a, T> {
                 }
 
                 for (i, r) in self.pc.prototype.iter().enumerate() {
-                    match r {
-                        Record::CartesianX(rt) => {
+                    let rt = &r.data_type;
+                    match r.name {
+                        RecordName::CartesianX => {
                             let v = BitPack::unpack_double(&mut self.byte_streams[i], rt)?;
                             append_vec_to_queue(&v, &mut self.queue_x);
                         }
-                        Record::CartesianY(rt) => {
+                        RecordName::CartesianY => {
                             let v = BitPack::unpack_double(&mut self.byte_streams[i], rt)?;
                             append_vec_to_queue(&v, &mut self.queue_y);
                         }
-                        Record::CartesianZ(rt) => {
+                        RecordName::CartesianZ => {
                             let v = BitPack::unpack_double(&mut self.byte_streams[i], rt)?;
                             append_vec_to_queue(&v, &mut self.queue_z);
                         }
-                        Record::SphericalRange(rt) => {
+                        RecordName::SphericalRange => {
                             let v = BitPack::unpack_double(&mut self.byte_streams[i], rt)?;
                             append_vec_to_queue(&v, &mut self.queue_range);
                         }
-                        Record::SphericalAzimuth(rt) => {
+                        RecordName::SphericalAzimuth => {
                             let v = BitPack::unpack_double(&mut self.byte_streams[i], rt)?;
                             append_vec_to_queue(&v, &mut self.queue_azimuth);
                         }
-                        Record::SphericalElevation(rt) => {
+                        RecordName::SphericalElevation => {
                             let v = BitPack::unpack_double(&mut self.byte_streams[i], rt)?;
                             append_vec_to_queue(&v, &mut self.queue_elevation);
                         }
-                        Record::ColorRed(rt) => {
+                        RecordName::ColorRed => {
                             let v = BitPack::unpack_unit_float(&mut self.byte_streams[i], rt)?;
                             append_vec_to_queue(&v, &mut self.queue_red);
                         }
-                        Record::ColorGreen(rt) => {
+                        RecordName::ColorGreen => {
                             let v = BitPack::unpack_unit_float(&mut self.byte_streams[i], rt)?;
                             append_vec_to_queue(&v, &mut self.queue_green);
                         }
-                        Record::ColorBlue(rt) => {
+                        RecordName::ColorBlue => {
                             let v = BitPack::unpack_unit_float(&mut self.byte_streams[i], rt)?;
                             append_vec_to_queue(&v, &mut self.queue_blue);
                         }
-                        Record::Intensity(rt) => {
+                        RecordName::Intensity => {
                             let v = BitPack::unpack_unit_float(&mut self.byte_streams[i], rt)?;
                             append_vec_to_queue(&v, &mut self.queue_intensity);
                         }
-                        Record::CartesianInvalidState(rt) => {
+                        RecordName::CartesianInvalidState => {
                             let v = BitPack::unpack_u8(&mut self.byte_streams[i], rt)?;
                             append_vec_to_queue(&v, &mut self.queue_cartesian_invalid);
                         }
-                        Record::SphericalInvalidState(rt) => {
+                        RecordName::SphericalInvalidState => {
                             let v = BitPack::unpack_u8(&mut self.byte_streams[i], rt)?;
                             append_vec_to_queue(&v, &mut self.queue_spherical_invalid);
                         }
-                        Record::IsTimeStampInvalid(rt) => {
+                        RecordName::IsTimeStampInvalid => {
                             let v = BitPack::unpack_u8(&mut self.byte_streams[i], rt)?;
                             append_vec_to_queue(&v, &mut self.queue_time_invalid);
                         }
-                        Record::IsIntensityInvalid(rt) => {
+                        RecordName::IsIntensityInvalid => {
                             let v = BitPack::unpack_u8(&mut self.byte_streams[i], rt)?;
                             append_vec_to_queue(&v, &mut self.queue_intensity_invalid);
                         }
-                        Record::IsColorInvalid(rt) => {
+                        RecordName::IsColorInvalid => {
                             let v = BitPack::unpack_u8(&mut self.byte_streams[i], rt)?;
                             append_vec_to_queue(&v, &mut self.queue_color_invalid);
                         }
-                        Record::RowIndex(rt) => {
+                        RecordName::RowIndex => {
                             let v = BitPack::unpack_i64(&mut self.byte_streams[i], rt)?;
                             append_vec_to_queue(&v, &mut self.queue_row);
                         }
-                        Record::ColumnIndex(rt) => {
+                        RecordName::ColumnIndex => {
                             let v = BitPack::unpack_i64(&mut self.byte_streams[i], rt)?;
                             append_vec_to_queue(&v, &mut self.queue_column);
                         }

@@ -3,13 +3,12 @@ use crate::bounds::{
 };
 use crate::error::Converter;
 use crate::limits::{color_limits_from_node, intensity_limits_from_node};
-use crate::record::{record_type_from_node, serialize_record};
 use crate::xml::{
     optional_date_time, optional_double, optional_string, optional_transform, required_string,
 };
 use crate::{
-    CartesianBounds, ColorLimits, DateTime, Error, IndexBounds, IntensityLimits, Record, Result,
-    SphericalBounds, Transform,
+    CartesianBounds, ColorLimits, DateTime, Error, IndexBounds, IntensityLimits, Record,
+    RecordDataType, RecordName, Result, SphericalBounds, Transform,
 };
 use roxmltree::{Document, Node};
 
@@ -129,47 +128,9 @@ fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
     for n in prototype_tag.children() {
         if n.is_element() {
             let tag_name = n.tag_name().name();
-            match tag_name {
-                "cartesianX" => prototype.push(Record::CartesianX(record_type_from_node(&n)?)),
-                "cartesianY" => prototype.push(Record::CartesianY(record_type_from_node(&n)?)),
-                "cartesianZ" => prototype.push(Record::CartesianZ(record_type_from_node(&n)?)),
-                "cartesianInvalidState" => {
-                    prototype.push(Record::CartesianInvalidState(record_type_from_node(&n)?))
-                }
-                "sphericalRange" => {
-                    prototype.push(Record::SphericalRange(record_type_from_node(&n)?))
-                }
-                "sphericalAzimuth" => {
-                    prototype.push(Record::SphericalAzimuth(record_type_from_node(&n)?))
-                }
-                "sphericalElevation" => {
-                    prototype.push(Record::SphericalElevation(record_type_from_node(&n)?))
-                }
-                "sphericalInvalidState" => {
-                    prototype.push(Record::SphericalInvalidState(record_type_from_node(&n)?))
-                }
-                "intensity" => prototype.push(Record::Intensity(record_type_from_node(&n)?)),
-                "isIntensityInvalid" => {
-                    prototype.push(Record::IsIntensityInvalid(record_type_from_node(&n)?))
-                }
-                "colorRed" => prototype.push(Record::ColorRed(record_type_from_node(&n)?)),
-                "colorGreen" => prototype.push(Record::ColorGreen(record_type_from_node(&n)?)),
-                "colorBlue" => prototype.push(Record::ColorBlue(record_type_from_node(&n)?)),
-                "isColorInvalid" => {
-                    prototype.push(Record::IsColorInvalid(record_type_from_node(&n)?))
-                }
-                "rowIndex" => prototype.push(Record::RowIndex(record_type_from_node(&n)?)),
-                "columnIndex" => prototype.push(Record::ColumnIndex(record_type_from_node(&n)?)),
-                "returnCount" => prototype.push(Record::ReturnCount(record_type_from_node(&n)?)),
-                "returnIndex" => prototype.push(Record::ReturnIndex(record_type_from_node(&n)?)),
-                "timeStamp" => prototype.push(Record::TimeStamp(record_type_from_node(&n)?)),
-                "isTimeStampInvalid" => {
-                    prototype.push(Record::IsTimeStampInvalid(record_type_from_node(&n)?))
-                }
-                tag => Error::not_implemented(format!(
-                    "Found unsupported record named '{tag}' inside 'prototype'"
-                ))?,
-            }
+            let name = RecordName::from_tag_name(tag_name)?;
+            let data_type = RecordDataType::from_node(&n)?;
+            prototype.push(Record { name, data_type });
         }
     }
 
@@ -236,7 +197,7 @@ pub fn serialize_pointcloud(pointcloud: &PointCloud) -> Result<String> {
     );
     xml += "<prototype type=\"Structure\">\n";
     for record in &pointcloud.prototype {
-        xml += &serialize_record(record);
+        xml += &record.serialize();
     }
     xml += "</prototype>\n";
     xml += "</points>\n";

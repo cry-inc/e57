@@ -203,7 +203,7 @@ impl E57Reader<BufReader<File>> {
 mod tests {
     use super::*;
     use crate::images::Representation;
-    use crate::{LimitValue, Point, Record};
+    use crate::{LimitValue, Point, RecordName};
     use std::io::{BufWriter, Write};
 
     #[test]
@@ -276,12 +276,12 @@ mod tests {
         assert_eq!(pc.file_offset, 48);
         assert_eq!(pc.records, 30571);
         assert_eq!(pc.prototype.len(), 4);
-        assert!(matches!(pc.prototype[0], Record::CartesianX { .. }));
-        assert!(matches!(pc.prototype[1], Record::CartesianY { .. }));
-        assert!(matches!(pc.prototype[2], Record::CartesianZ { .. }));
+        assert!(matches!(pc.prototype[0].name, RecordName::CartesianX,));
+        assert!(matches!(pc.prototype[1].name, RecordName::CartesianY,));
+        assert!(matches!(pc.prototype[2].name, RecordName::CartesianZ,));
         assert!(matches!(
-            pc.prototype[3],
-            Record::CartesianInvalidState { .. }
+            pc.prototype[3].name,
+            RecordName::CartesianInvalidState,
         ));
     }
 

@@ -5,9 +5,16 @@ use std::error::Error as StdError;
 use std::fmt::Debug;
 use std::str::FromStr;
 
+/// Describes a record inside a E57 file with name and data type.
+#[derive(Clone, Debug)]
+pub struct Record {
+    pub name: RecordName,
+    pub data_type: RecordDataType,
+}
+
 /// Basic primtive E57 data types that are used for the different point attributes.
-#[derive(Debug, Clone)]
-pub enum RecordType {
+#[derive(Clone, Debug)]
+pub enum RecordDataType {
     /// 32-bit IEEE 754-2008 floating point value.
     Single { min: Option<f32>, max: Option<f32> },
     /// 64-bit IEEE 754-2008 floating point value.
@@ -19,108 +26,171 @@ pub enum RecordType {
 }
 
 /// Used to describe the prototype records with all attributes that exit in the point cloud.
-#[derive(Debug, Clone)]
-pub enum Record {
+#[derive(Clone, Debug)]
+pub enum RecordName {
     /// Cartesian X coordinate (in meters).
-    CartesianX(RecordType),
+    CartesianX,
     /// Cartesian Y coordinate (in meters).
-    CartesianY(RecordType),
+    CartesianY,
     /// Cartesian Z coordinate (in meters).
-    CartesianZ(RecordType),
+    CartesianZ,
     /// Indicates whether the Cartesian coordinate or its magnitude is meaningful.
     /// Can have the value 0 (valid), 1 (XYZ is a direction vector) or 2 (invalid).
-    CartesianInvalidState(RecordType),
+    CartesianInvalidState,
 
     /// Non-negative range (in meters) of the spherical coordinate.
-    SphericalRange(RecordType),
+    SphericalRange,
     /// Azimuth angle (in radians between -PI and PI) of the spherical coordinate.
-    SphericalAzimuth(RecordType),
+    SphericalAzimuth,
     // Elevation angle (in radians between -PI/2 and PI/2) of the spherical coordinate.
-    SphericalElevation(RecordType),
+    SphericalElevation,
     /// Indicates whether the spherical coordinate or its range is meaningful.
     /// Can have the value 0 (valid), 1 (range is not meaningful) or 2 (invalid).
-    SphericalInvalidState(RecordType),
+    SphericalInvalidState,
 
     /// Point intensity. Unit is not specified.
-    Intensity(RecordType),
+    Intensity,
     /// Indicates whether the intensity value is meaningful.
     /// Can have the value 0 (valid) or 1 (invalid).
-    IsIntensityInvalid(RecordType),
+    IsIntensityInvalid,
 
     /// Red color value. Unit is not specified.
-    ColorRed(RecordType),
+    ColorRed,
     /// Green color value. Unit is not specified.
-    ColorGreen(RecordType),
+    ColorGreen,
     /// Blue color value. Unit is not specified.
-    ColorBlue(RecordType),
+    ColorBlue,
     /// Indicates whether the color value is meaningful.
     /// Can have the value 0 (valid) or 1 (invalid).
-    IsColorInvalid(RecordType),
+    IsColorInvalid,
 
     /// Row number of the point (zero-based). Used for data that is stored in a grid.
-    RowIndex(RecordType),
+    RowIndex,
     /// Column number of the point (zero-based). Used for data that is stored in a grid.
-    ColumnIndex(RecordType),
+    ColumnIndex,
 
     /// For multi-return sensors. The total number of returns for the pulse that this point corresponds to.
-    ReturnCount(RecordType),
+    ReturnCount,
     /// For multi-return sensors. The number of this return (zero based). That is, 0 is the first, 1 is the second return etc.
-    ReturnIndex(RecordType),
+    ReturnIndex,
 
     /// Non-negative time (in seconds) since the start time given by acquisition start in the parent point cloud.
-    TimeStamp(RecordType),
+    TimeStamp,
     /// Indicates whether the time stamp value is meaningful.
     /// Can have the value 0 (valid) or 1 (invalid).
-    IsTimeStampInvalid(RecordType),
+    IsTimeStampInvalid,
 }
 
-pub fn record_type_from_node(node: &Node) -> Result<RecordType> {
-    let tag_name = node.tag_name().name();
-    let type_name = node
-        .attribute("type")
-        .invalid_err(format!("Missing type attribute for XML tag '{tag_name}'"))?;
-    Ok(match type_name {
-        "Float" => {
-            let precision = node.attribute("precision").unwrap_or("double");
-            if precision == "double" {
-                let min = optional_attribute(node, "minimum", tag_name, type_name)?;
-                let max = optional_attribute(node, "maximum", tag_name, type_name)?;
-                RecordType::Double { min, max }
-            } else if precision == "single" {
-                let min = optional_attribute(node, "minimum", tag_name, type_name)?;
-                let max = optional_attribute(node, "maximum", tag_name, type_name)?;
-                RecordType::Single { min, max }
-            } else {
-                Error::invalid(format!(
-                    "Float 'precision' attribute value '{precision}' for 'Float' type is unknown"
-                ))?
+impl Record {
+    pub(crate) fn serialize(&self) -> String {
+        let tag_name = self.name.to_tag_name();
+        let type_attrs = serialize_record_type(&self.data_type);
+        format!("<{tag_name} {type_attrs}/>\n")
+    }
+}
+
+impl RecordName {
+    pub(crate) fn to_tag_name(&self) -> String {
+        String::from(match self {
+            RecordName::CartesianX => "cartesianX",
+            RecordName::CartesianY => "cartesianY",
+            RecordName::CartesianZ => "cartesianZ",
+            RecordName::CartesianInvalidState => "cartesianInvalidState",
+            RecordName::SphericalRange => "sphericalRange",
+            RecordName::SphericalAzimuth => "sphericalAzimuth",
+            RecordName::SphericalElevation => "sphericalElevation",
+            RecordName::SphericalInvalidState => "sphericalInvalidState",
+            RecordName::Intensity => "intensity",
+            RecordName::IsIntensityInvalid => "isIntensityInvalid",
+            RecordName::ColorRed => "colorRed",
+            RecordName::ColorGreen => "colorGreen",
+            RecordName::ColorBlue => "colorBlue",
+            RecordName::IsColorInvalid => "isColorInvalid",
+            RecordName::RowIndex => "rowIndex",
+            RecordName::ColumnIndex => "columnIndex",
+            RecordName::ReturnCount => "returnCount",
+            RecordName::ReturnIndex => "returnIndex",
+            RecordName::TimeStamp => "timeStamp",
+            RecordName::IsTimeStampInvalid => "isTimeStampInvalid",
+        })
+    }
+
+    pub(crate) fn from_tag_name(value: &str) -> Result<Self> {
+        Ok(match value {
+            "cartesianX" => RecordName::CartesianX,
+            "cartesianY" => RecordName::CartesianY,
+            "cartesianZ" => RecordName::CartesianZ,
+            "cartesianInvalidState" => RecordName::CartesianInvalidState,
+            "sphericalRange" => RecordName::SphericalRange,
+            "sphericalAzimuth" => RecordName::SphericalAzimuth,
+            "sphericalElevation" => RecordName::SphericalElevation,
+            "sphericalInvalidState" => RecordName::SphericalInvalidState,
+            "intensity" => RecordName::Intensity,
+            "isIntensityInvalid" => RecordName::IsIntensityInvalid,
+            "colorRed" => RecordName::ColorRed,
+            "colorGreen" => RecordName::ColorGreen,
+            "colorBlue" => RecordName::ColorBlue,
+            "isColorInvalid" => RecordName::IsColorInvalid,
+            "rowIndex" => RecordName::RowIndex,
+            "columnIndex" => RecordName::ColumnIndex,
+            "returnCount" => RecordName::ReturnCount,
+            "returnIndex" => RecordName::ReturnIndex,
+            "timeStamp" => RecordName::TimeStamp,
+            "isTimeStampInvalid" => RecordName::IsTimeStampInvalid,
+            name => Error::not_implemented(format!("Found unknown record name: '{name}'"))?,
+        })
+    }
+}
+
+impl RecordDataType {
+    pub(crate) fn from_node(node: &Node) -> Result<Self> {
+        let tag_name = node.tag_name().name();
+        let type_name = node
+            .attribute("type")
+            .invalid_err(format!("Missing type attribute for XML tag '{tag_name}'"))?;
+        Ok(match type_name {
+            "Float" => {
+                let precision = node.attribute("precision").unwrap_or("double");
+                if precision == "double" {
+                    let min = optional_attribute(node, "minimum", tag_name, type_name)?;
+                    let max = optional_attribute(node, "maximum", tag_name, type_name)?;
+                    RecordDataType::Double { min, max }
+                } else if precision == "single" {
+                    let min = optional_attribute(node, "minimum", tag_name, type_name)?;
+                    let max = optional_attribute(node, "maximum", tag_name, type_name)?;
+                    RecordDataType::Single { min, max }
+                } else {
+                    Error::invalid(format!(
+                        "Float 'precision' attribute value '{precision}' for 'Float' type is unknown"
+                    ))?
+                }
             }
-        }
-        "Integer" => {
-            let min = required_attribute(node, "minimum", tag_name, type_name)?;
-            let max = required_attribute(node, "maximum", tag_name, type_name)?;
-            if max <= min {
-                Error::invalid(format!(
-                    "Maximum value '{max}' and minimum value '{min}' of type '{type_name}' in XML tag '{tag_name}' are inconsistent"
-                ))?
+            "Integer" => {
+                let min = required_attribute(node, "minimum", tag_name, type_name)?;
+                let max = required_attribute(node, "maximum", tag_name, type_name)?;
+                if max <= min {
+                    Error::invalid(format!(
+                        "Maximum value '{max}' and minimum value '{min}' of type '{type_name}' in XML tag '{tag_name}' are inconsistent"
+                    ))?
+                }
+                RecordDataType::Integer { min, max }
             }
-            RecordType::Integer { min, max }
-        }
-        "ScaledInteger" => {
-            let min = required_attribute(node, "minimum", tag_name, type_name)?;
-            let max = required_attribute(node, "maximum", tag_name, type_name)?;
-            if max <= min {
-                Error::invalid(format!(
-                    "Maximum value '{max}' and minimum value '{min}' of type '{type_name}' in XML tag '{tag_name}' are inconsistent"
-                ))?
+            "ScaledInteger" => {
+                let min = required_attribute(node, "minimum", tag_name, type_name)?;
+                let max = required_attribute(node, "maximum", tag_name, type_name)?;
+                if max <= min {
+                    Error::invalid(format!(
+                        "Maximum value '{max}' and minimum value '{min}' of type '{type_name}' in XML tag '{tag_name}' are inconsistent"
+                    ))?
+                }
+                let scale = required_attribute(node, "scale", tag_name, type_name)?;
+                RecordDataType::ScaledInteger { min, max, scale }
             }
-            let scale = required_attribute(node, "scale", tag_name, type_name)?;
-            RecordType::ScaledInteger { min, max, scale }
-        }
-        _ => Error::not_implemented(format!(
-            "Unsupported type '{type_name}' in XML tag '{tag_name}' detected"
-        ))?,
-    })
+            _ => Error::not_implemented(format!(
+                "Unsupported type '{type_name}' in XML tag '{tag_name}' detected"
+            ))?,
+        })
+    }
 }
 
 fn optional_attribute<T>(
@@ -154,9 +224,9 @@ where
     ))
 }
 
-fn serialize_record_type(rt: &RecordType) -> String {
+fn serialize_record_type(rt: &RecordDataType) -> String {
     match rt {
-        RecordType::Single { min, max } => {
+        RecordDataType::Single { min, max } => {
             let mut str = String::from("type=\"Float\" precision=\"Single\"");
             if let Some(min) = min {
                 str += &format!(" minimum=\"{min}\"");
@@ -166,7 +236,7 @@ fn serialize_record_type(rt: &RecordType) -> String {
             }
             str
         }
-        RecordType::Double { min, max } => {
+        RecordDataType::Double { min, max } => {
             let mut str = String::from("type=\"Float\"");
             if let Some(min) = min {
                 str += &format!(" minimum=\"{min}\"");
@@ -176,37 +246,11 @@ fn serialize_record_type(rt: &RecordType) -> String {
             }
             str
         }
-        RecordType::ScaledInteger { min, max, scale } => {
+        RecordDataType::ScaledInteger { min, max, scale } => {
             format!("type=\"ScaledInteger\" minimum=\"{min}\" maximum=\"{max}\"  scale=\"{scale}\"")
         }
-        RecordType::Integer { min, max } => {
+        RecordDataType::Integer { min, max } => {
             format!("type=\"Integer\" minimum=\"{min}\" maximum=\"{max}\"")
         }
     }
-}
-
-pub fn serialize_record(record: &Record) -> String {
-    let (tag_name, type_attrs) = match record {
-        Record::CartesianX(t) => ("cartesianX", serialize_record_type(t)),
-        Record::CartesianY(t) => ("cartesianY", serialize_record_type(t)),
-        Record::CartesianZ(t) => ("cartesianZ", serialize_record_type(t)),
-        Record::CartesianInvalidState(t) => ("cartesianInvalidState", serialize_record_type(t)),
-        Record::SphericalRange(t) => ("sphericalRange", serialize_record_type(t)),
-        Record::SphericalAzimuth(t) => ("sphericalAzimuth", serialize_record_type(t)),
-        Record::SphericalElevation(t) => ("sphericalElevation", serialize_record_type(t)),
-        Record::SphericalInvalidState(t) => ("sphericalInvalidState", serialize_record_type(t)),
-        Record::Intensity(t) => ("intensity", serialize_record_type(t)),
-        Record::IsIntensityInvalid(t) => ("isIntensityInvalid", serialize_record_type(t)),
-        Record::ColorRed(t) => ("colorRed", serialize_record_type(t)),
-        Record::ColorGreen(t) => ("colorGreen", serialize_record_type(t)),
-        Record::ColorBlue(t) => ("colorBlue", serialize_record_type(t)),
-        Record::IsColorInvalid(t) => ("isColorInvalid", serialize_record_type(t)),
-        Record::RowIndex(t) => ("rowIndex", serialize_record_type(t)),
-        Record::ColumnIndex(t) => ("columnIndex", serialize_record_type(t)),
-        Record::ReturnCount(t) => ("returnCount", serialize_record_type(t)),
-        Record::ReturnIndex(t) => ("returnIndex", serialize_record_type(t)),
-        Record::TimeStamp(t) => ("timeStamp", serialize_record_type(t)),
-        Record::IsTimeStampInvalid(t) => ("isTimeStampInvalid", serialize_record_type(t)),
-    };
-    format!("<{tag_name} {type_attrs}/>\n")
 }
