@@ -1,12 +1,12 @@
+use crate::bs_out::ByteStreamOutBuffer;
 use crate::cv_section::CompressedVectorSectionHeader;
 use crate::error::Converter;
 use crate::packet::DataPacketHeader;
 use crate::paged_writer::PagedWriter;
-use crate::Point;
+use crate::point::RawPoint;
+use crate::Error;
 use crate::PointCloud;
 use crate::Record;
-use crate::RecordDataType;
-use crate::RecordName;
 use crate::Result;
 use std::collections::VecDeque;
 use std::io::{Read, Seek, Write};
@@ -20,7 +20,7 @@ pub struct PointCloudWriter<'a, T: Read + Write + Seek> {
     section_header: CompressedVectorSectionHeader,
     prototype: Vec<Record>,
     point_count: u64,
-    buffer: VecDeque<Point>,
+    buffer: VecDeque<RawPoint>,
     max_points_per_packet: usize,
 }
 
@@ -29,6 +29,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         writer: &'a mut PagedWriter<T>,
         pointclouds: &'a mut Vec<PointCloud>,
         guid: &str,
+        prototype: Vec<Record>,
     ) -> Result<Self> {
         let section_offset = writer.physical_position()?;
 
@@ -37,41 +38,10 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         section_header.section_length = CompressedVectorSectionHeader::SIZE;
         section_header.write(writer)?;
 
-        let prototype = vec![
-            Record {
-                name: RecordName::CartesianX,
-                data_type: RecordDataType::Double {
-                    min: None,
-                    max: None,
-                },
-            },
-            Record {
-                name: RecordName::CartesianY,
-                data_type: RecordDataType::Double {
-                    min: None,
-                    max: None,
-                },
-            },
-            Record {
-                name: RecordName::CartesianZ,
-                data_type: RecordDataType::Double {
-                    min: None,
-                    max: None,
-                },
-            },
-            Record {
-                name: RecordName::ColorRed,
-                data_type: RecordDataType::Integer { min: 0, max: 255 },
-            },
-            Record {
-                name: RecordName::ColorGreen,
-                data_type: RecordDataType::Integer { min: 0, max: 255 },
-            },
-            Record {
-                name: RecordName::ColorBlue,
-                data_type: RecordDataType::Integer { min: 0, max: 255 },
-            },
-        ];
+        // Each data packet can contain up to 2^16 bytes and we need some reserved
+        // space for header and bytes that are not yet filled and need to be included later.
+        let point_size: usize = prototype.iter().map(|p| p.data_type.bit_size()).sum();
+        let max_points_per_packet = (64000 * 8) / point_size;
 
         Ok(PointCloudWriter {
             writer,
@@ -82,110 +52,88 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             prototype,
             point_count: 0,
             buffer: VecDeque::new(),
-            max_points_per_packet: 64000 / 27,
+            max_points_per_packet,
         })
     }
 
     fn write_buffer_to_disk(&mut self) -> Result<()> {
         let packet_points = self.max_points_per_packet.min(self.buffer.len());
-        if packet_points > 0 {
-            let mut buffer_x = Vec::new();
-            let mut buffer_y = Vec::new();
-            let mut buffer_z = Vec::new();
-            let mut buffer_r = Vec::new();
-            let mut buffer_g = Vec::new();
-            let mut buffer_b = Vec::new();
-            for _ in 0..packet_points {
-                let p = self
-                    .buffer
-                    .pop_front()
-                    .internal_err("Failed to get next point for writing")?;
-                let coords = p
-                    .cartesian
-                    .as_ref()
-                    .invalid_err("Missing cartesian coordinates")?;
-                buffer_x.extend_from_slice(&coords.x.to_le_bytes());
-                buffer_y.extend_from_slice(&coords.y.to_le_bytes());
-                buffer_z.extend_from_slice(&coords.z.to_le_bytes());
-                let colors = p.color.as_ref().invalid_err("Missing color values")?;
-                buffer_r.push((&colors.red * 255.0) as u8);
-                buffer_g.push((&colors.green * 255.0) as u8);
-                buffer_b.push((&colors.blue * 255.0) as u8);
-            }
-
-            // Calculate packet length for header
-            let mut packet_length = DataPacketHeader::SIZE
-                + self.prototype.len() as u64 * 2
-                + packet_points as u64 * 27;
-            if packet_length % 4 != 0 {
-                let missing = 4 - (packet_length % 4);
-                packet_length += missing;
-            }
-            self.section_header.section_length += packet_length;
-
-            // Write header
-            DataPacketHeader {
-                comp_restart_flag: false,
-                packet_length,
-                bytestream_count: self.prototype.len() as u16,
-            }
-            .write(&mut self.writer)?;
-
-            // Write bytestream sizes as u16 values
-            let x_buffer_size = (buffer_x.len() as u16).to_le_bytes();
-            self.writer
-                .write_all(&x_buffer_size)
-                .write_err("Cannot write data packet buffer size for X")?;
-            let y_buffer_size = (buffer_y.len() as u16).to_le_bytes();
-            self.writer
-                .write_all(&y_buffer_size)
-                .write_err("Cannot write data packet buffer size for Y")?;
-            let z_buffer_size = (buffer_z.len() as u16).to_le_bytes();
-            self.writer
-                .write_all(&z_buffer_size)
-                .write_err("Cannot write data packet buffer size for Z")?;
-            let r_buffer_size = (buffer_r.len() as u16).to_le_bytes();
-            self.writer
-                .write_all(&r_buffer_size)
-                .write_err("Cannot write data packet buffer size for red")?;
-            let g_buffer_size = (buffer_g.len() as u16).to_le_bytes();
-            self.writer
-                .write_all(&g_buffer_size)
-                .write_err("Cannot write data packet buffer size for green")?;
-            let b_buffer_size = (buffer_b.len() as u16).to_le_bytes();
-            self.writer
-                .write_all(&b_buffer_size)
-                .write_err("Cannot write data packet buffer size for blue")?;
-
-            // Write actual bytestream buffers with data
-            self.writer
-                .write_all(&buffer_x)
-                .write_err("Cannot write data for X")?;
-            self.writer
-                .write_all(&buffer_y)
-                .write_err("Cannot write data for Y")?;
-            self.writer
-                .write_all(&buffer_z)
-                .write_err("Cannot write data for Z")?;
-            self.writer
-                .write_all(&buffer_r)
-                .write_err("Cannot write data for red")?;
-            self.writer
-                .write_all(&buffer_g)
-                .write_err("Cannot write data for green")?;
-            self.writer
-                .write_all(&buffer_b)
-                .write_err("Cannot write data for blue")?;
-
-            self.writer.align().write_err(
-                "Failed to align writer on next 4-byte offset after writing data packet",
-            )?;
+        if packet_points == 0 {
+            return Ok(());
         }
+
+        let prototype_len = self.prototype.len();
+        let mut buffers = vec![ByteStreamOutBuffer::new(); prototype_len];
+        for _ in 0..packet_points {
+            let p = self
+                .buffer
+                .pop_front()
+                .internal_err("Failed to get next point for writing")?;
+            for (i, r) in self.prototype.iter().enumerate() {
+                let name = &r.name;
+                let raw_value = p.get(name).invalid_err(format!(
+                    "Point is missing record with name '{}'",
+                    name.to_tag_name()
+                ))?;
+                r.data_type.write(raw_value, &mut buffers[i])?;
+            }
+        }
+
+        // Check and prepare buffer sizes
+        let mut sum_buffer_sizes = 0;
+        let mut buffer_sizes = Vec::with_capacity(prototype_len);
+        for buffer in &buffers {
+            let len = buffer.full_bytes();
+            sum_buffer_sizes += len;
+            buffer_sizes.push(len as u16);
+        }
+
+        // Calculate packet length for header
+        let mut packet_length = DataPacketHeader::SIZE + prototype_len * 2 + sum_buffer_sizes;
+        if packet_length % 4 != 0 {
+            let missing = 4 - (packet_length % 4);
+            packet_length += missing;
+        }
+        if packet_length > u16::MAX as usize {
+            Error::internal("Invalid data packet length")?
+        }
+
+        // Add data packet length to section length for later
+        self.section_header.section_length += packet_length as u64;
+
+        // Write data packet header
+        DataPacketHeader {
+            comp_restart_flag: false,
+            packet_length: packet_length as u64,
+            bytestream_count: prototype_len as u16,
+        }
+        .write(&mut self.writer)?;
+
+        // Write bytestream sizes as u16 values
+        for size in buffer_sizes {
+            let bytes = size.to_le_bytes();
+            self.writer
+                .write_all(&bytes)
+                .write_err("Cannot write data packet buffer size")?;
+        }
+
+        // Write actual bytestream buffers with data
+        for buffer in &mut buffers {
+            let data = buffer.get_full_bytes();
+            self.writer
+                .write_all(&data)
+                .write_err("Cannot write bytestream buffer into data packet")?;
+        }
+
+        self.writer
+            .align()
+            .write_err("Failed to align writer on next 4-byte offset after writing data packet")?;
+
         Ok(())
     }
 
     /// Adds a new point to the point cloud.
-    pub fn add_point(&mut self, point: Point) -> Result<()> {
+    pub fn add_point(&mut self, point: RawPoint) -> Result<()> {
         self.buffer.push_back(point);
         self.point_count += 1;
         if self.buffer.len() >= self.max_points_per_packet {
@@ -215,6 +163,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             .physical_seek(end_offset)
             .write_err("Failed to seek behind finalized section")?;
 
+        // Add metadata for pointcloud for XML generation later, when the file is completed.
         self.pointclouds.push(PointCloud {
             guid: self.guid.clone(),
             records: self.point_count,

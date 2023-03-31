@@ -2,7 +2,7 @@ use crate::error::Converter;
 use crate::paged_writer::PagedWriter;
 use crate::pc_writer::PointCloudWriter;
 use crate::root::{serialize_root, Root};
-use crate::{Header, PointCloud, Result};
+use crate::{Header, PointCloud, Record, RecordDataType, RecordName, Result};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
 use std::path::Path;
@@ -31,9 +31,53 @@ impl<T: Write + Read + Seek> E57Writer<T> {
         })
     }
 
-    /// Creates a new writer for adding a new point cloud to the E57 file.
+    /// Creates a new writer for adding a new simple XYZ RGB point cloud to the E57 file.
     pub fn add_xyz_rgb_pointcloud(&mut self, guid: &str) -> Result<PointCloudWriter<T>> {
-        PointCloudWriter::new(&mut self.writer, &mut self.pointclouds, guid)
+        let prototype = vec![
+            Record {
+                name: RecordName::CartesianX,
+                data_type: RecordDataType::Double {
+                    min: None,
+                    max: None,
+                },
+            },
+            Record {
+                name: RecordName::CartesianY,
+                data_type: RecordDataType::Double {
+                    min: None,
+                    max: None,
+                },
+            },
+            Record {
+                name: RecordName::CartesianZ,
+                data_type: RecordDataType::Double {
+                    min: None,
+                    max: None,
+                },
+            },
+            Record {
+                name: RecordName::ColorRed,
+                data_type: RecordDataType::Integer { min: 0, max: 255 },
+            },
+            Record {
+                name: RecordName::ColorGreen,
+                data_type: RecordDataType::Integer { min: 0, max: 255 },
+            },
+            Record {
+                name: RecordName::ColorBlue,
+                data_type: RecordDataType::Integer { min: 0, max: 255 },
+            },
+        ];
+        PointCloudWriter::new(&mut self.writer, &mut self.pointclouds, guid, prototype)
+    }
+
+    /// Creates a new writer for adding a new point cloud to the E57 file.
+    pub fn add_pointcloud(
+        &mut self,
+        guid: &str,
+        prototype: Vec<Record>,
+    ) -> Result<PointCloudWriter<T>> {
+        PointCloudWriter::new(&mut self.writer, &mut self.pointclouds, guid, prototype)
     }
 
     /// Needs to be called after adding all point clouds and images.
@@ -87,43 +131,34 @@ impl E57Writer<File> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{CartesianCoordinate, Color, E57Reader, Point};
+    use crate::{E57Reader, Point, RawPoint};
     use std::fs::{remove_file, File};
     use std::path::Path;
 
     #[test]
-    #[ignore]
     fn write_read_cycle() {
-        let path = Path::new("test.e57");
+        let path = Path::new("write_read_cycle.e57");
         let mut e57_writer = E57Writer::from_file(path).unwrap();
-        let points = [
-            Point {
-                cartesian: Some(CartesianCoordinate {
-                    x: 1.1,
-                    y: 2.2,
-                    z: 3.3,
-                }),
-                color: Some(Color {
-                    red: 1.0,
-                    green: 0.0,
-                    blue: 0.0,
-                }),
-                ..Default::default()
-            },
-            Point {
-                cartesian: Some(CartesianCoordinate {
-                    x: 4.4,
-                    y: 5.5,
-                    z: 6.6,
-                }),
-                color: Some(Color {
-                    red: 0.0,
-                    green: 0.0,
-                    blue: 1.0,
-                }),
-                ..Default::default()
-            },
-        ];
+
+        let mut p1 = RawPoint::new();
+        p1.insert(RecordName::CartesianX, crate::RecordValue::Double(1.1));
+        p1.insert(RecordName::CartesianY, crate::RecordValue::Double(2.2));
+        p1.insert(RecordName::CartesianZ, crate::RecordValue::Double(3.3));
+        p1.insert(RecordName::ColorRed, crate::RecordValue::Integer(255));
+        p1.insert(RecordName::ColorGreen, crate::RecordValue::Integer(0));
+        p1.insert(RecordName::ColorBlue, crate::RecordValue::Integer(0));
+        let mut p2 = RawPoint::new();
+        p2.insert(RecordName::CartesianX, crate::RecordValue::Double(4.4));
+        p2.insert(RecordName::CartesianY, crate::RecordValue::Double(5.5));
+        p2.insert(RecordName::CartesianZ, crate::RecordValue::Double(6.6));
+        p2.insert(RecordName::ColorRed, crate::RecordValue::Integer(0));
+        p2.insert(RecordName::ColorGreen, crate::RecordValue::Integer(0));
+        p2.insert(RecordName::ColorBlue, crate::RecordValue::Integer(255));
+
+        let mut points = Vec::new();
+        points.push(p1);
+        points.push(p2);
+
         let mut pc_writer = e57_writer
             .add_xyz_rgb_pointcloud("guid_pointcloud")
             .unwrap();
@@ -137,18 +172,28 @@ mod tests {
         {
             let file = File::open(path).unwrap();
             let xml = E57Reader::raw_xml(file).unwrap();
-            std::fs::write("test.xml", xml).unwrap();
+            assert!(xml.len() > 0);
+            //std::fs::write("test.xml", xml).unwrap();
         }
 
         let mut e57 = E57Reader::from_file(path).unwrap();
+        assert_eq!(e57.guid(), "guid_file");
         let pointclouds = e57.pointclouds();
+        assert_eq!(pointclouds.len(), 1);
         for pc in pointclouds {
-            println!("PC: {pc:#?}");
+            assert_eq!(pc.guid, "guid_pointcloud");
+            assert_eq!(pc.prototype.len(), 6);
+            assert_eq!(pc.records, 2);
+            //println!("PC: {pc:#?}");
+
             let iter = e57.pointcloud(&pc).unwrap();
             let points: Result<Vec<Point>> = iter.collect();
             let points = points.unwrap();
-            println!("Points: {points:#?}");
+            assert_eq!(points.len(), 2);
+            //println!("Points: {points:#?}");
         }
+
+        remove_file(path).unwrap();
     }
 
     #[test]
@@ -168,7 +213,32 @@ mod tests {
             let mut writer = E57Writer::from_file(out_path).unwrap();
             let mut pc_writer = writer.add_xyz_rgb_pointcloud("pc_guid").unwrap();
             for p in &points {
-                pc_writer.add_point(p.clone()).unwrap();
+                let mut rp = RawPoint::new();
+                rp.insert(
+                    RecordName::CartesianX,
+                    crate::RecordValue::Double(p.cartesian.as_ref().unwrap().x),
+                );
+                rp.insert(
+                    RecordName::CartesianY,
+                    crate::RecordValue::Double(p.cartesian.as_ref().unwrap().y),
+                );
+                rp.insert(
+                    RecordName::CartesianZ,
+                    crate::RecordValue::Double(p.cartesian.as_ref().unwrap().z),
+                );
+                rp.insert(
+                    RecordName::ColorRed,
+                    crate::RecordValue::Integer((p.color.as_ref().unwrap().red * 255.0) as i64),
+                );
+                rp.insert(
+                    RecordName::ColorGreen,
+                    crate::RecordValue::Integer((p.color.as_ref().unwrap().green * 255.0) as i64),
+                );
+                rp.insert(
+                    RecordName::ColorBlue,
+                    crate::RecordValue::Integer((p.color.as_ref().unwrap().blue * 255.0) as i64),
+                );
+                pc_writer.add_point(rp).unwrap();
             }
             pc_writer.finalize().unwrap();
             writer.finalize("file_guid").unwrap();

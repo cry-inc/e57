@@ -1,3 +1,9 @@
+use crate::{RecordName, RecordValue};
+use std::collections::HashMap;
+
+/// Storage container for a low level point data with different attributes.
+pub type RawPoint = HashMap<RecordName, RecordValue>;
+
 /// Simple structure for cartesian coordinates with an X, Y and Z value.
 #[derive(Clone, Debug)]
 pub struct CartesianCoordinate {
@@ -29,7 +35,7 @@ pub struct Return {
     pub count: i64,
 }
 
-/// Represents a single individual point with all its different attributes.
+/// Represents a high level point with all its different attributes.
 #[derive(Clone, Debug, Default)]
 pub struct Point {
     /// Cartesian XYZ coordinates.
@@ -66,4 +72,24 @@ pub struct Point {
     pub time: Option<f64>,
     /// A value of zero means the time is valid, 1 means invalid.
     pub time_invalid: Option<u8>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn raw_point() {
+        let mut point = RawPoint::new();
+        point.insert(RecordName::CartesianX, RecordValue::Double(0.1));
+        point.insert(RecordName::CartesianY, RecordValue::Double(0.2));
+        point.insert(RecordName::CartesianZ, RecordValue::Double(0.3));
+        point.insert(RecordName::CartesianZ, RecordValue::Double(0.3));
+
+        assert_eq!(point.len(), 3);
+        assert!(point.contains_key(&RecordName::CartesianX));
+
+        let value = point.get(&RecordName::CartesianX).unwrap();
+        assert_eq!(value, &RecordValue::Double(0.1));
+    }
 }

@@ -1,3 +1,4 @@
+use crate::bs_out::ByteStreamOutBuffer;
 use crate::error::Converter;
 use crate::{Error, Result};
 use roxmltree::Node;
@@ -26,7 +27,7 @@ pub enum RecordDataType {
 }
 
 /// Used to describe the prototype records with all attributes that exit in the point cloud.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum RecordName {
     /// Cartesian X coordinate (in meters).
     CartesianX,
@@ -79,6 +80,17 @@ pub enum RecordName {
     /// Indicates whether the time stamp value is meaningful.
     /// Can have the value 0 (valid) or 1 (invalid).
     IsTimeStampInvalid,
+}
+
+/// Represents a raw value of records inside a point cloud.
+///
+/// For scaled integers the record data type with the scale is needed to calulcate the actual f64 value.
+#[derive(Clone, Debug, PartialEq)]
+pub enum RecordValue {
+    Single(f32),
+    Double(f64),
+    ScaledInteger(i64),
+    Integer(i64),
 }
 
 impl Record {
@@ -191,6 +203,64 @@ impl RecordDataType {
             ))?,
         })
     }
+
+    pub(crate) fn bit_size(&self) -> usize {
+        match self {
+            RecordDataType::Single { .. } => std::mem::size_of::<f32>() * 8,
+            RecordDataType::Double { .. } => std::mem::size_of::<f64>() * 8,
+            RecordDataType::ScaledInteger { min, max, .. } => integer_bits(*min, *max),
+            RecordDataType::Integer { min, max } => integer_bits(*min, *max),
+        }
+    }
+
+    pub(crate) fn write(
+        &self,
+        value: &RecordValue,
+        buffer: &mut ByteStreamOutBuffer,
+    ) -> Result<()> {
+        match self {
+            RecordDataType::Single { .. } => {
+                if let RecordValue::Single(float) = value {
+                    let bytes = float.to_le_bytes();
+                    buffer.add_bytes(&bytes);
+                } else {
+                    Error::invalid("Data type single only supports single values")?
+                }
+            }
+            RecordDataType::Double { .. } => {
+                if let RecordValue::Double(double) = value {
+                    let bytes = double.to_le_bytes();
+                    buffer.add_bytes(&bytes);
+                } else {
+                    Error::invalid("Data type double only supports double values")?
+                }
+            }
+            RecordDataType::ScaledInteger { .. } => {
+                Error::not_implemented("Scaled integer serialization is not yet supported")?
+            }
+            RecordDataType::Integer { min, max } => {
+                if let RecordValue::Integer(int) = value {
+                    let bit_size = integer_bits(*min, *max);
+                    if bit_size % 8 != 0 || bit_size > 64 {
+                        Error::not_implemented("Only bit sizes with a multiple of 8 and up to 64 are currently supported")?
+                    }
+                    let byte_size = bit_size / 8;
+                    let uint = (int - min) as u64;
+                    let bytes = uint.to_le_bytes();
+                    buffer.add_bytes(&bytes[..byte_size]);
+                } else {
+                    Error::invalid("Data type integer only supports integer values")?
+                }
+            }
+        };
+        Ok(())
+    }
+}
+
+#[inline]
+fn integer_bits(min: i64, max: i64) -> usize {
+    let range = max - min;
+    f64::ceil(f64::log2(range as f64 + 1.0)) as usize
 }
 
 fn optional_attribute<T>(
