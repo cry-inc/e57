@@ -7,8 +7,8 @@
 mod bitpack;
 mod blob;
 mod bounds;
-mod bs_out;
-mod byte_stream;
+mod bs_read;
+mod bs_write;
 mod crc32;
 mod cv_section;
 mod date_time;

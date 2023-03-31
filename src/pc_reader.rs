@@ -1,5 +1,5 @@
 use crate::bitpack::BitPack;
-use crate::byte_stream::ByteStream;
+use crate::bs_read::ByteStreamReadBuffer;
 use crate::cv_section::CompressedVectorSectionHeader;
 use crate::error::Converter;
 use crate::packet::PacketHeader;
@@ -20,7 +20,7 @@ use std::io::{Read, Seek};
 pub struct PointCloudReader<'a, T: Read + Seek> {
     pc: PointCloud,
     reader: &'a mut PagedReader<T>,
-    byte_streams: Vec<ByteStream>,
+    byte_streams: Vec<ByteStreamReadBuffer>,
     read: u64,
     queue_x: VecDeque<f64>,
     queue_y: VecDeque<f64>,
@@ -53,7 +53,7 @@ impl<'a, T: Read + Seek> PointCloudReader<'a, T> {
         reader
             .seek_physical(section_header.data_offset)
             .read_err("Cannot seek to packet header")?;
-        let byte_streams = vec![ByteStream::new(); pc.prototype.len()];
+        let byte_streams = vec![ByteStreamReadBuffer::new(); pc.prototype.len()];
         let pc = pc.clone();
 
         Ok(PointCloudReader {

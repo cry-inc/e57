@@ -1,4 +1,4 @@
-use crate::bs_out::ByteStreamOutBuffer;
+use crate::bs_write::ByteStreamWriteBuffer;
 use crate::error::Converter;
 use crate::{Error, Result};
 use roxmltree::Node;
@@ -216,7 +216,7 @@ impl RecordDataType {
     pub(crate) fn write(
         &self,
         value: &RecordValue,
-        buffer: &mut ByteStreamOutBuffer,
+        buffer: &mut ByteStreamWriteBuffer,
     ) -> Result<()> {
         match self {
             RecordDataType::Single { .. } => {

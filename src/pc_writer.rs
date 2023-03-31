@@ -1,4 +1,4 @@
-use crate::bs_out::ByteStreamOutBuffer;
+use crate::bs_write::ByteStreamWriteBuffer;
 use crate::cv_section::CompressedVectorSectionHeader;
 use crate::error::Converter;
 use crate::packet::DataPacketHeader;
@@ -63,7 +63,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         }
 
         let prototype_len = self.prototype.len();
-        let mut buffers = vec![ByteStreamOutBuffer::new(); prototype_len];
+        let mut buffers = vec![ByteStreamWriteBuffer::new(); prototype_len];
         for _ in 0..packet_points {
             let p = self
                 .buffer

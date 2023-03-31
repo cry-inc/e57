@@ -1,16 +1,16 @@
 #[derive(Clone)]
-pub struct ByteStream {
+pub struct ByteStreamReadBuffer {
     buffer: Vec<u8>,
     offset: u64,
 }
 
-pub struct ByteStreamExtraction {
+pub struct ByteStreamData {
     pub data: Vec<u8>,
     pub bits: u64,
     pub offset: u64,
 }
 
-impl ByteStream {
+impl ByteStreamReadBuffer {
     pub fn new() -> Self {
         Self {
             buffer: Vec::new(),
@@ -27,14 +27,14 @@ impl ByteStream {
         self.buffer.append(&mut data);
     }
 
-    pub fn extract(&mut self, bits: u64) -> Option<ByteStreamExtraction> {
+    pub fn extract(&mut self, bits: u64) -> Option<ByteStreamData> {
         if self.available() >= bits {
             let start_offset = (self.offset / 8) as usize;
             let end_offset = ((self.offset + bits) as f32 / 8.).ceil() as usize;
             let offset = self.offset % 8;
             let data = self.buffer[start_offset..end_offset].to_vec();
             self.offset += bits;
-            Some(ByteStreamExtraction { data, bits, offset })
+            Some(ByteStreamData { data, bits, offset })
         } else {
             None
         }
@@ -51,7 +51,7 @@ mod tests {
 
     #[test]
     fn empty() {
-        let mut bs = ByteStream::new();
+        let mut bs = ByteStreamReadBuffer::new();
         assert_eq!(bs.available(), 0);
         let result = bs.extract(0).unwrap();
         assert_eq!(result.bits, 0);
@@ -64,7 +64,7 @@ mod tests {
 
     #[test]
     fn append_and_extract_bits() {
-        let mut bs = ByteStream::new();
+        let mut bs = ByteStreamReadBuffer::new();
         bs.append(vec![255]);
 
         assert_eq!(bs.available(), 8);
@@ -85,7 +85,7 @@ mod tests {
 
     #[test]
     fn append_and_extract_bytes() {
-        let mut bs = ByteStream::new();
+        let mut bs = ByteStreamReadBuffer::new();
         bs.append(vec![23, 42, 13]);
         bs.extract(2).unwrap();
 
@@ -98,7 +98,7 @@ mod tests {
 
     #[test]
     fn remove_consume_when_appending() {
-        let mut bs = ByteStream::new();
+        let mut bs = ByteStreamReadBuffer::new();
         bs.append(vec![1, 2, 3, 4, 5]);
         bs.extract(4 * 8 + 2).unwrap();
 

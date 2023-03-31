@@ -1,10 +1,10 @@
 #[derive(Clone)]
-pub struct ByteStreamOutBuffer {
+pub struct ByteStreamWriteBuffer {
     buffer: Vec<u8>,
     last_byte_bits: usize,
 }
 
-impl ByteStreamOutBuffer {
+impl ByteStreamWriteBuffer {
     pub fn new() -> Self {
         Self {
             buffer: Vec::new(),
@@ -41,7 +41,7 @@ mod tests {
 
     #[test]
     fn empty() {
-        let mut buffer = ByteStreamOutBuffer::new();
+        let mut buffer = ByteStreamWriteBuffer::new();
         assert_eq!(buffer.full_bytes(), 0);
 
         let full = buffer.get_full_bytes();
@@ -50,7 +50,7 @@ mod tests {
 
     #[test]
     fn add_remove() {
-        let mut buffer = ByteStreamOutBuffer::new();
+        let mut buffer = ByteStreamWriteBuffer::new();
         buffer.add_bytes(&[1, 2, 3, 4]);
         assert_eq!(buffer.full_bytes(), 4);
 

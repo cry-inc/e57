@@ -1,4 +1,4 @@
-use crate::byte_stream::ByteStream;
+use crate::bs_read::ByteStreamReadBuffer;
 use crate::error::Converter;
 use crate::error::WRONG_OFFSET;
 use crate::Error;
@@ -8,7 +8,7 @@ use crate::Result;
 pub struct BitPack;
 
 #[inline]
-fn unpack_fp<T: FromBytes>(stream: &mut ByteStream) -> Result<Vec<T>> {
+fn unpack_fp<T: FromBytes>(stream: &mut ByteStreamReadBuffer) -> Result<Vec<T>> {
     let bits = T::bits();
     let av_bits = stream.available();
     if av_bits % bits != 0 {
@@ -29,7 +29,7 @@ fn unpack_fp<T: FromBytes>(stream: &mut ByteStream) -> Result<Vec<T>> {
 }
 
 #[inline]
-fn unpack_int(stream: &mut ByteStream, min: i64, max: i64) -> Result<Vec<i64>> {
+fn unpack_int(stream: &mut ByteStreamReadBuffer, min: i64, max: i64) -> Result<Vec<i64>> {
     let range = max - min;
     let bit_size = f64::ceil(f64::log2(range as f64 + 1.0)) as u64;
     if bit_size > 56 && bit_size != 64 {
@@ -59,7 +59,10 @@ fn unpack_int(stream: &mut ByteStream, min: i64, max: i64) -> Result<Vec<i64>> {
 }
 
 impl BitPack {
-    pub fn unpack_double(stream: &mut ByteStream, rt: &RecordDataType) -> Result<Vec<f64>> {
+    pub fn unpack_double(
+        stream: &mut ByteStreamReadBuffer,
+        rt: &RecordDataType,
+    ) -> Result<Vec<f64>> {
         match rt {
             RecordDataType::Single { .. } => {
                 let singles = unpack_fp::<f32>(stream)?;
@@ -77,7 +80,10 @@ impl BitPack {
         }
     }
 
-    pub fn unpack_unit_float(stream: &mut ByteStream, rt: &RecordDataType) -> Result<Vec<f32>> {
+    pub fn unpack_unit_float(
+        stream: &mut ByteStreamReadBuffer,
+        rt: &RecordDataType,
+    ) -> Result<Vec<f32>> {
         match rt {
             RecordDataType::Single { min, max } => {
                 let min = min
@@ -110,7 +116,7 @@ impl BitPack {
         }
     }
 
-    pub fn unpack_u8(stream: &mut ByteStream, rt: &RecordDataType) -> Result<Vec<u8>> {
+    pub fn unpack_u8(stream: &mut ByteStreamReadBuffer, rt: &RecordDataType) -> Result<Vec<u8>> {
         match rt {
             RecordDataType::Integer { min, max } => {
                 let ints = unpack_int(stream, *min, *max)?;
@@ -120,7 +126,7 @@ impl BitPack {
         }
     }
 
-    pub fn unpack_i64(stream: &mut ByteStream, rt: &RecordDataType) -> Result<Vec<i64>> {
+    pub fn unpack_i64(stream: &mut ByteStreamReadBuffer, rt: &RecordDataType) -> Result<Vec<i64>> {
         match rt {
             RecordDataType::ScaledInteger { min, max, .. } => unpack_int(stream, *min, *max),
             RecordDataType::Integer { min, max } => unpack_int(stream, *min, *max),
