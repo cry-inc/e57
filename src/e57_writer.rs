@@ -2,7 +2,7 @@ use crate::error::Converter;
 use crate::paged_writer::PagedWriter;
 use crate::pc_writer::PointCloudWriter;
 use crate::root::{serialize_root, Root};
-use crate::{Header, PointCloud, Record, RecordDataType, RecordName, Result};
+use crate::{Header, PointCloud, Record, Result};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
 use std::path::Path;
@@ -29,46 +29,6 @@ impl<T: Write + Read + Seek> E57Writer<T> {
             writer,
             pointclouds: Vec::new(),
         })
-    }
-
-    /// Creates a new writer for adding a new simple XYZ RGB point cloud to the E57 file.
-    pub fn add_xyz_rgb_pointcloud(&mut self, guid: &str) -> Result<PointCloudWriter<T>> {
-        let prototype = vec![
-            Record {
-                name: RecordName::CartesianX,
-                data_type: RecordDataType::Double {
-                    min: None,
-                    max: None,
-                },
-            },
-            Record {
-                name: RecordName::CartesianY,
-                data_type: RecordDataType::Double {
-                    min: None,
-                    max: None,
-                },
-            },
-            Record {
-                name: RecordName::CartesianZ,
-                data_type: RecordDataType::Double {
-                    min: None,
-                    max: None,
-                },
-            },
-            Record {
-                name: RecordName::ColorRed,
-                data_type: RecordDataType::Integer { min: 0, max: 255 },
-            },
-            Record {
-                name: RecordName::ColorGreen,
-                data_type: RecordDataType::Integer { min: 0, max: 255 },
-            },
-            Record {
-                name: RecordName::ColorBlue,
-                data_type: RecordDataType::Integer { min: 0, max: 255 },
-            },
-        ];
-        PointCloudWriter::new(&mut self.writer, &mut self.pointclouds, guid, prototype)
     }
 
     /// Creates a new writer for adding a new point cloud to the E57 file.
@@ -131,7 +91,7 @@ impl E57Writer<File> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{E57Reader, Point, RawPoint, RecordValue};
+    use crate::{E57Reader, Point, RawPoint, RecordDataType, RecordName, RecordValue};
     use std::fs::{remove_file, File};
     use std::path::Path;
 
@@ -159,8 +119,44 @@ mod tests {
         points.push(p1);
         points.push(p2);
 
+        let prototype = vec![
+            Record {
+                name: RecordName::CartesianX,
+                data_type: RecordDataType::Double {
+                    min: None,
+                    max: None,
+                },
+            },
+            Record {
+                name: RecordName::CartesianY,
+                data_type: RecordDataType::Double {
+                    min: None,
+                    max: None,
+                },
+            },
+            Record {
+                name: RecordName::CartesianZ,
+                data_type: RecordDataType::Double {
+                    min: None,
+                    max: None,
+                },
+            },
+            Record {
+                name: RecordName::ColorRed,
+                data_type: RecordDataType::Integer { min: 0, max: 255 },
+            },
+            Record {
+                name: RecordName::ColorGreen,
+                data_type: RecordDataType::Integer { min: 0, max: 255 },
+            },
+            Record {
+                name: RecordName::ColorBlue,
+                data_type: RecordDataType::Integer { min: 0, max: 255 },
+            },
+        ];
+
         let mut pc_writer = e57_writer
-            .add_xyz_rgb_pointcloud("guid_pointcloud")
+            .add_pointcloud("guid_pointcloud", prototype)
             .unwrap();
         for p in points {
             pc_writer.add_point(p).unwrap();
