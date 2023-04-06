@@ -7,6 +7,8 @@ use crate::point::RawPoint;
 use crate::Error;
 use crate::PointCloud;
 use crate::Record;
+use crate::RecordDataType;
+use crate::RecordName;
 use crate::Result;
 use std::collections::VecDeque;
 use std::io::{Read, Seek, Write};
@@ -31,6 +33,9 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         guid: &str,
         prototype: Vec<Record>,
     ) -> Result<Self> {
+        // Make sure the prototype is not invalid or incomplete
+        Self::validate_prototype(&prototype)?;
+
         let section_offset = writer.physical_position()?;
 
         let mut section_header = CompressedVectorSectionHeader::default();
@@ -54,6 +59,161 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             buffer: VecDeque::new(),
             max_points_per_packet,
         })
+    }
+
+    fn validate_prototype(prototype: &[Record]) -> Result<()> {
+        // Helper to look up if a records
+        let contains = |n: RecordName| prototype.iter().any(|p| p.name == n);
+        let get = |n: RecordName| prototype.iter().find(|p| p.name == n);
+
+        // Cartesian coordinate check
+        let mut cartesian = 0;
+        if contains(RecordName::CartesianX) {
+            cartesian += 1;
+        }
+        if contains(RecordName::CartesianY) {
+            cartesian += 1;
+        }
+        if contains(RecordName::CartesianZ) {
+            cartesian += 1;
+        }
+        if cartesian != 0 && cartesian != 3 {
+            Error::invalid("You have to include all three Cartesian coordinates for X, Y and Z")?
+        }
+        if let Some(r) = get(RecordName::CartesianInvalidState) {
+            if !contains(RecordName::CartesianX) {
+                Error::invalid("CartesianInvalidState requires Cartesian coordinates")?
+            }
+            match r.data_type {
+                RecordDataType::Integer { min: 0, max: 2 } => {}
+                _ => {
+                    Error::invalid("CartesianInvalidState needs to be an integer between 0 and 2")?
+                }
+            }
+        }
+
+        // Spherical coordinate check
+        let mut spherical = 0;
+        if contains(RecordName::SphericalAzimuth) {
+            spherical += 1;
+        }
+        if contains(RecordName::SphericalElevation) {
+            spherical += 1;
+        }
+        if contains(RecordName::SphericalRange) {
+            spherical += 1;
+        }
+        if spherical != 0 && spherical != 3 {
+            Error::invalid("You have to include all three spherical coordinates for azimuth, elevation and range")?
+        }
+        if let Some(r) = get(RecordName::SphericalInvalidState) {
+            if !contains(RecordName::SphericalAzimuth) {
+                Error::invalid("SphericalInvalidState requires spherical coordinates")?
+            }
+            match r.data_type {
+                RecordDataType::Integer { min: 0, max: 2 } => {}
+                _ => {
+                    Error::invalid("SphericalInvalidState needs to be an integer between 0 and 2")?
+                }
+            }
+        }
+        if let Some(r) = get(RecordName::SphericalAzimuth) {
+            if let RecordDataType::Integer { .. } = r.data_type {
+                Error::invalid("SphericalAzimuth cannot have an integer type")?
+            }
+        }
+        if let Some(r) = get(RecordName::SphericalElevation) {
+            if let RecordDataType::Integer { .. } = r.data_type {
+                Error::invalid("SphericalElevation cannot have an integer type")?
+            }
+        }
+
+        // Cartesian or spherical?
+        if !contains(RecordName::CartesianX) && !contains(RecordName::SphericalAzimuth) {
+            Error::invalid("You have to include Cartesian or spherical coordinates")?
+        }
+
+        // Color check
+        let mut color = 0;
+        if contains(RecordName::ColorRed) {
+            color += 1;
+        }
+        if contains(RecordName::ColorGreen) {
+            color += 1;
+        }
+        if contains(RecordName::ColorBlue) {
+            color += 1;
+        }
+        if color != 0 && color != 3 {
+            Error::invalid("You have to include all three color values for red, green and blue")?
+        }
+        if let Some(r) = get(RecordName::IsColorInvalid) {
+            if !contains(RecordName::ColorRed) {
+                Error::invalid("IsColorInvalid requires colors")?
+            }
+            match r.data_type {
+                RecordDataType::Integer { min: 0, max: 1 } => {}
+                _ => Error::invalid("IsColorInvalid needs to be an integer between 0 and 1")?,
+            }
+        }
+
+        // Return check
+        let mut ret = 0;
+        if let Some(r) = get(RecordName::ReturnCount) {
+            ret += 1;
+            match r.data_type {
+                RecordDataType::Integer { .. } => {}
+                _ => Error::invalid("ReturnCount must have an integer type")?,
+            }
+        }
+        if let Some(r) = get(RecordName::ReturnIndex) {
+            ret += 1;
+            match r.data_type {
+                RecordDataType::Integer { .. } => {}
+                _ => Error::invalid("ReturnIndex must have an integer type")?,
+            }
+        }
+        if ret != 0 && ret != 2 {
+            Error::invalid("You have to include both, ReturnCount and ReturnIndex")?
+        }
+
+        // Row & column check
+        if let Some(r) = get(RecordName::RowIndex) {
+            match r.data_type {
+                RecordDataType::Integer { .. } => {}
+                _ => Error::invalid("RowIndex must have an integer type")?,
+            }
+        }
+        if let Some(r) = get(RecordName::ColumnIndex) {
+            match r.data_type {
+                RecordDataType::Integer { .. } => {}
+                _ => Error::invalid("ColumnIndex must have an integer type")?,
+            }
+        }
+
+        // Intensity check
+        if let Some(r) = get(RecordName::IsIntensityInvalid) {
+            if !contains(RecordName::Intensity) {
+                Error::invalid("IsIntensityInvalid requires Intensity")?
+            }
+            match r.data_type {
+                RecordDataType::Integer { min: 0, max: 1 } => {}
+                _ => Error::invalid("IsIntensityInvalid needs to be an integer between 0 and 1")?,
+            }
+        }
+
+        // Time stamp check
+        if let Some(r) = get(RecordName::IsTimeStampInvalid) {
+            if !contains(RecordName::TimeStamp) {
+                Error::invalid("IsTimeStampInvalid requires TimeStamp")?
+            }
+            match r.data_type {
+                RecordDataType::Integer { min: 0, max: 1 } => {}
+                _ => Error::invalid("IsTimeStampInvalid needs to be an integer between 0 and 1")?,
+            }
+        }
+
+        Ok(())
     }
 
     fn write_buffer_to_disk(&mut self, last_write: bool) -> Result<()> {
