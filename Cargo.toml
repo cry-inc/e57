@@ -20,6 +20,7 @@ include = [
 members = [
     "tools/extract-xml",
     "tools/e57-to-xyz",
+    "tools/xyz-to-e57",
     "tools/crc-validator",
     "tools/extract-images",
 ]
