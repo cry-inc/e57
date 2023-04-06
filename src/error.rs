@@ -11,7 +11,7 @@ pub const WRONG_OFFSET: &str = "Wrong buffer offset detected";
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Error {
-    /// The file content is invalid and does not confirm with the E57 format specification.
+    /// The E57 you are reading or creating is invalid and does not confirm with the E57 format specification.
     Invalid {
         desc: String,
         source: Option<Box<dyn StdError + Send + Sync + 'static>>,
@@ -35,8 +35,8 @@ pub enum Error {
     NotImplemented { desc: String },
 
     /// An unexpected internal issue occured.
-    /// Most likely this is a logic inside the library.
-    /// Please file an issue, if possible.
+    /// Most likely this is a logic bug inside the library.
+    /// Please file an issue on GitHub, if possible.
     Internal {
         desc: String,
         source: Option<Box<dyn StdError + Send + Sync + 'static>>,
@@ -44,7 +44,7 @@ pub enum Error {
 }
 
 impl Error {
-    /// Creates an new invalid file error.
+    /// Creates a new Invalid error.
     pub fn invalid<T, C>(desc: C) -> Result<T>
     where
         C: Display + Send + Sync + 'static,
@@ -55,7 +55,7 @@ impl Error {
         })
     }
 
-    /// Creates an new unimplemented error.
+    /// Creates a new NotImplemented error.
     pub fn not_implemented<T, C>(desc: C) -> Result<T>
     where
         C: Display + Send + Sync + 'static,
@@ -65,7 +65,7 @@ impl Error {
         })
     }
 
-    /// Creates an new internal error.
+    /// Creates a new Internal error.
     pub fn internal<T, C>(desc: C) -> Result<T>
     where
         C: Display + Send + Sync + 'static,
@@ -80,7 +80,7 @@ impl Error {
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         match self {
-            Error::Invalid { desc, .. } => write!(f, "Invalid E57 file: {desc}"),
+            Error::Invalid { desc, .. } => write!(f, "Invalid E57 content: {desc}"),
             Error::Read { desc, .. } => write!(f, "Failed to read E57: {desc}"),
             Error::Internal { desc, .. } => write!(f, "Internal error: {desc}"),
             Error::NotImplemented { desc } => write!(f, "Not implemented: {desc}"),
