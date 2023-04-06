@@ -236,7 +236,7 @@ impl RecordDataType {
                 }
             }
             RecordDataType::ScaledInteger { min, max, .. } => {
-                if let RecordValue::Integer(int) = value {
+                if let RecordValue::ScaledInteger(int) = value {
                     serialize_integer(*int, *min, *max, buffer);
                 } else {
                     Error::invalid("Data type scaled integer only supports scaled integer values")?
