@@ -56,7 +56,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         })
     }
 
-    fn write_buffer_to_disk(&mut self) -> Result<()> {
+    fn write_buffer_to_disk(&mut self, last_write: bool) -> Result<()> {
         let packet_points = self.max_points_per_packet.min(self.buffer.len());
         if packet_points == 0 {
             return Ok(());
@@ -83,7 +83,11 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         let mut sum_buffer_sizes = 0;
         let mut buffer_sizes = Vec::with_capacity(prototype_len);
         for buffer in &buffers {
-            let len = buffer.full_bytes();
+            let len = if last_write {
+                buffer.all_bytes()
+            } else {
+                buffer.full_bytes()
+            };
             sum_buffer_sizes += len;
             buffer_sizes.push(len as u16);
         }
@@ -119,7 +123,11 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
 
         // Write actual bytestream buffers with data
         for buffer in &mut buffers {
-            let data = buffer.get_full_bytes();
+            let data = if last_write {
+                buffer.get_all_bytes()
+            } else {
+                buffer.get_full_bytes()
+            };
             self.writer
                 .write_all(&data)
                 .write_err("Cannot write bytestream buffer into data packet")?;
@@ -137,7 +145,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         self.buffer.push_back(point);
         self.point_count += 1;
         if self.buffer.len() >= self.max_points_per_packet {
-            self.write_buffer_to_disk()?;
+            self.write_buffer_to_disk(false)?;
         }
         Ok(())
     }
@@ -146,7 +154,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
     pub fn finalize(&mut self) -> Result<()> {
         // Flush remaining points from buffer
         while !self.buffer.is_empty() {
-            self.write_buffer_to_disk()?;
+            self.write_buffer_to_disk(true)?;
         }
 
         // We need to write the section header again with the final length

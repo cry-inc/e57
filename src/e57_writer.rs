@@ -197,7 +197,7 @@ mod tests {
     }
 
     #[test]
-    fn copy_double_test() {
+    fn copy_tiny() {
         let in_path = Path::new("testdata/tinyCartesianFloatRgb.e57");
         let out_path = Path::new("tiny_copy.e57");
 
@@ -211,7 +211,46 @@ mod tests {
 
         {
             let mut writer = E57Writer::from_file(out_path).unwrap();
-            let mut pc_writer = writer.add_xyz_rgb_pointcloud("pc_guid").unwrap();
+            let prototype = vec![
+                Record {
+                    name: RecordName::CartesianX,
+                    data_type: RecordDataType::Double {
+                        min: None,
+                        max: None,
+                    },
+                },
+                Record {
+                    name: RecordName::CartesianY,
+                    data_type: RecordDataType::Double {
+                        min: None,
+                        max: None,
+                    },
+                },
+                Record {
+                    name: RecordName::CartesianZ,
+                    data_type: RecordDataType::Double {
+                        min: None,
+                        max: None,
+                    },
+                },
+                Record {
+                    name: RecordName::CartesianInvalidState,
+                    data_type: RecordDataType::Integer { min: 0, max: 2 },
+                },
+                Record {
+                    name: RecordName::ColorRed,
+                    data_type: RecordDataType::Integer { min: 0, max: 255 },
+                },
+                Record {
+                    name: RecordName::ColorGreen,
+                    data_type: RecordDataType::Integer { min: 0, max: 255 },
+                },
+                Record {
+                    name: RecordName::ColorBlue,
+                    data_type: RecordDataType::Integer { min: 0, max: 255 },
+                },
+            ];
+            let mut pc_writer = writer.add_pointcloud("pc_guid", prototype).unwrap();
             for p in &points {
                 let mut rp = RawPoint::new();
                 rp.insert(
@@ -225,6 +264,10 @@ mod tests {
                 rp.insert(
                     RecordName::CartesianZ,
                     crate::RecordValue::Double(p.cartesian.as_ref().unwrap().z),
+                );
+                rp.insert(
+                    RecordName::CartesianInvalidState,
+                    crate::RecordValue::Integer(0),
                 );
                 rp.insert(
                     RecordName::ColorRed,

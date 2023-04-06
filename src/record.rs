@@ -235,19 +235,16 @@ impl RecordDataType {
                     Error::invalid("Data type double only supports double values")?
                 }
             }
-            RecordDataType::ScaledInteger { .. } => {
-                Error::not_implemented("Scaled integer serialization is not yet supported")?
+            RecordDataType::ScaledInteger { min, max, .. } => {
+                if let RecordValue::Integer(int) = value {
+                    serialize_integer(*int, *min, *max, buffer);
+                } else {
+                    Error::invalid("Data type scaled integer only supports scaled integer values")?
+                }
             }
             RecordDataType::Integer { min, max } => {
                 if let RecordValue::Integer(int) = value {
-                    let bit_size = integer_bits(*min, *max);
-                    if bit_size % 8 != 0 || bit_size > 64 {
-                        Error::not_implemented("Only bit sizes with a multiple of 8 and up to 64 are currently supported")?
-                    }
-                    let byte_size = bit_size / 8;
-                    let uint = (int - min) as u64;
-                    let bytes = uint.to_le_bytes();
-                    buffer.add_bytes(&bytes[..byte_size]);
+                    serialize_integer(*int, *min, *max, buffer);
                 } else {
                     Error::invalid("Data type integer only supports integer values")?
                 }
@@ -255,6 +252,14 @@ impl RecordDataType {
         };
         Ok(())
     }
+}
+
+#[inline]
+fn serialize_integer(value: i64, min: i64, max: i64, buffer: &mut ByteStreamWriteBuffer) {
+    let uint = (value - min) as u64;
+    let data = uint.to_le_bytes();
+    let bits = integer_bits(min, max);
+    buffer.add_bits(&data, bits);
 }
 
 #[inline]
@@ -297,7 +302,7 @@ where
 fn serialize_record_type(rt: &RecordDataType) -> String {
     match rt {
         RecordDataType::Single { min, max } => {
-            let mut str = String::from("type=\"Float\" precision=\"Single\"");
+            let mut str = String::from("type=\"Float\" precision=\"single\"");
             if let Some(min) = min {
                 str += &format!(" minimum=\"{min}\"");
             }
