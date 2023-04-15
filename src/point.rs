@@ -115,8 +115,8 @@ impl SimplePoint {
         }
         if let (Some((rt, rv)), Some((gt, gv)), Some((bt, bv))) = (
             data.get(&RecordName::ColorRed),
-            data.get(&RecordName::ColorBlue),
             data.get(&RecordName::ColorGreen),
+            data.get(&RecordName::ColorBlue),
         ) {
             sp.color = Some(Color {
                 red: rv.to_unit_f32(rt)?,
