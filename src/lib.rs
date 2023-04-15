@@ -3,6 +3,13 @@
 //! Some example code can be found [here](https://github.com/cry-inc/e57/tree/master/tools) in the GitHub repository.
 
 #![forbid(unsafe_code)]
+#![deny(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::large_stack_arrays,
+    clippy::large_types_passed_by_value
+)]
 
 mod bitpack;
 mod blob;

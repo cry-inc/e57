@@ -5,7 +5,7 @@ use crate::Result;
 use std::io::Read;
 use std::io::Write;
 
-const SIGNATURE: &[u8] = "ASTM-E57".as_bytes();
+const SIGNATURE: [u8; 8] = [b'A', b'S', b'T', b'M', b'-', b'E', b'5', b'7'];
 const MAJOR_VERSION: u32 = 1;
 const MINOR_VERSION: u32 = 0;
 const PAGE_SIZE: u64 = 1024;
@@ -101,9 +101,7 @@ impl Header {
 impl Default for Header {
     fn default() -> Self {
         Self {
-            signature: SIGNATURE
-                .try_into()
-                .expect("Failed to create E57 signature"),
+            signature: SIGNATURE,
             major: MAJOR_VERSION,
             minor: MINOR_VERSION,
             phys_length: 0,

@@ -62,13 +62,15 @@ impl<'a, T: Read + Seek> PointCloudReader<'a, T> {
         available.unwrap_or(0)
     }
 
-    fn pop_queue_point(&mut self) -> RawPoint {
+    fn pop_queue_point(&mut self) -> Result<RawPoint> {
         let mut point = RawPoint::new();
         for (i, r) in self.pc.prototype.iter().enumerate() {
-            let value = self.queues[i].pop_front().unwrap();
+            let value = self.queues[i]
+                .pop_front()
+                .internal_err("Failed to pop value for next point")?;
             point.insert(r.name, value);
         }
-        point
+        Ok(point)
     }
 
     fn advance(&mut self) -> Result<()> {
@@ -151,9 +153,13 @@ impl<'a, T: Read + Seek> Iterator for PointCloudReader<'a, T> {
 
         // Try to read next point from properties queues
         if self.available_in_queue() > 0 {
-            let point = self.pop_queue_point();
-            self.read += 1;
-            Some(Ok(point))
+            match self.pop_queue_point() {
+                Ok(point) => {
+                    self.read += 1;
+                    Some(Ok(point))
+                }
+                Err(err) => Some(Err(err)),
+            }
         } else {
             None
         }
