@@ -280,7 +280,9 @@ impl RecordValue {
                 {
                     Ok((s - min) / (max - min))
                 } else {
-                    Error::internal("Tried to convert single value with wrong data type or without min/max")
+                    Error::internal(
+                        "Tried to convert single value with wrong data type or without min/max",
+                    )
                 }
             }
             RecordValue::Double(d) => {
@@ -291,7 +293,9 @@ impl RecordValue {
                 {
                     Ok(((d - min) / (max - min)) as f32)
                 } else {
-                    Error::internal("Tried to convert double value with wrong data type or without min/max")
+                    Error::internal(
+                        "Tried to convert double value with wrong data type or without min/max",
+                    )
                 }
             }
             RecordValue::ScaledInteger(si) => {
