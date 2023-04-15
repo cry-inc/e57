@@ -203,7 +203,7 @@ impl E57Reader<BufReader<File>> {
 mod tests {
     use super::*;
     use crate::images::Representation;
-    use crate::{LimitValue, Point, RecordName};
+    use crate::{LimitValue, RawPoint, RecordName, SimplePoint};
     use std::io::{BufWriter, Write};
 
     #[test]
@@ -299,7 +299,8 @@ mod tests {
             let mut reader = E57Reader::from_file(file).unwrap();
             let pcs = reader.pointclouds();
             let pc = pcs.first().unwrap();
-            let points: Vec<Point> = reader.pointcloud(pc).unwrap().map(|p| p.unwrap()).collect();
+            let points: Vec<RawPoint> =
+                reader.pointcloud(pc).unwrap().map(|p| p.unwrap()).collect();
             assert_eq!(points.len(), 30571);
         }
     }
@@ -335,7 +336,7 @@ mod tests {
     }
 
     #[test]
-    fn simple_iterator_test() {
+    fn iterator_test() {
         let file = "testdata/tinyCartesianFloatRgb.e57";
         let mut reader = E57Reader::from_file(file).unwrap();
         let pcs = reader.pointclouds();
@@ -343,8 +344,12 @@ mod tests {
         let mut counter = 0;
         for p in reader.pointcloud(pc).unwrap() {
             let p = p.unwrap();
-            assert!(p.cartesian.is_some());
-            assert!(p.color.is_some());
+            assert!(p.contains_key(&RecordName::CartesianX));
+            assert!(p.contains_key(&RecordName::CartesianY));
+            assert!(p.contains_key(&RecordName::CartesianZ));
+            assert!(p.contains_key(&RecordName::ColorRed));
+            assert!(p.contains_key(&RecordName::ColorGreen));
+            assert!(p.contains_key(&RecordName::ColorBlue));
             counter += 1;
         }
         assert_eq!(counter, pc.records);
@@ -361,7 +366,7 @@ mod tests {
         let writer = File::create("dump.xyz").unwrap();
         let mut writer = BufWriter::new(writer);
         for p in reader.pointcloud(pc).unwrap() {
-            let p = p.unwrap();
+            let p = SimplePoint::from_raw(p.unwrap(), &pc.prototype).unwrap();
             if let Some(c) = p.cartesian {
                 if let Some(invalid) = p.cartesian_invalid {
                     if invalid != 0 {

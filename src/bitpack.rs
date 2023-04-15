@@ -2,7 +2,7 @@ use crate::bs_read::ByteStreamReadBuffer;
 use crate::error::Converter;
 use crate::error::WRONG_OFFSET;
 use crate::Error;
-use crate::RecordDataType;
+use crate::RecordValue;
 use crate::Result;
 
 pub struct BitPack;
@@ -59,79 +59,35 @@ fn unpack_int(stream: &mut ByteStreamReadBuffer, min: i64, max: i64) -> Result<V
 }
 
 impl BitPack {
-    pub fn unpack_double(
+    pub fn unpack_doubles(stream: &mut ByteStreamReadBuffer) -> Result<Vec<RecordValue>> {
+        let doubles = unpack_fp::<f64>(stream)?;
+        Ok(doubles.iter().map(|d| RecordValue::Double(*d)).collect())
+    }
+
+    pub fn unpack_singles(stream: &mut ByteStreamReadBuffer) -> Result<Vec<RecordValue>> {
+        let singles = unpack_fp::<f32>(stream)?;
+        Ok(singles.iter().map(|s| RecordValue::Single(*s)).collect())
+    }
+
+    pub fn unpack_ints(
         stream: &mut ByteStreamReadBuffer,
-        rt: &RecordDataType,
-    ) -> Result<Vec<f64>> {
-        match rt {
-            RecordDataType::Single { .. } => {
-                let singles = unpack_fp::<f32>(stream)?;
-                Ok(singles.iter().map(|f| *f as f64).collect())
-            }
-            RecordDataType::Double { .. } => unpack_fp::<f64>(stream),
-            RecordDataType::ScaledInteger { min, max, scale } => {
-                let ints = unpack_int(stream, *min, *max)?;
-                Ok(ints.iter().map(|i| *i as f64 * *scale).collect())
-            }
-            RecordDataType::Integer { min, max } => {
-                let ints = unpack_int(stream, *min, *max)?;
-                Ok(ints.iter().map(|i| *i as f64).collect())
-            }
-        }
+        min: i64,
+        max: i64,
+    ) -> Result<Vec<RecordValue>> {
+        let ints = unpack_int(stream, min, max)?;
+        Ok(ints.iter().map(|i| RecordValue::Integer(*i)).collect())
     }
 
-    pub fn unpack_unit_float(
+    pub fn unpack_scaled_ints(
         stream: &mut ByteStreamReadBuffer,
-        rt: &RecordDataType,
-    ) -> Result<Vec<f32>> {
-        match rt {
-            RecordDataType::Single { min, max } => {
-                let min = min
-                    .invalid_err("Cannot extract type 'Single' as unit float without min value")?;
-                let max = max
-                    .invalid_err("Cannot extract type 'Single' as unit float without max value")?;
-                let range = max - min;
-                let singles = unpack_fp::<f32>(stream)?;
-                Ok(singles.iter().map(|f| (f - min) / range).collect())
-            }
-            RecordDataType::Double { min, max } => {
-                let min = min
-                    .invalid_err("Cannot extract type 'Double' as unit float without min value")?;
-                let max = max
-                    .invalid_err("Cannot extract type 'Double' as unit float without max value")?;
-                let range = (max - min) as f32;
-                let doubles = unpack_fp::<f64>(stream)?;
-                Ok(doubles.iter().map(|f| (f - min) as f32 / range).collect())
-            }
-            RecordDataType::ScaledInteger { min, max, .. } => {
-                let range = (max - min) as f32;
-                let ints = unpack_int(stream, *min, *max)?;
-                Ok(ints.iter().map(|i| (i - min) as f32 / range).collect())
-            }
-            RecordDataType::Integer { min, max } => {
-                let ints = unpack_int(stream, *min, *max)?;
-                let range = (max - min) as f32;
-                Ok(ints.iter().map(|i| (i - min) as f32 / range).collect())
-            }
-        }
-    }
-
-    pub fn unpack_u8(stream: &mut ByteStreamReadBuffer, rt: &RecordDataType) -> Result<Vec<u8>> {
-        match rt {
-            RecordDataType::Integer { min, max } => {
-                let ints = unpack_int(stream, *min, *max)?;
-                Ok(ints.iter().map(|i| *i as u8).collect())
-            }
-            _ => Error::not_implemented(format!("Unpacking of {rt:?} as u8 is not supported")),
-        }
-    }
-
-    pub fn unpack_i64(stream: &mut ByteStreamReadBuffer, rt: &RecordDataType) -> Result<Vec<i64>> {
-        match rt {
-            RecordDataType::ScaledInteger { min, max, .. } => unpack_int(stream, *min, *max),
-            RecordDataType::Integer { min, max } => unpack_int(stream, *min, *max),
-            _ => Error::not_implemented(format!("Unpacking of {rt:?} as i64 is not supported")),
-        }
+        min: i64,
+        max: i64,
+    ) -> Result<Vec<RecordValue>> {
+        let ints = unpack_int(stream, min, max)?;
+        Ok(ints
+            .iter()
+            .map(|i| RecordValue::ScaledInteger(*i))
+            .collect())
     }
 }
 

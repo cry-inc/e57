@@ -91,7 +91,7 @@ impl E57Writer<File> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{E57Reader, Point, RawPoint, RecordDataType, RecordName, RecordValue};
+    use crate::{E57Reader, RawPoint, RecordDataType, RecordName, RecordValue, SimplePoint};
     use std::fs::{remove_file, File};
     use std::path::Path;
 
@@ -183,7 +183,7 @@ mod tests {
             //println!("PC: {pc:#?}");
 
             let iter = e57.pointcloud(&pc).unwrap();
-            let points: Result<Vec<Point>> = iter.collect();
+            let points: Result<Vec<RawPoint>> = iter.collect();
             let points = points.unwrap();
             assert_eq!(points.len(), 2);
             //println!("Points: {points:#?}");
@@ -197,77 +197,26 @@ mod tests {
         let in_path = Path::new("testdata/tinyCartesianFloatRgb.e57");
         let out_path = Path::new("tiny_copy.e57");
 
-        let original_points = {
+        let (org_points, org_pc) = {
             let mut reader = E57Reader::from_file(in_path).unwrap();
             let pcs = reader.pointclouds();
-            let pc = pcs.first().unwrap();
-            let iter = reader.pointcloud(pc).unwrap();
-            iter.collect::<Result<Vec<Point>>>().unwrap()
+            let pc = pcs.first().unwrap().clone();
+            let iter = reader.pointcloud(&pc).unwrap();
+            (iter.collect::<Result<Vec<RawPoint>>>().unwrap(), pc)
         };
 
         {
             let mut writer = E57Writer::from_file(out_path).unwrap();
-            let prototype = vec![
-                Record {
-                    name: RecordName::CartesianX,
-                    data_type: RecordDataType::Double {
-                        min: None,
-                        max: None,
-                    },
-                },
-                Record {
-                    name: RecordName::CartesianY,
-                    data_type: RecordDataType::Double {
-                        min: None,
-                        max: None,
-                    },
-                },
-                Record {
-                    name: RecordName::CartesianZ,
-                    data_type: RecordDataType::Double {
-                        min: None,
-                        max: None,
-                    },
-                },
-                Record {
-                    name: RecordName::CartesianInvalidState,
-                    data_type: RecordDataType::Integer { min: 0, max: 2 },
-                },
-                Record {
-                    name: RecordName::ColorRed,
-                    data_type: RecordDataType::Integer { min: 0, max: 255 },
-                },
-                Record {
-                    name: RecordName::ColorGreen,
-                    data_type: RecordDataType::Integer { min: 0, max: 255 },
-                },
-                Record {
-                    name: RecordName::ColorBlue,
-                    data_type: RecordDataType::Integer { min: 0, max: 255 },
-                },
-            ];
+            let mut prototype = org_pc.prototype.clone();
+            prototype.push(Record {
+                name: RecordName::CartesianInvalidState,
+                data_type: RecordDataType::Integer { min: 0, max: 2 },
+            });
             let mut pc_writer = writer.add_pointcloud("pc_guid", prototype).unwrap();
-            for p in &original_points {
-                let mut rp = RawPoint::new();
-                let xyz = p.cartesian.as_ref().unwrap();
-                rp.insert(RecordName::CartesianX, RecordValue::Double(xyz.x));
-                rp.insert(RecordName::CartesianY, RecordValue::Double(xyz.y));
-                rp.insert(RecordName::CartesianZ, RecordValue::Double(xyz.z));
-                rp.insert(RecordName::CartesianInvalidState, RecordValue::Integer(0));
-                let rgb = p.color.as_ref().unwrap();
-                rp.insert(
-                    RecordName::ColorRed,
-                    RecordValue::Integer((rgb.red * 255.0) as i64),
-                );
-                rp.insert(
-                    RecordName::ColorGreen,
-                    RecordValue::Integer((rgb.green * 255.0) as i64),
-                );
-                rp.insert(
-                    RecordName::ColorBlue,
-                    RecordValue::Integer((rgb.blue * 255.0) as i64),
-                );
-                pc_writer.add_point(rp).unwrap();
+            for p in &org_points {
+                let mut p = p.clone();
+                p.insert(RecordName::CartesianInvalidState, RecordValue::Integer(0));
+                pc_writer.add_point(p).unwrap();
             }
             pc_writer.finalize().unwrap();
             writer.finalize("file_guid").unwrap();
@@ -278,10 +227,10 @@ mod tests {
             let pcs = reader.pointclouds();
             let pc = pcs.first().unwrap();
             let iter = reader.pointcloud(pc).unwrap();
-            iter.collect::<Result<Vec<Point>>>().unwrap()
+            iter.collect::<Result<Vec<RawPoint>>>().unwrap()
         };
 
-        assert_eq!(original_points.len(), duplicated_points.len());
+        assert_eq!(org_points.len(), duplicated_points.len());
 
         remove_file(out_path).unwrap();
     }
@@ -336,21 +285,22 @@ mod tests {
             writer.finalize("file_guid").unwrap();
         }
 
-        let read_points = {
+        {
             let mut reader = E57Reader::from_file(out_path).unwrap();
             let pcs = reader.pointclouds();
             let pc = pcs.first().unwrap();
             let iter = reader.pointcloud(pc).unwrap();
-            iter.collect::<Result<Vec<Point>>>().unwrap()
-        };
-
-        assert_eq!(read_points.len(), 2);
-        assert_eq!(read_points[0].cartesian.as_ref().unwrap().x, -1.0);
-        assert_eq!(read_points[0].cartesian.as_ref().unwrap().y, -1.0);
-        assert_eq!(read_points[0].cartesian.as_ref().unwrap().z, -1.0);
-        assert_eq!(read_points[1].cartesian.as_ref().unwrap().x, 1.0);
-        assert_eq!(read_points[1].cartesian.as_ref().unwrap().y, 1.0);
-        assert_eq!(read_points[1].cartesian.as_ref().unwrap().z, 1.0);
+            let read_points = iter.collect::<Result<Vec<RawPoint>>>().unwrap();
+            assert_eq!(read_points.len(), 2);
+            let p1 = SimplePoint::from_raw(read_points[0].clone(), &pc.prototype).unwrap();
+            assert_eq!(p1.cartesian.as_ref().unwrap().x, -1.0);
+            assert_eq!(p1.cartesian.as_ref().unwrap().y, -1.0);
+            assert_eq!(p1.cartesian.as_ref().unwrap().z, -1.0);
+            let p2 = SimplePoint::from_raw(read_points[1].clone(), &pc.prototype).unwrap();
+            assert_eq!(p2.cartesian.as_ref().unwrap().x, 1.0);
+            assert_eq!(p2.cartesian.as_ref().unwrap().y, 1.0);
+            assert_eq!(p2.cartesian.as_ref().unwrap().z, 1.0);
+        }
 
         remove_file(out_path).unwrap();
     }

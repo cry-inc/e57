@@ -1,4 +1,4 @@
-use crate::{RecordName, RecordValue};
+use crate::{error::Converter, Record, RecordName, RecordValue, Result};
 use std::collections::HashMap;
 
 /// Storage container for a low level point data with different attributes.
@@ -37,7 +37,7 @@ pub struct Return {
 
 /// Represents a high level point with all its different attributes.
 #[derive(Clone, Debug, Default)]
-pub struct Point {
+pub struct SimplePoint {
     /// Cartesian XYZ coordinates.
     pub cartesian: Option<CartesianCoordinate>,
     /// Invalid states of the Cartesian coordinates.
@@ -72,6 +72,93 @@ pub struct Point {
     pub time: Option<f64>,
     /// A value of zero means the time is valid, 1 means invalid.
     pub time_invalid: Option<u8>,
+}
+
+impl SimplePoint {
+    pub fn from_raw(rp: RawPoint, prototype: &[Record]) -> Result<Self> {
+        let mut data = HashMap::new();
+        for p in prototype {
+            let value = rp
+                .get(&p.name)
+                .invalid_err("Cannot find value specified in prototype")?;
+            data.insert(p.name, (p.data_type.clone(), value.clone()));
+        }
+
+        let mut sp = SimplePoint::default();
+        if let (Some((xt, xv)), Some((yt, yv)), Some((zt, zv))) = (
+            data.get(&RecordName::CartesianX),
+            data.get(&RecordName::CartesianY),
+            data.get(&RecordName::CartesianZ),
+        ) {
+            sp.cartesian = Some(CartesianCoordinate {
+                x: xv.to_f64(xt)?,
+                y: yv.to_f64(yt)?,
+                z: zv.to_f64(zt)?,
+            });
+        }
+        if let Some((cit, civ)) = data.get(&RecordName::CartesianInvalidState) {
+            sp.cartesian_invalid = Some(civ.to_u8(cit)?);
+        }
+        if let (Some((at, av)), Some((et, ev)), Some((rt, rv))) = (
+            data.get(&RecordName::SphericalAzimuth),
+            data.get(&RecordName::SphericalElevation),
+            data.get(&RecordName::SphericalRange),
+        ) {
+            sp.spherical = Some(SphericalCoordinate {
+                azimuth: av.to_f64(at)?,
+                elevation: ev.to_f64(et)?,
+                range: rv.to_f64(rt)?,
+            });
+        }
+        if let Some((sit, siv)) = data.get(&RecordName::SphericalInvalidState) {
+            sp.spherical_invalid = Some(siv.to_u8(sit)?);
+        }
+        if let (Some((rt, rv)), Some((gt, gv)), Some((bt, bv))) = (
+            data.get(&RecordName::ColorRed),
+            data.get(&RecordName::ColorBlue),
+            data.get(&RecordName::ColorGreen),
+        ) {
+            sp.color = Some(Color {
+                red: rv.to_unit_f32(rt)?,
+                green: gv.to_unit_f32(gt)?,
+                blue: bv.to_unit_f32(bt)?,
+            });
+        }
+        if let Some((cit, civ)) = data.get(&RecordName::IsColorInvalid) {
+            sp.color_invalid = Some(civ.to_u8(cit)?);
+        }
+        if let Some((cit, civ)) = data.get(&RecordName::IsColorInvalid) {
+            sp.color_invalid = Some(civ.to_u8(cit)?);
+        }
+        if let Some((it, iv)) = data.get(&RecordName::Intensity) {
+            sp.intensity = Some(iv.to_unit_f32(it)?);
+        }
+        if let Some((iit, iiv)) = data.get(&RecordName::IsIntensityInvalid) {
+            sp.intensity_invalid = Some(iiv.to_u8(iit)?);
+        }
+        if let (Some((rit, riv)), Some((rct, rcv))) = (
+            data.get(&RecordName::ReturnIndex),
+            data.get(&RecordName::ReturnCount),
+        ) {
+            sp.ret = Some(Return {
+                index: riv.to_i64(rit)?,
+                count: rcv.to_i64(rct)?,
+            });
+        }
+        if let Some((rt, rv)) = data.get(&RecordName::RowIndex) {
+            sp.row = Some(rv.to_i64(rt)?);
+        }
+        if let Some((ct, cv)) = data.get(&RecordName::ColumnIndex) {
+            sp.column = Some(cv.to_i64(ct)?);
+        }
+        if let Some((tt, tv)) = data.get(&RecordName::TimeStamp) {
+            sp.time = Some(tv.to_f64(tt)?);
+        }
+        if let Some((tit, tiv)) = data.get(&RecordName::IsTimeStampInvalid) {
+            sp.time_invalid = Some(tiv.to_u8(tit)?);
+        }
+        Ok(sp)
+    }
 }
 
 #[cfg(test)]

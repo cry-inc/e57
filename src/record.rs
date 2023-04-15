@@ -27,7 +27,7 @@ pub enum RecordDataType {
 }
 
 /// Used to describe the prototype records with all attributes that exit in the point cloud.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum RecordName {
     /// Cartesian X coordinate (in meters).
     CartesianX,
@@ -96,13 +96,13 @@ pub enum RecordValue {
 impl Record {
     pub(crate) fn serialize(&self) -> String {
         let tag_name = self.name.to_tag_name();
-        let type_attrs = serialize_record_type(&self.data_type);
-        format!("<{tag_name} {type_attrs}/>\n")
+        let (attrs, value) = serialize_record_type(&self.data_type);
+        format!("<{tag_name} {attrs}>{value}</{tag_name}>\n")
     }
 }
 
 impl RecordName {
-    pub(crate) fn to_tag_name(&self) -> String {
+    pub(crate) fn to_tag_name(self) -> String {
         String::from(match self {
             RecordName::CartesianX => "cartesianX",
             RecordName::CartesianY => "cartesianY",
@@ -254,6 +254,84 @@ impl RecordDataType {
     }
 }
 
+impl RecordValue {
+    pub fn to_f64(&self, dt: &RecordDataType) -> Result<f64> {
+        match self {
+            RecordValue::Single(s) => Ok(*s as f64),
+            RecordValue::Double(d) => Ok(*d),
+            RecordValue::ScaledInteger(i) => {
+                if let RecordDataType::ScaledInteger { scale, .. } = dt {
+                    Ok(*i as f64 * *scale)
+                } else {
+                    Error::internal("Tried to convert scaled integer value with wrong data type")
+                }
+            }
+            RecordValue::Integer(i) => Ok(*i as f64),
+        }
+    }
+
+    pub fn to_unit_f32(&self, dt: &RecordDataType) -> Result<f32> {
+        match self {
+            RecordValue::Single(s) => {
+                if let RecordDataType::Single {
+                    min: Some(min),
+                    max: Some(max),
+                } = dt
+                {
+                    Ok((s - min) / (max - min))
+                } else {
+                    Error::internal("Tried to convert single value with wrong data type or without min/max")
+                }
+            }
+            RecordValue::Double(d) => {
+                if let RecordDataType::Double {
+                    min: Some(min),
+                    max: Some(max),
+                } = dt
+                {
+                    Ok(((d - min) / (max - min)) as f32)
+                } else {
+                    Error::internal("Tried to convert double value with wrong data type or without min/max")
+                }
+            }
+            RecordValue::ScaledInteger(si) => {
+                if let RecordDataType::ScaledInteger { min, max, .. } = dt {
+                    Ok((si - min) as f32 / (max - min) as f32)
+                } else {
+                    Error::internal("Tried to convert scaled integer value with wrong data type")
+                }
+            }
+            RecordValue::Integer(i) => {
+                if let RecordDataType::Integer { min, max } = dt {
+                    Ok((i - min) as f32 / (max - min) as f32)
+                } else {
+                    Error::internal("Tried to convert integer value with wrong data type")
+                }
+            }
+        }
+    }
+
+    pub fn to_u8(&self, dt: &RecordDataType) -> Result<u8> {
+        if let (RecordValue::Integer(i), RecordDataType::Integer { min, max }) = (self, dt) {
+            if *min >= 0 && *max <= 255 {
+                Ok(*i as u8)
+            } else {
+                Error::internal("Integer range is too big for u8")
+            }
+        } else {
+            Error::internal("Tried to convert value to u8 with unsupported value or data type")
+        }
+    }
+
+    pub fn to_i64(&self, dt: &RecordDataType) -> Result<i64> {
+        if let (RecordValue::Integer(i), RecordDataType::Integer { .. }) = (self, dt) {
+            Ok(*i)
+        } else {
+            Error::internal("Tried to convert value to i64 with unsupported data type")
+        }
+    }
+}
+
 #[inline]
 fn serialize_integer(value: i64, min: i64, max: i64, buffer: &mut ByteStreamWriteBuffer) {
     let uint = (value - min) as u64;
@@ -299,7 +377,7 @@ where
     ))
 }
 
-fn serialize_record_type(rt: &RecordDataType) -> String {
+fn serialize_record_type(rt: &RecordDataType) -> (String, String) {
     match rt {
         RecordDataType::Single { min, max } => {
             let mut str = String::from("type=\"Float\" precision=\"single\"");
@@ -309,7 +387,8 @@ fn serialize_record_type(rt: &RecordDataType) -> String {
             if let Some(max) = max {
                 str += &format!(" maximum=\"{max}\"");
             }
-            str
+            let value = min.unwrap_or(0.0).to_string();
+            (str, value)
         }
         RecordDataType::Double { min, max } => {
             let mut str = String::from("type=\"Float\"");
@@ -319,13 +398,18 @@ fn serialize_record_type(rt: &RecordDataType) -> String {
             if let Some(max) = max {
                 str += &format!(" maximum=\"{max}\"");
             }
-            str
+            let value = min.unwrap_or(0.0).to_string();
+            (str, value)
         }
-        RecordDataType::ScaledInteger { min, max, scale } => {
-            format!("type=\"ScaledInteger\" minimum=\"{min}\" maximum=\"{max}\"  scale=\"{scale}\"")
-        }
-        RecordDataType::Integer { min, max } => {
-            format!("type=\"Integer\" minimum=\"{min}\" maximum=\"{max}\"")
-        }
+        RecordDataType::ScaledInteger { min, max, scale } => (
+            format!(
+                "type=\"ScaledInteger\" minimum=\"{min}\" maximum=\"{max}\"  scale=\"{scale}\""
+            ),
+            min.to_string(),
+        ),
+        RecordDataType::Integer { min, max } => (
+            format!("type=\"Integer\" minimum=\"{min}\" maximum=\"{max}\""),
+            min.to_string(),
+        ),
     }
 }
