@@ -9,7 +9,7 @@
  */
 
 use anyhow::{bail, Context, Result};
-use e57::{E57Writer, RawPoint, Record, RecordDataType, RecordName};
+use e57::{E57Writer, Record, RecordDataType, RecordName, RecordValue};
 use std::env::args;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -82,13 +82,14 @@ fn main() -> Result<()> {
             let b: u8 = parts[5].parse().context("Failed to parse red value")?;
 
             // Create E57 point for inserting
-            let mut point = RawPoint::new();
-            point.insert(RecordName::CartesianX, e57::RecordValue::Double(x));
-            point.insert(RecordName::CartesianY, e57::RecordValue::Double(y));
-            point.insert(RecordName::CartesianZ, e57::RecordValue::Double(z));
-            point.insert(RecordName::ColorRed, e57::RecordValue::Integer(r as i64));
-            point.insert(RecordName::ColorGreen, e57::RecordValue::Integer(g as i64));
-            point.insert(RecordName::ColorBlue, e57::RecordValue::Integer(b as i64));
+            let point = vec![
+                RecordValue::Double(x),
+                RecordValue::Double(y),
+                RecordValue::Double(z),
+                RecordValue::Integer(r as i64),
+                RecordValue::Integer(g as i64),
+                RecordValue::Integer(b as i64),
+            ];
             pc_writer
                 .add_point(point)
                 .context("Failed to add E57 point")?;

@@ -6,7 +6,7 @@ use crate::packet::PacketHeader;
 use crate::paged_reader::PagedReader;
 use crate::Error;
 use crate::PointCloud;
-use crate::RawPoint;
+use crate::RawValues;
 use crate::RecordDataType;
 use crate::RecordValue;
 use crate::Result;
@@ -62,13 +62,13 @@ impl<'a, T: Read + Seek> PointCloudReader<'a, T> {
         available.unwrap_or(0)
     }
 
-    fn pop_queue_point(&mut self) -> Result<RawPoint> {
-        let mut point = RawPoint::new();
-        for (i, r) in self.pc.prototype.iter().enumerate() {
+    fn pop_queue_point(&mut self) -> Result<RawValues> {
+        let mut point = RawValues::with_capacity(self.pc.prototype.len());
+        for i in 0..self.pc.prototype.len() {
             let value = self.queues[i]
                 .pop_front()
                 .internal_err("Failed to pop value for next point")?;
-            point.insert(r.name, value);
+            point.push(value);
         }
         Ok(point)
     }
@@ -135,7 +135,7 @@ impl<'a, T: Read + Seek> PointCloudReader<'a, T> {
 
 impl<'a, T: Read + Seek> Iterator for PointCloudReader<'a, T> {
     /// Each iterator item is a result for an extracted point.
-    type Item = Result<RawPoint>;
+    type Item = Result<RawValues>;
 
     /// Returns the next available point or None if the end was reached.
     fn next(&mut self) -> Option<Self::Item> {

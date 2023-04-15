@@ -62,8 +62,7 @@ pub use self::pc_reader::PointCloudReader;
 pub use self::pc_writer::PointCloudWriter;
 pub use self::point::CartesianCoordinate;
 pub use self::point::Color;
-pub use self::point::RawPoint;
-pub use self::point::SimplePoint;
+pub use self::point::Point;
 pub use self::point::SphericalCoordinate;
 pub use self::pointcloud::PointCloud;
 pub use self::record::Record;
@@ -73,3 +72,6 @@ pub use self::record::RecordValue;
 pub use self::transform::Quaternion;
 pub use self::transform::Transform;
 pub use self::transform::Translation;
+
+/// Storage container for a low level point data.
+pub type RawValues = Vec<RecordValue>;

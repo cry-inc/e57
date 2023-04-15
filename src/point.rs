@@ -1,8 +1,6 @@
-use crate::{error::Converter, Record, RecordName, RecordValue, Result};
+use crate::error::Converter;
+use crate::{RawValues, Record, RecordName, Result};
 use std::collections::HashMap;
-
-/// Storage container for a low level point data with different attributes.
-pub type RawPoint = HashMap<RecordName, RecordValue>;
 
 /// Simple structure for cartesian coordinates with an X, Y and Z value.
 #[derive(Clone, Debug)]
@@ -37,7 +35,7 @@ pub struct Return {
 
 /// Represents a high level point with all its different attributes.
 #[derive(Clone, Debug, Default)]
-pub struct SimplePoint {
+pub struct Point {
     /// Cartesian XYZ coordinates.
     pub cartesian: Option<CartesianCoordinate>,
     /// Invalid states of the Cartesian coordinates.
@@ -74,17 +72,17 @@ pub struct SimplePoint {
     pub time_invalid: Option<u8>,
 }
 
-impl SimplePoint {
-    pub fn from_raw(rp: RawPoint, prototype: &[Record]) -> Result<Self> {
+impl Point {
+    pub fn from_values(values: RawValues, prototype: &[Record]) -> Result<Self> {
         let mut data = HashMap::new();
-        for p in prototype {
-            let value = rp
-                .get(&p.name)
-                .invalid_err("Cannot find value specified in prototype")?;
+        for (i, p) in prototype.iter().enumerate() {
+            let value = values
+                .get(i)
+                .invalid_err("Cannot find value defined by prototype")?;
             data.insert(p.name, (p.data_type.clone(), value.clone()));
         }
 
-        let mut sp = SimplePoint::default();
+        let mut sp = Point::default();
         if let (Some((xt, xv)), Some((yt, yv)), Some((zt, zv))) = (
             data.get(&RecordName::CartesianX),
             data.get(&RecordName::CartesianY),
@@ -158,25 +156,5 @@ impl SimplePoint {
             sp.time_invalid = Some(tiv.to_u8(tit)?);
         }
         Ok(sp)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn raw_point() {
-        let mut point = RawPoint::new();
-        point.insert(RecordName::CartesianX, RecordValue::Double(0.1));
-        point.insert(RecordName::CartesianY, RecordValue::Double(0.2));
-        point.insert(RecordName::CartesianZ, RecordValue::Double(0.3));
-        point.insert(RecordName::CartesianZ, RecordValue::Double(0.3));
-
-        assert_eq!(point.len(), 3);
-        assert!(point.contains_key(&RecordName::CartesianX));
-
-        let value = point.get(&RecordName::CartesianX).unwrap();
-        assert_eq!(value, &RecordValue::Double(0.1));
     }
 }

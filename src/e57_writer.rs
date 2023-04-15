@@ -91,7 +91,7 @@ impl E57Writer<File> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{E57Reader, RawPoint, RecordDataType, RecordName, RecordValue, SimplePoint};
+    use crate::{E57Reader, Point, RawValues, RecordDataType, RecordName, RecordValue};
     use std::fs::{remove_file, File};
     use std::path::Path;
 
@@ -100,20 +100,20 @@ mod tests {
         let path = Path::new("write_read_cycle.e57");
         let mut e57_writer = E57Writer::from_file(path).unwrap();
 
-        let mut p1 = RawPoint::new();
-        p1.insert(RecordName::CartesianX, crate::RecordValue::Double(1.1));
-        p1.insert(RecordName::CartesianY, crate::RecordValue::Double(2.2));
-        p1.insert(RecordName::CartesianZ, crate::RecordValue::Double(3.3));
-        p1.insert(RecordName::ColorRed, crate::RecordValue::Integer(255));
-        p1.insert(RecordName::ColorGreen, crate::RecordValue::Integer(0));
-        p1.insert(RecordName::ColorBlue, crate::RecordValue::Integer(0));
-        let mut p2 = RawPoint::new();
-        p2.insert(RecordName::CartesianX, crate::RecordValue::Double(4.4));
-        p2.insert(RecordName::CartesianY, crate::RecordValue::Double(5.5));
-        p2.insert(RecordName::CartesianZ, crate::RecordValue::Double(6.6));
-        p2.insert(RecordName::ColorRed, crate::RecordValue::Integer(0));
-        p2.insert(RecordName::ColorGreen, crate::RecordValue::Integer(0));
-        p2.insert(RecordName::ColorBlue, crate::RecordValue::Integer(255));
+        let mut p1 = RawValues::with_capacity(6);
+        p1.push(RecordValue::Double(1.1));
+        p1.push(RecordValue::Double(2.2));
+        p1.push(RecordValue::Double(3.3));
+        p1.push(RecordValue::Integer(255));
+        p1.push(RecordValue::Integer(0));
+        p1.push(RecordValue::Integer(0));
+        let mut p2 = RawValues::with_capacity(6);
+        p2.push(RecordValue::Double(4.4));
+        p2.push(RecordValue::Double(5.5));
+        p2.push(RecordValue::Double(6.6));
+        p2.push(RecordValue::Integer(0));
+        p2.push(RecordValue::Integer(0));
+        p2.push(RecordValue::Integer(255));
 
         let mut points = Vec::new();
         points.push(p1);
@@ -183,7 +183,7 @@ mod tests {
             //println!("PC: {pc:#?}");
 
             let iter = e57.pointcloud(&pc).unwrap();
-            let points: Result<Vec<RawPoint>> = iter.collect();
+            let points: Result<Vec<RawValues>> = iter.collect();
             let points = points.unwrap();
             assert_eq!(points.len(), 2);
             //println!("Points: {points:#?}");
@@ -202,7 +202,7 @@ mod tests {
             let pcs = reader.pointclouds();
             let pc = pcs.first().unwrap().clone();
             let iter = reader.pointcloud(&pc).unwrap();
-            (iter.collect::<Result<Vec<RawPoint>>>().unwrap(), pc)
+            (iter.collect::<Result<Vec<RawValues>>>().unwrap(), pc)
         };
 
         {
@@ -215,7 +215,7 @@ mod tests {
             let mut pc_writer = writer.add_pointcloud("pc_guid", prototype).unwrap();
             for p in &org_points {
                 let mut p = p.clone();
-                p.insert(RecordName::CartesianInvalidState, RecordValue::Integer(0));
+                p.push(RecordValue::Integer(0));
                 pc_writer.add_point(p).unwrap();
             }
             pc_writer.finalize().unwrap();
@@ -227,7 +227,7 @@ mod tests {
             let pcs = reader.pointclouds();
             let pc = pcs.first().unwrap();
             let iter = reader.pointcloud(pc).unwrap();
-            iter.collect::<Result<Vec<RawPoint>>>().unwrap()
+            iter.collect::<Result<Vec<RawValues>>>().unwrap()
         };
 
         assert_eq!(org_points.len(), duplicated_points.len());
@@ -269,16 +269,16 @@ mod tests {
             ];
             let mut pc_writer = writer.add_pointcloud("pc_guid", prototype).unwrap();
 
-            let mut rp1 = RawPoint::new();
-            rp1.insert(RecordName::CartesianX, RecordValue::ScaledInteger(-1000));
-            rp1.insert(RecordName::CartesianY, RecordValue::ScaledInteger(-1000));
-            rp1.insert(RecordName::CartesianZ, RecordValue::ScaledInteger(-1000));
+            let mut rp1 = RawValues::with_capacity(3);
+            rp1.push(RecordValue::ScaledInteger(-1000));
+            rp1.push(RecordValue::ScaledInteger(-1000));
+            rp1.push(RecordValue::ScaledInteger(-1000));
             pc_writer.add_point(rp1).unwrap();
 
-            let mut rp2 = RawPoint::new();
-            rp2.insert(RecordName::CartesianX, RecordValue::ScaledInteger(1000));
-            rp2.insert(RecordName::CartesianY, RecordValue::ScaledInteger(1000));
-            rp2.insert(RecordName::CartesianZ, RecordValue::ScaledInteger(1000));
+            let mut rp2 = RawValues::with_capacity(3);
+            rp2.push(RecordValue::ScaledInteger(1000));
+            rp2.push(RecordValue::ScaledInteger(1000));
+            rp2.push(RecordValue::ScaledInteger(1000));
             pc_writer.add_point(rp2).unwrap();
 
             pc_writer.finalize().unwrap();
@@ -290,13 +290,13 @@ mod tests {
             let pcs = reader.pointclouds();
             let pc = pcs.first().unwrap();
             let iter = reader.pointcloud(pc).unwrap();
-            let read_points = iter.collect::<Result<Vec<RawPoint>>>().unwrap();
+            let read_points = iter.collect::<Result<Vec<RawValues>>>().unwrap();
             assert_eq!(read_points.len(), 2);
-            let p1 = SimplePoint::from_raw(read_points[0].clone(), &pc.prototype).unwrap();
+            let p1 = Point::from_values(read_points[0].clone(), &pc.prototype).unwrap();
             assert_eq!(p1.cartesian.as_ref().unwrap().x, -1.0);
             assert_eq!(p1.cartesian.as_ref().unwrap().y, -1.0);
             assert_eq!(p1.cartesian.as_ref().unwrap().z, -1.0);
-            let p2 = SimplePoint::from_raw(read_points[1].clone(), &pc.prototype).unwrap();
+            let p2 = Point::from_values(read_points[1].clone(), &pc.prototype).unwrap();
             assert_eq!(p2.cartesian.as_ref().unwrap().x, 1.0);
             assert_eq!(p2.cartesian.as_ref().unwrap().y, 1.0);
             assert_eq!(p2.cartesian.as_ref().unwrap().z, 1.0);

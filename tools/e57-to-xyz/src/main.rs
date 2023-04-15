@@ -11,7 +11,7 @@
 
 use anyhow::{bail, Context, Result};
 use e57::E57Reader;
-use e57::SimplePoint;
+use e57::Point;
 use std::env::args;
 use std::fs::File;
 use std::io::BufWriter;
@@ -40,7 +40,7 @@ fn main() -> Result<()> {
         .context("Unable to get point cloud iterator")?;
     for p in iter {
         let p = p.context("Unable to read next point")?;
-        let p = SimplePoint::from_raw(p, &pc.prototype)
+        let p = Point::from_values(p, &pc.prototype)
             .context("Failed to convert raw point to simple point")?;
         if let Some(c) = p.cartesian {
             if let Some(invalid) = p.cartesian_invalid {

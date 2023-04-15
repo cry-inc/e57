@@ -203,7 +203,7 @@ impl E57Reader<BufReader<File>> {
 mod tests {
     use super::*;
     use crate::images::Representation;
-    use crate::{LimitValue, RawPoint, RecordName, SimplePoint};
+    use crate::{LimitValue, Point, RawValues, RecordName, RecordValue};
     use std::io::{BufWriter, Write};
 
     #[test]
@@ -299,7 +299,7 @@ mod tests {
             let mut reader = E57Reader::from_file(file).unwrap();
             let pcs = reader.pointclouds();
             let pc = pcs.first().unwrap();
-            let points: Vec<RawPoint> =
+            let points: Vec<RawValues> =
                 reader.pointcloud(pc).unwrap().map(|p| p.unwrap()).collect();
             assert_eq!(points.len(), 30571);
         }
@@ -344,12 +344,13 @@ mod tests {
         let mut counter = 0;
         for p in reader.pointcloud(pc).unwrap() {
             let p = p.unwrap();
-            assert!(p.contains_key(&RecordName::CartesianX));
-            assert!(p.contains_key(&RecordName::CartesianY));
-            assert!(p.contains_key(&RecordName::CartesianZ));
-            assert!(p.contains_key(&RecordName::ColorRed));
-            assert!(p.contains_key(&RecordName::ColorGreen));
-            assert!(p.contains_key(&RecordName::ColorBlue));
+            assert_eq!(p.len(), 6);
+            assert!(matches!(p[0], RecordValue::Single(..)));
+            assert!(matches!(p[1], RecordValue::Single(..)));
+            assert!(matches!(p[2], RecordValue::Single(..)));
+            assert!(matches!(p[3], RecordValue::Integer(..)));
+            assert!(matches!(p[4], RecordValue::Integer(..)));
+            assert!(matches!(p[5], RecordValue::Integer(..)));
             counter += 1;
         }
         assert_eq!(counter, pc.records);
@@ -366,7 +367,7 @@ mod tests {
         let writer = File::create("dump.xyz").unwrap();
         let mut writer = BufWriter::new(writer);
         for p in reader.pointcloud(pc).unwrap() {
-            let p = SimplePoint::from_raw(p.unwrap(), &pc.prototype).unwrap();
+            let p = Point::from_values(p.unwrap(), &pc.prototype).unwrap();
             if let Some(c) = p.cartesian {
                 if let Some(invalid) = p.cartesian_invalid {
                     if invalid != 0 {

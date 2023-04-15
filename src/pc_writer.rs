@@ -3,9 +3,9 @@ use crate::cv_section::CompressedVectorSectionHeader;
 use crate::error::Converter;
 use crate::packet::DataPacketHeader;
 use crate::paged_writer::PagedWriter;
-use crate::point::RawPoint;
 use crate::Error;
 use crate::PointCloud;
+use crate::RawValues;
 use crate::Record;
 use crate::RecordDataType;
 use crate::RecordName;
@@ -22,7 +22,7 @@ pub struct PointCloudWriter<'a, T: Read + Write + Seek> {
     section_header: CompressedVectorSectionHeader,
     prototype: Vec<Record>,
     point_count: u64,
-    buffer: VecDeque<RawPoint>,
+    buffer: VecDeque<RawValues>,
     max_points_per_packet: usize,
 }
 
@@ -229,13 +229,11 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
                 .buffer
                 .pop_front()
                 .internal_err("Failed to get next point for writing")?;
-            for (i, r) in self.prototype.iter().enumerate() {
-                let name = &r.name;
-                let raw_value = p.get(name).invalid_err(format!(
-                    "Point is missing record with name '{}'",
-                    name.to_tag_name()
-                ))?;
-                r.data_type.write(raw_value, &mut buffers[i])?;
+            for (i, prototype) in self.prototype.iter().enumerate() {
+                let raw_value = p
+                    .get(i)
+                    .invalid_err("Prototype is bigger than number of provided values")?;
+                prototype.data_type.write(raw_value, &mut buffers[i])?;
             }
         }
 
@@ -301,7 +299,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
     }
 
     /// Adds a new point to the point cloud.
-    pub fn add_point(&mut self, point: RawPoint) -> Result<()> {
+    pub fn add_point(&mut self, point: RawValues) -> Result<()> {
         self.buffer.push_back(point);
         self.point_count += 1;
         if self.buffer.len() >= self.max_points_per_packet {
