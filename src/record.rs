@@ -27,7 +27,7 @@ pub enum RecordDataType {
 }
 
 /// Used to describe the prototype records with all attributes that exit in the point cloud.
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum RecordName {
     /// Cartesian X coordinate (in meters).
     CartesianX,
@@ -95,14 +95,14 @@ pub enum RecordValue {
 
 impl Record {
     pub(crate) fn serialize(&self) -> String {
-        let tag_name = self.name.to_tag_name();
+        let tag_name = self.name.tag_name();
         let (attrs, value) = serialize_record_type(&self.data_type);
         format!("<{tag_name} {attrs}>{value}</{tag_name}>\n")
     }
 }
 
 impl RecordName {
-    pub(crate) fn to_tag_name(self) -> String {
+    pub(crate) fn tag_name(&self) -> String {
         String::from(match self {
             RecordName::CartesianX => "cartesianX",
             RecordName::CartesianY => "cartesianY",

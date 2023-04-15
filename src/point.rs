@@ -79,7 +79,7 @@ impl Point {
             let value = values
                 .get(i)
                 .invalid_err("Cannot find value defined by prototype")?;
-            data.insert(p.name, (p.data_type.clone(), value.clone()));
+            data.insert(p.name.clone(), (p.data_type.clone(), value.clone()));
         }
 
         let mut sp = Point::default();
