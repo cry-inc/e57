@@ -94,7 +94,7 @@ pub enum RecordValue {
 }
 
 impl Record {
-    pub(crate) fn serialize(&self) -> String {
+    pub(crate) fn xml_string(&self) -> String {
         let tag_name = self.name.tag_name();
         let (attrs, value) = serialize_record_type(&self.data_type);
         format!("<{tag_name} {attrs}>{value}</{tag_name}>\n")

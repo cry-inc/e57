@@ -1,7 +1,3 @@
-use crate::bounds::{
-    cartesian_bounds_from_node, index_bounds_from_node, serialize_cartesian_bounds,
-    serialize_index_bounds, serialize_spherical_bounds, spherical_bounds_from_node,
-};
 use crate::error::Converter;
 use crate::limits::{color_limits_from_node, intensity_limits_from_node};
 use crate::xml::{
@@ -142,17 +138,17 @@ fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
         records,
         prototype,
         cartesian_bounds: if let Some(node) = cartesian_bounds {
-            Some(cartesian_bounds_from_node(&node)?)
+            Some(CartesianBounds::from_node(&node)?)
         } else {
             None
         },
         spherical_bounds: if let Some(node) = spherical_bounds {
-            Some(spherical_bounds_from_node(&node)?)
+            Some(SphericalBounds::from_node(&node)?)
         } else {
             None
         },
         index_bounds: if let Some(node) = index_bounds {
-            Some(index_bounds_from_node(&node)?)
+            Some(IndexBounds::from_node(&node)?)
         } else {
             None
         },
@@ -193,13 +189,13 @@ pub fn serialize_pointcloud(pointcloud: &PointCloud) -> Result<String> {
         pointcloud.guid
     );
     if let Some(bounds) = &pointcloud.cartesian_bounds {
-        xml += &serialize_cartesian_bounds(bounds);
+        xml += &bounds.xml_string();
     }
     if let Some(bounds) = &pointcloud.spherical_bounds {
-        xml += &serialize_spherical_bounds(bounds);
+        xml += &bounds.xml_string();
     }
     if let Some(bounds) = &pointcloud.index_bounds {
-        xml += &serialize_index_bounds(bounds);
+        xml += &bounds.xml_string();
     }
     xml += &format!(
         "<points type=\"CompressedVector\" fileOffset=\"{}\" recordCount=\"{}\">\n",
@@ -207,7 +203,7 @@ pub fn serialize_pointcloud(pointcloud: &PointCloud) -> Result<String> {
     );
     xml += "<prototype type=\"Structure\">\n";
     for record in &pointcloud.prototype {
-        xml += &record.serialize();
+        xml += &record.xml_string();
     }
     xml += "</prototype>\n";
     xml += "</points>\n";
