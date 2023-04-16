@@ -5,6 +5,7 @@ use crate::packet::DataPacketHeader;
 use crate::paged_writer::PagedWriter;
 use crate::CartesianBounds;
 use crate::Error;
+use crate::IndexBounds;
 use crate::PointCloud;
 use crate::RawValues;
 use crate::Record;
@@ -28,6 +29,7 @@ pub struct PointCloudWriter<'a, T: Read + Write + Seek> {
     max_points_per_packet: usize,
     cartesian_bounds: Option<CartesianBounds>,
     spherical_bounds: Option<SphericalBounds>,
+    index_bounds: Option<IndexBounds>,
 }
 
 impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
@@ -67,6 +69,16 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         } else {
             None
         };
+        let has_index = prototype.iter().any(|p| {
+            p.name == RecordName::ReturnIndex
+                || p.name == RecordName::ColumnIndex
+                || p.name == RecordName::RowIndex
+        });
+        let index_bounds = if has_index {
+            Some(IndexBounds::default())
+        } else {
+            None
+        };
 
         Ok(PointCloudWriter {
             writer,
@@ -80,6 +92,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             max_points_per_packet,
             cartesian_bounds,
             spherical_bounds,
+            index_bounds,
         })
     }
 
@@ -353,7 +366,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
                 let bounds = self
                     .spherical_bounds
                     .as_mut()
-                    .internal_err("Cannot find cartesian bounds")?;
+                    .internal_err("Cannot find spherical bounds")?;
                 if p.name == RecordName::SphericalAzimuth {
                     update_min(value, &mut bounds.azimuth_start);
                     update_max(value, &mut bounds.azimuth_end);
@@ -365,6 +378,28 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
                 if p.name == RecordName::SphericalRange {
                     update_min(value, &mut bounds.range_min);
                     update_max(value, &mut bounds.range_max);
+                }
+            }
+            if p.name == RecordName::RowIndex
+                || p.name == RecordName::ColumnIndex
+                || p.name == RecordName::ReturnIndex
+            {
+                let value = data[i].to_i64(&p.data_type)?;
+                let bounds = self
+                    .index_bounds
+                    .as_mut()
+                    .internal_err("Cannot find index bounds")?;
+                if p.name == RecordName::RowIndex {
+                    update_min(value, &mut bounds.row_min);
+                    update_max(value, &mut bounds.row_max);
+                }
+                if p.name == RecordName::ColumnIndex {
+                    update_min(value, &mut bounds.column_min);
+                    update_max(value, &mut bounds.column_max);
+                }
+                if p.name == RecordName::ReturnIndex {
+                    update_min(value, &mut bounds.return_min);
+                    update_max(value, &mut bounds.return_max);
                 }
             }
         }
@@ -406,6 +441,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             prototype: self.prototype.clone(),
             cartesian_bounds: self.cartesian_bounds.take(),
             spherical_bounds: self.spherical_bounds.take(),
+            index_bounds: self.index_bounds.take(),
             ..Default::default()
         };
 
@@ -416,7 +452,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
     }
 }
 
-fn update_min(value: f64, min: &mut Option<f64>) {
+fn update_min<T: PartialOrd>(value: T, min: &mut Option<T>) {
     if let Some(current) = min {
         if *current > value {
             *min = Some(value)
@@ -426,7 +462,7 @@ fn update_min(value: f64, min: &mut Option<f64>) {
     }
 }
 
-fn update_max(value: f64, min: &mut Option<f64>) {
+fn update_max<T: PartialOrd>(value: T, min: &mut Option<T>) {
     if let Some(current) = min {
         if *current < value {
             *min = Some(value)

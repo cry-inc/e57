@@ -108,7 +108,7 @@ pub fn serialize_spherical_bounds(bounds: &SphericalBounds) -> String {
 }
 
 /// Optional minimum and maximum values for the row, column and return indices.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct IndexBounds {
     pub row_min: Option<i64>,
     pub row_max: Option<i64>,
@@ -133,4 +133,28 @@ pub fn index_bounds_from_node(node: &Node) -> Result<IndexBounds> {
         return_min,
         return_max,
     })
+}
+
+pub fn serialize_index_bounds(bounds: &IndexBounds) -> String {
+    let mut xml = String::from("<indexBounds type=\"Structure\">");
+    if let Some(min) = bounds.row_min {
+        xml += &format!("<rowMinimum type=\"Integer\">{min}</rowMinimum>");
+    }
+    if let Some(max) = bounds.row_max {
+        xml += &format!("<rowMaximum type=\"Integer\">{max}</rowMaximum>");
+    }
+    if let Some(min) = bounds.column_min {
+        xml += &format!("<columnMinimum type=\"Integer\">{min}</columnMinimum>");
+    }
+    if let Some(max) = bounds.column_max {
+        xml += &format!("<columnMaximum type=\"Integer\">{max}</columnMaximum>");
+    }
+    if let Some(min) = bounds.return_min {
+        xml += &format!("<returnMinimum type=\"Integer\">{min}</returnMinimum>");
+    }
+    if let Some(max) = bounds.return_max {
+        xml += &format!("<returnMaximum type=\"Integer\">{max}</returnMaximum>");
+    }
+    xml += "</indexBounds>";
+    xml
 }

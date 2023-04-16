@@ -1,6 +1,6 @@
 use crate::bounds::{
     cartesian_bounds_from_node, index_bounds_from_node, serialize_cartesian_bounds,
-    serialize_spherical_bounds, spherical_bounds_from_node,
+    serialize_index_bounds, serialize_spherical_bounds, spherical_bounds_from_node,
 };
 use crate::error::Converter;
 use crate::limits::{color_limits_from_node, intensity_limits_from_node};
@@ -197,6 +197,9 @@ pub fn serialize_pointcloud(pointcloud: &PointCloud) -> Result<String> {
     }
     if let Some(bounds) = &pointcloud.spherical_bounds {
         xml += &serialize_spherical_bounds(bounds);
+    }
+    if let Some(bounds) = &pointcloud.index_bounds {
+        xml += &serialize_index_bounds(bounds);
     }
     xml += &format!(
         "<points type=\"CompressedVector\" fileOffset=\"{}\" recordCount=\"{}\">\n",
