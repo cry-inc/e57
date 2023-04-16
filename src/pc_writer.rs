@@ -11,6 +11,7 @@ use crate::Record;
 use crate::RecordDataType;
 use crate::RecordName;
 use crate::Result;
+use crate::SphericalBounds;
 use std::collections::VecDeque;
 use std::io::{Read, Seek, Write};
 
@@ -26,6 +27,7 @@ pub struct PointCloudWriter<'a, T: Read + Write + Seek> {
     buffer: VecDeque<RawValues>,
     max_points_per_packet: usize,
     cartesian_bounds: Option<CartesianBounds>,
+    spherical_bounds: Option<SphericalBounds>,
 }
 
 impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
@@ -53,14 +55,15 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         // Prepare bounds
         let has_cartesian = prototype.iter().any(|p| p.name == RecordName::CartesianX);
         let cartesian_bounds = if has_cartesian {
-            Some(CartesianBounds {
-                x_min: None,
-                x_max: None,
-                y_min: None,
-                y_max: None,
-                z_min: None,
-                z_max: None,
-            })
+            Some(CartesianBounds::default())
+        } else {
+            None
+        };
+        let has_spherical = prototype
+            .iter()
+            .any(|p| p.name == RecordName::SphericalAzimuth);
+        let spherical_bounds = if has_spherical {
+            Some(SphericalBounds::default())
         } else {
             None
         };
@@ -76,6 +79,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             buffer: VecDeque::new(),
             max_points_per_packet,
             cartesian_bounds,
+            spherical_bounds,
         })
     }
 
@@ -341,6 +345,28 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
                     update_max(value, &mut bounds.z_max);
                 }
             }
+            if p.name == RecordName::SphericalAzimuth
+                || p.name == RecordName::SphericalElevation
+                || p.name == RecordName::SphericalRange
+            {
+                let value = data[i].to_f64(&p.data_type)?;
+                let bounds = self
+                    .spherical_bounds
+                    .as_mut()
+                    .internal_err("Cannot find cartesian bounds")?;
+                if p.name == RecordName::SphericalAzimuth {
+                    update_min(value, &mut bounds.azimuth_start);
+                    update_max(value, &mut bounds.azimuth_end);
+                }
+                if p.name == RecordName::SphericalElevation {
+                    update_min(value, &mut bounds.elevation_min);
+                    update_max(value, &mut bounds.elevation_max);
+                }
+                if p.name == RecordName::SphericalRange {
+                    update_min(value, &mut bounds.range_min);
+                    update_max(value, &mut bounds.range_max);
+                }
+            }
         }
 
         self.buffer.push_back(data);
@@ -379,6 +405,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             file_offset: self.section_offset,
             prototype: self.prototype.clone(),
             cartesian_bounds: self.cartesian_bounds.take(),
+            spherical_bounds: self.spherical_bounds.take(),
             ..Default::default()
         };
 

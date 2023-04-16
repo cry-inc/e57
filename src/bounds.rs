@@ -4,7 +4,7 @@ use crate::Result;
 use roxmltree::Node;
 
 /// Optional minimum and maximum values for Cartesian X, Y and Z coordinates.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct CartesianBounds {
     pub x_min: Option<f64>,
     pub x_max: Option<f64>,
@@ -33,30 +33,30 @@ pub fn cartesian_bounds_from_node(node: &Node) -> Result<CartesianBounds> {
 
 pub fn serialize_cartesian_bounds(bounds: &CartesianBounds) -> String {
     let mut xml = String::from("<cartesianBounds type=\"Structure\">");
-    if let Some(x_min) = bounds.x_min {
-        xml += &format!("<xMinimum type=\"Float\">{x_min}</xMinimum>");
+    if let Some(min) = bounds.x_min {
+        xml += &format!("<xMinimum type=\"Float\">{min}</xMinimum>");
     }
-    if let Some(x_max) = bounds.x_max {
-        xml += &format!("<xMaximum type=\"Float\">{x_max}</xMaximum>");
+    if let Some(max) = bounds.x_max {
+        xml += &format!("<xMaximum type=\"Float\">{max}</xMaximum>");
     }
-    if let Some(y_min) = bounds.y_min {
-        xml += &format!("<yMinimum type=\"Float\">{y_min}</yMinimum>");
+    if let Some(min) = bounds.y_min {
+        xml += &format!("<yMinimum type=\"Float\">{min}</yMinimum>");
     }
-    if let Some(y_max) = bounds.y_max {
-        xml += &format!("<yMaximum type=\"Float\">{y_max}</yMaximum>");
+    if let Some(max) = bounds.y_max {
+        xml += &format!("<yMaximum type=\"Float\">{max}</yMaximum>");
     }
-    if let Some(z_min) = bounds.z_min {
-        xml += &format!("<zMinimum type=\"Float\">{z_min}</zMinimum>");
+    if let Some(min) = bounds.z_min {
+        xml += &format!("<zMinimum type=\"Float\">{min}</zMinimum>");
     }
-    if let Some(z_max) = bounds.z_max {
-        xml += &format!("<zMaximum type=\"Float\">{z_max}</zMaximum>");
+    if let Some(max) = bounds.z_max {
+        xml += &format!("<zMaximum type=\"Float\">{max}</zMaximum>");
     }
     xml += "</cartesianBounds>";
     xml
 }
 
 /// Optional minimum and maximum values for spherical coordinates.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct SphericalBounds {
     pub range_min: Option<f64>,
     pub range_max: Option<f64>,
@@ -81,6 +81,30 @@ pub fn spherical_bounds_from_node(node: &Node) -> Result<SphericalBounds> {
         azimuth_start,
         azimuth_end,
     })
+}
+
+pub fn serialize_spherical_bounds(bounds: &SphericalBounds) -> String {
+    let mut xml = String::from("<sphericalBounds type=\"Structure\">");
+    if let Some(min) = bounds.azimuth_start {
+        xml += &format!("<azimuthStart type=\"Float\">{min}</azimuthStart>");
+    }
+    if let Some(max) = bounds.azimuth_end {
+        xml += &format!("<azimuthEnd type=\"Float\">{max}</azimuthEnd>");
+    }
+    if let Some(min) = bounds.elevation_min {
+        xml += &format!("<elevationMinimum type=\"Float\">{min}</elevationMinimum>");
+    }
+    if let Some(max) = bounds.elevation_max {
+        xml += &format!("<elevationMaximum type=\"Float\">{max}</elevationMaximum>");
+    }
+    if let Some(min) = bounds.range_min {
+        xml += &format!("<rangeMinimum type=\"Float\">{min}</rangeMinimum>");
+    }
+    if let Some(max) = bounds.range_max {
+        xml += &format!("<rangeMaximum type=\"Float\">{max}</rangeMaximum>");
+    }
+    xml += "</sphericalBounds>";
+    xml
 }
 
 /// Optional minimum and maximum values for the row, column and return indices.
