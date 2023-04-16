@@ -196,6 +196,12 @@ pub fn serialize_pointcloud(pointcloud: &PointCloud) -> Result<String> {
     if let Some(bounds) = &pointcloud.index_bounds {
         xml += &bounds.xml_string();
     }
+    if let Some(limits) = &pointcloud.color_limits {
+        xml += &limits.xml_string();
+    }
+    if let Some(limits) = &pointcloud.intensity_limits {
+        xml += &limits.xml_string();
+    }
     xml += &format!(
         "<points type=\"CompressedVector\" fileOffset=\"{}\" recordCount=\"{}\">\n",
         pointcloud.file_offset, pointcloud.records

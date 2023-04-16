@@ -4,8 +4,10 @@ use crate::error::Converter;
 use crate::packet::DataPacketHeader;
 use crate::paged_writer::PagedWriter;
 use crate::CartesianBounds;
+use crate::ColorLimits;
 use crate::Error;
 use crate::IndexBounds;
+use crate::IntensityLimits;
 use crate::PointCloud;
 use crate::RawValues;
 use crate::Record;
@@ -30,6 +32,8 @@ pub struct PointCloudWriter<'a, T: Read + Write + Seek> {
     cartesian_bounds: Option<CartesianBounds>,
     spherical_bounds: Option<SphericalBounds>,
     index_bounds: Option<IndexBounds>,
+    color_limits: Option<ColorLimits>,
+    intensity_limits: Option<IntensityLimits>,
 }
 
 impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
@@ -80,6 +84,32 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             None
         };
 
+        // Prepare limits
+        let has_color = prototype.iter().any(|p| p.name == RecordName::ColorRed);
+        let color_limits = if has_color {
+            let red_record = prototype
+                .iter()
+                .find(|p| p.name == RecordName::ColorRed)
+                .internal_err("Unable to find red record")?;
+            let green_record = prototype
+                .iter()
+                .find(|p| p.name == RecordName::ColorGreen)
+                .internal_err("Unable to find green record")?;
+            let blue_record = prototype
+                .iter()
+                .find(|p| p.name == RecordName::ColorBlue)
+                .internal_err("Unable to find blue record")?;
+            Some(ColorLimits::from_record_types(
+                &red_record.data_type,
+                &green_record.data_type,
+                &blue_record.data_type,
+            ))
+        } else {
+            None
+        };
+        let intensity = prototype.iter().find(|p| p.name == RecordName::Intensity);
+        let intensity_limits = intensity.map(|i| IntensityLimits::from_record_type(&i.data_type));
+
         Ok(PointCloudWriter {
             writer,
             pointclouds,
@@ -93,6 +123,8 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             cartesian_bounds,
             spherical_bounds,
             index_bounds,
+            color_limits,
+            intensity_limits,
         })
     }
 
@@ -442,6 +474,8 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             cartesian_bounds: self.cartesian_bounds.take(),
             spherical_bounds: self.spherical_bounds.take(),
             index_bounds: self.index_bounds.take(),
+            color_limits: self.color_limits.take(),
+            intensity_limits: self.intensity_limits.take(),
             ..Default::default()
         };
 

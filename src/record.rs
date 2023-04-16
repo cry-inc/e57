@@ -3,7 +3,7 @@ use crate::error::Converter;
 use crate::{Error, Result};
 use roxmltree::Node;
 use std::error::Error as StdError;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::str::FromStr;
 
 /// Describes a record inside a E57 file with name and data type.
@@ -252,6 +252,25 @@ impl RecordDataType {
         };
         Ok(())
     }
+
+    pub(crate) fn limits(&self) -> (Option<RecordValue>, Option<RecordValue>) {
+        match self {
+            RecordDataType::Single { min, max } => {
+                (min.map(RecordValue::Single), max.map(RecordValue::Single))
+            }
+            RecordDataType::Double { min, max } => {
+                (min.map(RecordValue::Double), max.map(RecordValue::Double))
+            }
+            RecordDataType::ScaledInteger { min, max, .. } => (
+                Some(RecordValue::ScaledInteger(*min)),
+                Some(RecordValue::ScaledInteger(*max)),
+            ),
+            RecordDataType::Integer { min, max } => (
+                Some(RecordValue::Integer(*min)),
+                Some(RecordValue::Integer(*max)),
+            ),
+        }
+    }
 }
 
 impl RecordValue {
@@ -332,6 +351,17 @@ impl RecordValue {
             Ok(*i)
         } else {
             Error::internal("Tried to convert value to i64 with unsupported data type")
+        }
+    }
+}
+
+impl Display for RecordValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RecordValue::Single(v) => write!(f, "{v}"),
+            RecordValue::Double(v) => write!(f, "{v}"),
+            RecordValue::ScaledInteger(v) => write!(f, "{v}"),
+            RecordValue::Integer(v) => write!(f, "{v}"),
         }
     }
 }
