@@ -203,7 +203,7 @@ impl E57Reader<BufReader<File>> {
 mod tests {
     use super::*;
     use crate::images::Representation;
-    use crate::{LimitValue, Point, RawValues, RecordName, RecordValue};
+    use crate::{Point, RawValues, RecordName, RecordValue};
     use std::io::{BufWriter, Write};
 
     #[test]
@@ -327,12 +327,12 @@ mod tests {
         let pcs = reader.pointclouds();
         let pc = pcs.first().unwrap();
         let limits = pc.color_limits.as_ref().unwrap();
-        assert_eq!(limits.red_min, Some(LimitValue::Integer(0)));
-        assert_eq!(limits.red_max, Some(LimitValue::Integer(255)));
-        assert_eq!(limits.green_min, Some(LimitValue::Integer(0)));
-        assert_eq!(limits.green_max, Some(LimitValue::Integer(255)));
-        assert_eq!(limits.blue_min, Some(LimitValue::Integer(0)));
-        assert_eq!(limits.blue_max, Some(LimitValue::Integer(255)));
+        assert_eq!(limits.red_min, Some(RecordValue::Integer(0)));
+        assert_eq!(limits.red_max, Some(RecordValue::Integer(255)));
+        assert_eq!(limits.green_min, Some(RecordValue::Integer(0)));
+        assert_eq!(limits.green_max, Some(RecordValue::Integer(255)));
+        assert_eq!(limits.blue_min, Some(RecordValue::Integer(0)));
+        assert_eq!(limits.blue_max, Some(RecordValue::Integer(255)));
     }
 
     #[test]

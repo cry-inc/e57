@@ -1,5 +1,4 @@
 use crate::error::Converter;
-use crate::limits::{color_limits_from_node, intensity_limits_from_node};
 use crate::xml::{
     optional_date_time, optional_double, optional_string, optional_transform, required_string,
 };
@@ -153,12 +152,12 @@ fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
             None
         },
         intensity_limits: if let Some(node) = intensity_limits {
-            Some(intensity_limits_from_node(&node)?)
+            Some(IntensityLimits::from_node(&node)?)
         } else {
             None
         },
         color_limits: if let Some(node) = color_limits {
-            Some(color_limits_from_node(&node)?)
+            Some(ColorLimits::from_node(&node)?)
         } else {
             None
         },

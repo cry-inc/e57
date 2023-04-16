@@ -15,14 +15,14 @@ pub struct CartesianBounds {
 }
 
 impl CartesianBounds {
-    pub(crate) fn from_node(node: &Node) -> Result<CartesianBounds> {
+    pub(crate) fn from_node(node: &Node) -> Result<Self> {
         let x_min = optional_double(node, "xMinimum")?;
         let x_max = optional_double(node, "xMaximum")?;
         let y_min = optional_double(node, "yMinimum")?;
         let y_max = optional_double(node, "yMaximum")?;
         let z_min = optional_double(node, "zMinimum")?;
         let z_max = optional_double(node, "zMaximum")?;
-        Ok(CartesianBounds {
+        Ok(Self {
             x_min,
             x_max,
             y_min,
@@ -69,14 +69,14 @@ pub struct SphericalBounds {
 }
 
 impl SphericalBounds {
-    pub(crate) fn from_node(node: &Node) -> Result<SphericalBounds> {
+    pub(crate) fn from_node(node: &Node) -> Result<Self> {
         let range_min = optional_double(node, "rangeMinimum")?;
         let range_max = optional_double(node, "rangeMaximum")?;
         let elevation_min = optional_double(node, "elevationMinimum")?;
         let elevation_max = optional_double(node, "elevationMaximum")?;
         let azimuth_start = optional_double(node, "azimuthStart")?;
         let azimuth_end = optional_double(node, "azimuthEnd")?;
-        Ok(SphericalBounds {
+        Ok(Self {
             range_min,
             range_max,
             elevation_min,
@@ -123,14 +123,14 @@ pub struct IndexBounds {
 }
 
 impl IndexBounds {
-    pub(crate) fn from_node(node: &Node) -> Result<IndexBounds> {
+    pub(crate) fn from_node(node: &Node) -> Result<Self> {
         let row_min = optional_integer(node, "rowMinimum")?;
         let row_max = optional_integer(node, "rowMaximum")?;
         let column_min = optional_integer(node, "columnMinimum")?;
         let column_max = optional_integer(node, "columnMaximum")?;
         let return_min = optional_integer(node, "returnMinimum")?;
         let return_max = optional_integer(node, "returnMaximum")?;
-        Ok(IndexBounds {
+        Ok(Self {
             row_min,
             row_max,
             column_min,

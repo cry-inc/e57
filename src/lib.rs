@@ -57,7 +57,6 @@ pub use self::images::SphericalRepresentation;
 pub use self::images::VisualReference;
 pub use self::limits::ColorLimits;
 pub use self::limits::IntensityLimits;
-pub use self::limits::LimitValue;
 pub use self::pc_reader::PointCloudReader;
 pub use self::pc_writer::PointCloudWriter;
 pub use self::point::CartesianCoordinate;
