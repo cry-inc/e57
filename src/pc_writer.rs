@@ -3,6 +3,7 @@ use crate::cv_section::CompressedVectorSectionHeader;
 use crate::error::Converter;
 use crate::packet::DataPacketHeader;
 use crate::paged_writer::PagedWriter;
+use crate::CartesianBounds;
 use crate::Error;
 use crate::PointCloud;
 use crate::RawValues;
@@ -24,6 +25,7 @@ pub struct PointCloudWriter<'a, T: Read + Write + Seek> {
     point_count: u64,
     buffer: VecDeque<RawValues>,
     max_points_per_packet: usize,
+    cartesian_bounds: Option<CartesianBounds>,
 }
 
 impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
@@ -48,6 +50,21 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         let point_size: usize = prototype.iter().map(|p| p.data_type.bit_size()).sum();
         let max_points_per_packet = (64000 * 8) / point_size;
 
+        // Prepare bounds
+        let has_cartesian = prototype.iter().any(|p| p.name == RecordName::CartesianX);
+        let cartesian_bounds = if has_cartesian {
+            Some(CartesianBounds {
+                x_min: None,
+                x_max: None,
+                y_min: None,
+                y_max: None,
+                z_min: None,
+                z_max: None,
+            })
+        } else {
+            None
+        };
+
         Ok(PointCloudWriter {
             writer,
             pointclouds,
@@ -58,6 +75,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             point_count: 0,
             buffer: VecDeque::new(),
             max_points_per_packet,
+            cartesian_bounds,
         })
     }
 
@@ -299,8 +317,33 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
     }
 
     /// Adds a new point to the point cloud.
-    pub fn add_point(&mut self, point: RawValues) -> Result<()> {
-        self.buffer.push_back(point);
+    pub fn add_point(&mut self, data: RawValues) -> Result<()> {
+        for (i, p) in self.prototype.iter().enumerate() {
+            if p.name == RecordName::CartesianX
+                || p.name == RecordName::CartesianY
+                || p.name == RecordName::CartesianZ
+            {
+                let value = data[i].to_f64(&p.data_type)?;
+                let bounds = self
+                    .cartesian_bounds
+                    .as_mut()
+                    .internal_err("Cannot find cartesian bounds")?;
+                if p.name == RecordName::CartesianX {
+                    update_min(value, &mut bounds.x_min);
+                    update_max(value, &mut bounds.x_max);
+                }
+                if p.name == RecordName::CartesianY {
+                    update_min(value, &mut bounds.y_min);
+                    update_max(value, &mut bounds.y_max);
+                }
+                if p.name == RecordName::CartesianZ {
+                    update_min(value, &mut bounds.z_min);
+                    update_max(value, &mut bounds.z_max);
+                }
+            }
+        }
+
+        self.buffer.push_back(data);
         self.point_count += 1;
         if self.buffer.len() >= self.max_points_per_packet {
             self.write_buffer_to_disk(false)?;
@@ -329,15 +372,39 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             .physical_seek(end_offset)
             .write_err("Failed to seek behind finalized section")?;
 
-        // Add metadata for pointcloud for XML generation later, when the file is completed.
-        self.pointclouds.push(PointCloud {
+        // prepare point cloud metadata
+        let pc = PointCloud {
             guid: self.guid.clone(),
             records: self.point_count,
             file_offset: self.section_offset,
             prototype: self.prototype.clone(),
+            cartesian_bounds: self.cartesian_bounds.take(),
             ..Default::default()
-        });
+        };
+
+        // Add metadata for XML generation later, when the file is completed.
+        self.pointclouds.push(pc);
 
         Ok(())
+    }
+}
+
+fn update_min(value: f64, min: &mut Option<f64>) {
+    if let Some(current) = min {
+        if *current > value {
+            *min = Some(value)
+        }
+    } else {
+        *min = Some(value)
+    }
+}
+
+fn update_max(value: f64, min: &mut Option<f64>) {
+    if let Some(current) = min {
+        if *current < value {
+            *min = Some(value)
+        }
+    } else {
+        *min = Some(value)
     }
 }

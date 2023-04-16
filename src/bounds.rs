@@ -31,6 +31,30 @@ pub fn cartesian_bounds_from_node(node: &Node) -> Result<CartesianBounds> {
     })
 }
 
+pub fn serialize_cartesian_bounds(bounds: &CartesianBounds) -> String {
+    let mut xml = String::from("<cartesianBounds type=\"Structure\">");
+    if let Some(x_min) = bounds.x_min {
+        xml += &format!("<xMinimum type=\"Float\">{x_min}</xMinimum>");
+    }
+    if let Some(x_max) = bounds.x_max {
+        xml += &format!("<xMaximum type=\"Float\">{x_max}</xMaximum>");
+    }
+    if let Some(y_min) = bounds.y_min {
+        xml += &format!("<yMinimum type=\"Float\">{y_min}</yMinimum>");
+    }
+    if let Some(y_max) = bounds.y_max {
+        xml += &format!("<yMaximum type=\"Float\">{y_max}</yMaximum>");
+    }
+    if let Some(z_min) = bounds.z_min {
+        xml += &format!("<zMinimum type=\"Float\">{z_min}</zMinimum>");
+    }
+    if let Some(z_max) = bounds.z_max {
+        xml += &format!("<zMaximum type=\"Float\">{z_max}</zMaximum>");
+    }
+    xml += "</cartesianBounds>";
+    xml
+}
+
 /// Optional minimum and maximum values for spherical coordinates.
 #[derive(Clone, Debug)]
 pub struct SphericalBounds {
