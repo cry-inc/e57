@@ -13,6 +13,7 @@ use crate::RawValues;
 use crate::Record;
 use crate::RecordDataType;
 use crate::RecordName;
+use crate::RecordValue;
 use crate::Result;
 use crate::SphericalBounds;
 use std::collections::VecDeque;
@@ -366,13 +367,31 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
     }
 
     /// Adds a new point to the point cloud.
-    pub fn add_point(&mut self, data: RawValues) -> Result<()> {
+    pub fn add_point(&mut self, values: RawValues) -> Result<()> {
+        if values.len() != self.prototype.len() {
+            Error::invalid("Number of values does not match prototype length")?
+        }
+
         for (i, p) in self.prototype.iter().enumerate() {
+            let value = &values[i];
+            if !match p.data_type {
+                RecordDataType::Single { .. } => matches!(value, RecordValue::Single(..)),
+                RecordDataType::Double { .. } => matches!(value, RecordValue::Double(..)),
+                RecordDataType::ScaledInteger { .. } => {
+                    matches!(value, RecordValue::ScaledInteger(..))
+                }
+                RecordDataType::Integer { .. } => matches!(value, RecordValue::Integer(..)),
+            } {
+                Error::invalid(format!(
+                    "Type mismatch at index {i}: value type does not match prototype"
+                ))?
+            }
+
             if p.name == RecordName::CartesianX
                 || p.name == RecordName::CartesianY
                 || p.name == RecordName::CartesianZ
             {
-                let value = data[i].to_f64(&p.data_type)?;
+                let value = values[i].to_f64(&p.data_type)?;
                 let bounds = self
                     .cartesian_bounds
                     .as_mut()
@@ -394,7 +413,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
                 || p.name == RecordName::SphericalElevation
                 || p.name == RecordName::SphericalRange
             {
-                let value = data[i].to_f64(&p.data_type)?;
+                let value = values[i].to_f64(&p.data_type)?;
                 let bounds = self
                     .spherical_bounds
                     .as_mut()
@@ -416,7 +435,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
                 || p.name == RecordName::ColumnIndex
                 || p.name == RecordName::ReturnIndex
             {
-                let value = data[i].to_i64(&p.data_type)?;
+                let value = values[i].to_i64(&p.data_type)?;
                 let bounds = self
                     .index_bounds
                     .as_mut()
@@ -436,7 +455,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             }
         }
 
-        self.buffer.push_back(data);
+        self.buffer.push_back(values);
         self.point_count += 1;
         if self.buffer.len() >= self.max_points_per_packet {
             self.write_buffer_to_disk(false)?;

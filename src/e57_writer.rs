@@ -333,4 +333,56 @@ mod tests {
 
         remove_file(out_path).unwrap();
     }
+
+    #[test]
+    fn invalid_prototype() {
+        let out_path = Path::new("invalid_prototype.e57");
+        let mut writer = E57Writer::from_file(out_path).unwrap();
+
+        let prototype = vec![Record::CARTESIAN_X_F32];
+        writer.add_pointcloud("pc_guid", prototype).err().unwrap();
+
+        let prototype = vec![
+            Record::CARTESIAN_X_F32,
+            Record::CARTESIAN_Y_F32,
+            Record::CARTESIAN_Z_F32,
+            Record::COLOR_BLUE_U8,
+        ];
+        writer.add_pointcloud("pc_guid", prototype).err().unwrap();
+
+        let prototype = vec![Record {
+            name: RecordName::SphericalAzimuth,
+            data_type: RecordDataType::F64,
+        }];
+        writer.add_pointcloud("pc_guid", prototype).err().unwrap();
+
+        remove_file(out_path).unwrap();
+    }
+
+    #[test]
+    fn invalid_points() {
+        let out_path = Path::new("invalid_points.e57");
+        let mut writer = E57Writer::from_file(out_path).unwrap();
+        let prototype = vec![
+            Record::CARTESIAN_X_F32,
+            Record::CARTESIAN_Y_F32,
+            Record::CARTESIAN_Z_F32,
+        ];
+        let mut pc_writer = writer.add_pointcloud("pc_guid", prototype).unwrap();
+        pc_writer.add_point(vec![]).err().unwrap();
+        pc_writer
+            .add_point(vec![RecordValue::Single(1.0)])
+            .err()
+            .unwrap();
+        pc_writer
+            .add_point(vec![
+                RecordValue::Single(1.0),
+                RecordValue::Single(1.0),
+                RecordValue::Double(1.0),
+            ])
+            .err()
+            .unwrap();
+
+        remove_file(out_path).unwrap();
+    }
 }
