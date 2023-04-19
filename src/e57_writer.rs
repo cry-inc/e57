@@ -92,6 +92,7 @@ impl E57Writer<File> {
 mod tests {
     use super::*;
     use crate::{E57Reader, Point, RawValues, RecordDataType, RecordName, RecordValue};
+    use std::f32::consts::PI;
     use std::fs::{remove_file, File};
     use std::path::Path;
 
@@ -100,59 +101,32 @@ mod tests {
         let path = Path::new("write_read_cycle.e57");
         let mut e57_writer = E57Writer::from_file(path).unwrap();
 
-        let mut p1 = RawValues::with_capacity(6);
-        p1.push(RecordValue::Double(1.1));
-        p1.push(RecordValue::Double(2.2));
-        p1.push(RecordValue::Double(3.3));
-        p1.push(RecordValue::Integer(255));
-        p1.push(RecordValue::Integer(0));
-        p1.push(RecordValue::Integer(0));
-        let mut p2 = RawValues::with_capacity(6);
-        p2.push(RecordValue::Double(4.4));
-        p2.push(RecordValue::Double(5.5));
-        p2.push(RecordValue::Double(6.6));
-        p2.push(RecordValue::Integer(0));
-        p2.push(RecordValue::Integer(0));
-        p2.push(RecordValue::Integer(255));
-
-        let mut points = Vec::new();
-        points.push(p1);
-        points.push(p2);
-
         let prototype = vec![
-            Record {
-                name: RecordName::CartesianX,
-                data_type: RecordDataType::Double {
-                    min: None,
-                    max: None,
-                },
-            },
-            Record {
-                name: RecordName::CartesianY,
-                data_type: RecordDataType::Double {
-                    min: None,
-                    max: None,
-                },
-            },
-            Record {
-                name: RecordName::CartesianZ,
-                data_type: RecordDataType::Double {
-                    min: None,
-                    max: None,
-                },
-            },
-            Record {
-                name: RecordName::ColorRed,
-                data_type: RecordDataType::Integer { min: 0, max: 255 },
-            },
-            Record {
-                name: RecordName::ColorGreen,
-                data_type: RecordDataType::Integer { min: 0, max: 255 },
-            },
-            Record {
-                name: RecordName::ColorBlue,
-                data_type: RecordDataType::Integer { min: 0, max: 255 },
-            },
+            Record::CARTESIAN_X_F64,
+            Record::CARTESIAN_Y_F64,
+            Record::CARTESIAN_Z_F64,
+            Record::COLOR_RED_U8,
+            Record::COLOR_GREEN_U8,
+            Record::COLOR_BLUE_U8,
+        ];
+
+        let points = vec![
+            vec![
+                RecordValue::Double(1.1),
+                RecordValue::Double(2.2),
+                RecordValue::Double(3.3),
+                RecordValue::Integer(255),
+                RecordValue::Integer(0),
+                RecordValue::Integer(0),
+            ],
+            vec![
+                RecordValue::Double(4.4),
+                RecordValue::Double(5.5),
+                RecordValue::Double(6.6),
+                RecordValue::Integer(0),
+                RecordValue::Integer(0),
+                RecordValue::Integer(255),
+            ],
         ];
 
         let mut pc_writer = e57_writer
@@ -236,51 +210,45 @@ mod tests {
     }
 
     #[test]
-    fn scaled_integers_test() {
-        let out_path = Path::new("scaled_ints.e57");
+    fn scaled_integers() {
+        let out_path = Path::new("scaled_integers.e57");
 
         {
             let mut writer = E57Writer::from_file(out_path).unwrap();
+            const SCALED_INT: RecordDataType = RecordDataType::ScaledInteger {
+                min: -1000,
+                max: 1000,
+                scale: 0.001,
+            };
             let prototype = vec![
                 Record {
                     name: RecordName::CartesianX,
-                    data_type: RecordDataType::ScaledInteger {
-                        min: -1000,
-                        max: 1000,
-                        scale: 0.001,
-                    },
+                    data_type: SCALED_INT,
                 },
                 Record {
                     name: RecordName::CartesianY,
-                    data_type: RecordDataType::ScaledInteger {
-                        min: -1000,
-                        max: 1000,
-                        scale: 0.001,
-                    },
+                    data_type: SCALED_INT,
                 },
                 Record {
                     name: RecordName::CartesianZ,
-                    data_type: RecordDataType::ScaledInteger {
-                        min: -1000,
-                        max: 1000,
-                        scale: 0.001,
-                    },
+                    data_type: SCALED_INT,
                 },
             ];
             let mut pc_writer = writer.add_pointcloud("pc_guid", prototype).unwrap();
-
-            let mut rp1 = RawValues::with_capacity(3);
-            rp1.push(RecordValue::ScaledInteger(-1000));
-            rp1.push(RecordValue::ScaledInteger(-1000));
-            rp1.push(RecordValue::ScaledInteger(-1000));
-            pc_writer.add_point(rp1).unwrap();
-
-            let mut rp2 = RawValues::with_capacity(3);
-            rp2.push(RecordValue::ScaledInteger(1000));
-            rp2.push(RecordValue::ScaledInteger(1000));
-            rp2.push(RecordValue::ScaledInteger(1000));
-            pc_writer.add_point(rp2).unwrap();
-
+            pc_writer
+                .add_point(vec![
+                    RecordValue::ScaledInteger(-1000),
+                    RecordValue::ScaledInteger(-1000),
+                    RecordValue::ScaledInteger(-1000),
+                ])
+                .unwrap();
+            pc_writer
+                .add_point(vec![
+                    RecordValue::ScaledInteger(1000),
+                    RecordValue::ScaledInteger(1000),
+                    RecordValue::ScaledInteger(1000),
+                ])
+                .unwrap();
             pc_writer.finalize().unwrap();
             writer.finalize("file_guid").unwrap();
         }
@@ -300,6 +268,67 @@ mod tests {
             assert_eq!(p2.cartesian.as_ref().unwrap().x, 1.0);
             assert_eq!(p2.cartesian.as_ref().unwrap().y, 1.0);
             assert_eq!(p2.cartesian.as_ref().unwrap().z, 1.0);
+            let bounds = pc.cartesian_bounds.as_ref().unwrap();
+            assert_eq!(bounds.x_min.unwrap(), -1.0);
+            assert_eq!(bounds.y_min.unwrap(), -1.0);
+            assert_eq!(bounds.z_min.unwrap(), -1.0);
+            assert_eq!(bounds.x_max.unwrap(), 1.0);
+            assert_eq!(bounds.y_max.unwrap(), 1.0);
+            assert_eq!(bounds.z_max.unwrap(), 1.0);
+        }
+
+        remove_file(out_path).unwrap();
+    }
+
+    #[test]
+    fn spherical_coordinates() {
+        let out_path = Path::new("spherical_coordinates.e57");
+
+        {
+            let mut writer = E57Writer::from_file(out_path).unwrap();
+            let prototype = vec![
+                Record {
+                    name: RecordName::SphericalAzimuth,
+                    data_type: RecordDataType::F32,
+                },
+                Record {
+                    name: RecordName::SphericalElevation,
+                    data_type: RecordDataType::F32,
+                },
+                Record {
+                    name: RecordName::SphericalRange,
+                    data_type: RecordDataType::F32,
+                },
+            ];
+            let mut pc_writer = writer.add_pointcloud("pc_guid", prototype).unwrap();
+
+            let incr = (2.0 * PI) / 99.0;
+            for i in 0..100 {
+                let mut values = RawValues::with_capacity(3);
+                values.push(RecordValue::Single(incr * i as f32));
+                values.push(RecordValue::Single(PI));
+                values.push(RecordValue::Single(1.0));
+                pc_writer.add_point(values).unwrap();
+            }
+
+            pc_writer.finalize().unwrap();
+            writer.finalize("file_guid").unwrap();
+        }
+
+        {
+            let mut reader = E57Reader::from_file(out_path).unwrap();
+            let pcs = reader.pointclouds();
+            let pc = pcs.first().unwrap();
+            let iter = reader.pointcloud(pc).unwrap();
+            let read_points = iter.collect::<Result<Vec<RawValues>>>().unwrap();
+            assert_eq!(read_points.len(), 100);
+            let bounds = pc.spherical_bounds.as_ref().unwrap();
+            assert_eq!(bounds.azimuth_start.unwrap(), 0.0);
+            assert_eq!(bounds.azimuth_end.unwrap(), 2.0 * PI as f64);
+            assert_eq!(bounds.elevation_min.unwrap(), PI as f64);
+            assert_eq!(bounds.elevation_max.unwrap(), PI as f64);
+            assert_eq!(bounds.range_min.unwrap(), 1.0);
+            assert_eq!(bounds.range_max.unwrap(), 1.0);
         }
 
         remove_file(out_path).unwrap();

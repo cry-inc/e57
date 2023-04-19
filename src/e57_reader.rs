@@ -336,7 +336,7 @@ mod tests {
     }
 
     #[test]
-    fn iterator_test() {
+    fn iterator() {
         let file = "testdata/tinyCartesianFloatRgb.e57";
         let mut reader = E57Reader::from_file(file).unwrap();
         let pcs = reader.pointclouds();

@@ -9,7 +9,7 @@
  */
 
 use anyhow::{bail, Context, Result};
-use e57::{E57Writer, Record, RecordDataType, RecordName, RecordValue};
+use e57::{E57Writer, Record, RecordValue};
 use std::env::args;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -30,36 +30,13 @@ fn main() -> Result<()> {
         E57Writer::from_file(out_file).context("Unable to open E57 output file for writing")?;
 
     let pc_guid = Uuid::new_v4().to_string();
-    let xyz_type = RecordDataType::Double {
-        min: None,
-        max: None,
-    };
-    let rgb_type = RecordDataType::Integer { min: 0, max: 255 };
     let prototype = vec![
-        Record {
-            name: RecordName::CartesianX,
-            data_type: xyz_type.clone(),
-        },
-        Record {
-            name: RecordName::CartesianY,
-            data_type: xyz_type.clone(),
-        },
-        Record {
-            name: RecordName::CartesianZ,
-            data_type: xyz_type,
-        },
-        Record {
-            name: RecordName::ColorRed,
-            data_type: rgb_type.clone(),
-        },
-        Record {
-            name: RecordName::ColorGreen,
-            data_type: rgb_type.clone(),
-        },
-        Record {
-            name: RecordName::ColorBlue,
-            data_type: rgb_type,
-        },
+        Record::CARTESIAN_X_F64,
+        Record::CARTESIAN_Y_F64,
+        Record::CARTESIAN_Z_F64,
+        Record::COLOR_RED_U8,
+        Record::COLOR_GREEN_U8,
+        Record::COLOR_BLUE_U8,
     ];
     let mut pc_writer = e57_writer
         .add_pointcloud(&pc_guid, prototype)

@@ -448,97 +448,101 @@ fn serialize_record_type(rt: &RecordDataType) -> (String, String) {
     }
 }
 
-const F32: RecordDataType = RecordDataType::Single {
-    min: None,
-    max: None,
-};
+impl RecordDataType {
+    pub const F32: RecordDataType = RecordDataType::Single {
+        min: None,
+        max: None,
+    };
 
-const UNIT: RecordDataType = RecordDataType::Single {
-    min: Some(0.0),
-    max: Some(1.0),
-};
+    pub const UNIT_F32: RecordDataType = RecordDataType::Single {
+        min: Some(0.0),
+        max: Some(1.0),
+    };
 
-const F64: RecordDataType = RecordDataType::Double {
-    min: None,
-    max: None,
-};
+    pub const F64: RecordDataType = RecordDataType::Double {
+        min: None,
+        max: None,
+    };
 
-const U8: RecordDataType = RecordDataType::Integer {
-    min: 0,
-    max: u8::MAX as i64,
-};
+    pub const U8: RecordDataType = RecordDataType::Integer {
+        min: 0,
+        max: u8::MAX as i64,
+    };
 
-const U16: RecordDataType = RecordDataType::Integer {
-    min: 0,
-    max: u16::MAX as i64,
-};
+    pub const U16: RecordDataType = RecordDataType::Integer {
+        min: 0,
+        max: u16::MAX as i64,
+    };
+}
 
-pub const CARTESIAN_X_F32: Record = Record {
-    name: RecordName::CartesianX,
-    data_type: F32,
-};
+impl Record {
+    pub const CARTESIAN_X_F32: Record = Record {
+        name: RecordName::CartesianX,
+        data_type: RecordDataType::F32,
+    };
 
-pub const CARTESIAN_Y_F32: Record = Record {
-    name: RecordName::CartesianY,
-    data_type: F32,
-};
+    pub const CARTESIAN_Y_F32: Record = Record {
+        name: RecordName::CartesianY,
+        data_type: RecordDataType::F32,
+    };
 
-pub const CARTESIAN_Z_F32: Record = Record {
-    name: RecordName::CartesianZ,
-    data_type: F32,
-};
+    pub const CARTESIAN_Z_F32: Record = Record {
+        name: RecordName::CartesianZ,
+        data_type: RecordDataType::F32,
+    };
 
-pub const CARTESIAN_X_F64: Record = Record {
-    name: RecordName::CartesianX,
-    data_type: F64,
-};
+    pub const CARTESIAN_X_F64: Record = Record {
+        name: RecordName::CartesianX,
+        data_type: RecordDataType::F64,
+    };
 
-pub const CARTESIAN_Y_F64: Record = Record {
-    name: RecordName::CartesianY,
-    data_type: F64,
-};
+    pub const CARTESIAN_Y_F64: Record = Record {
+        name: RecordName::CartesianY,
+        data_type: RecordDataType::F64,
+    };
 
-pub const CARTESIAN_Z_F64: Record = Record {
-    name: RecordName::CartesianZ,
-    data_type: F64,
-};
+    pub const CARTESIAN_Z_F64: Record = Record {
+        name: RecordName::CartesianZ,
+        data_type: RecordDataType::F64,
+    };
 
-pub const COLOR_RED_U8: Record = Record {
-    name: RecordName::ColorRed,
-    data_type: U8,
-};
+    pub const COLOR_RED_U8: Record = Record {
+        name: RecordName::ColorRed,
+        data_type: RecordDataType::U8,
+    };
 
-pub const COLOR_GREEN_U8: Record = Record {
-    name: RecordName::ColorGreen,
-    data_type: U8,
-};
+    pub const COLOR_GREEN_U8: Record = Record {
+        name: RecordName::ColorGreen,
+        data_type: RecordDataType::U8,
+    };
 
-pub const COLOR_BLUE_U8: Record = Record {
-    name: RecordName::ColorBlue,
-    data_type: U8,
-};
+    pub const COLOR_BLUE_U8: Record = Record {
+        name: RecordName::ColorBlue,
+        data_type: RecordDataType::U8,
+    };
 
-pub const INTENSITY_U16: Record = Record {
-    name: RecordName::Intensity,
-    data_type: U16,
-};
+    pub const INTENSITY_U16: Record = Record {
+        name: RecordName::Intensity,
+        data_type: RecordDataType::U16,
+    };
 
-pub const COLOR_RED_UNIT_F32: Record = Record {
-    name: RecordName::ColorRed,
-    data_type: UNIT,
-};
+    pub const COLOR_RED_UNIT_F32: Record = Record {
+        name: RecordName::ColorRed,
+        data_type: RecordDataType::UNIT_F32,
+    };
 
-pub const COLOR_GREEN_UNIT_F32: Record = Record {
-    name: RecordName::ColorGreen,
-    data_type: UNIT,
-};
+    pub const COLOR_GREEN_UNIT_F32: Record = Record {
+        name: RecordName::ColorGreen,
+        data_type: RecordDataType::UNIT_F32,
+    };
 
-pub const COLOR_BLUE_UNIT_F32: Record = Record {
-    name: RecordName::ColorBlue,
-    data_type: UNIT,
-};
+    pub const COLOR_BLUE_UNIT_F32: Record = Record {
+        name: RecordName::ColorBlue,
+        data_type: RecordDataType::UNIT_F32,
+    };
 
-pub const INTENSITY_UNIT_F32: Record = Record {
-    name: RecordName::Intensity,
-    data_type: UNIT,
-};
+    pub const INTENSITY_UNIT_F32: Record = Record {
+        name: RecordName::Intensity,
+        data_type: RecordDataType::UNIT_F32,
+    };
+}

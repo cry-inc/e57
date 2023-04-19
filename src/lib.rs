@@ -75,19 +75,3 @@ pub use self::transform::Translation;
 
 /// Storage container for a low level point data.
 pub type RawValues = Vec<RecordValue>;
-
-// Public shortcut constats for record types
-pub use self::record::CARTESIAN_X_F32;
-pub use self::record::CARTESIAN_X_F64;
-pub use self::record::CARTESIAN_Y_F32;
-pub use self::record::CARTESIAN_Y_F64;
-pub use self::record::CARTESIAN_Z_F32;
-pub use self::record::CARTESIAN_Z_F64;
-pub use self::record::COLOR_BLUE_U8;
-pub use self::record::COLOR_BLUE_UNIT_F32;
-pub use self::record::COLOR_GREEN_U8;
-pub use self::record::COLOR_GREEN_UNIT_F32;
-pub use self::record::COLOR_RED_U8;
-pub use self::record::COLOR_RED_UNIT_F32;
-pub use self::record::INTENSITY_U16;
-pub use self::record::INTENSITY_UNIT_F32;
