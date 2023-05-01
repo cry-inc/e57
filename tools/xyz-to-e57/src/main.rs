@@ -26,8 +26,10 @@ fn main() -> Result<()> {
 
     let file = File::open(in_file).context("Failed to open XYZ file")?;
     let mut reader = BufReader::new(file);
-    let mut e57_writer =
-        E57Writer::from_file(out_file).context("Unable to open E57 output file for writing")?;
+
+    let file_guid = Uuid::new_v4().to_string();
+    let mut e57_writer = E57Writer::from_file(out_file, &file_guid)
+        .context("Unable to open E57 output file for writing")?;
 
     let pc_guid = Uuid::new_v4().to_string();
     let prototype = vec![
@@ -78,9 +80,8 @@ fn main() -> Result<()> {
         .finalize()
         .context("Failed to finalize point cloud in E57 file")?;
 
-    let e57_guid = Uuid::new_v4().to_string();
     e57_writer
-        .finalize(&e57_guid)
+        .finalize()
         .context("Failed to finalize E57 file")?;
 
     Ok(())

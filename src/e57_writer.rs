@@ -2,22 +2,23 @@ use crate::error::Converter;
 use crate::paged_writer::PagedWriter;
 use crate::pc_writer::PointCloudWriter;
 use crate::root::{serialize_root, Root};
-use crate::{Header, PointCloud, Record, Result};
+use crate::{DateTime, Header, PointCloud, Record, Result};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
 use std::path::Path;
 
-/// Main interface for writing E57 files.
+/// Main interface for creating and writing E57 files.
 pub struct E57Writer<T: Read + Write + Seek> {
     pub(crate) writer: PagedWriter<T>,
     pub(crate) pointclouds: Vec<PointCloud>,
+    root: Root,
 }
 
 impl<T: Write + Read + Seek> E57Writer<T> {
     /// Creates a new E57 generator from a writer that must also implement Read and Seek.
     ///
     /// Keep in mind that File::create() will not work as input because it only opens the file for writing!
-    pub fn new(writer: T) -> Result<Self> {
+    pub fn new(writer: T, guid: &str) -> Result<Self> {
         // Set up paged writer abstraction for CRC
         let mut writer = PagedWriter::new(writer)?;
 
@@ -25,10 +26,28 @@ impl<T: Write + Read + Seek> E57Writer<T> {
         let header = Header::default();
         header.write(&mut writer)?;
 
+        let version = env!("CARGO_PKG_VERSION");
+        let root = Root {
+            guid: guid.to_owned(),
+            library_version: Some(format!("Rust E57 Library v{version}")),
+            ..Default::default()
+        };
+
         Ok(Self {
             writer,
             pointclouds: Vec::new(),
+            root,
         })
+    }
+
+    /// Set optional coordinate metadata string (empty by default).
+    pub fn set_coordinate_metadata(&mut self, value: Option<String>) {
+        self.root.coordinate_metadata = value;
+    }
+
+    /// Set optional creation date time (empty by default).
+    pub fn set_creation(&mut self, value: Option<DateTime>) {
+        self.root.creation = value;
     }
 
     /// Creates a new writer for adding a new point cloud to the E57 file.
@@ -44,13 +63,8 @@ impl<T: Write + Read + Seek> E57Writer<T> {
     ///
     /// This will generate and write the XML metadata to finalize and complete the E57 file.
     /// Without calling this method before dropping the E57 file will be incomplete and invalid!
-    pub fn finalize(&mut self, guid: &str) -> Result<()> {
-        // Serialize XML data and write
-        let root = Root {
-            guid: guid.to_owned(),
-            ..Default::default()
-        };
-        let xml = serialize_root(&root, &self.pointclouds)?;
+    pub fn finalize(&mut self) -> Result<()> {
+        let xml = serialize_root(&self.root, &self.pointclouds)?;
         let xml_bytes = xml.as_bytes();
         let xml_length = xml_bytes.len();
         let xml_offset = self.writer.physical_position()?;
@@ -76,7 +90,7 @@ impl<T: Write + Read + Seek> E57Writer<T> {
 
 impl E57Writer<File> {
     /// Creates an E57 writer instance from a Path.
-    pub fn from_file(path: impl AsRef<Path>) -> Result<Self> {
+    pub fn from_file(path: impl AsRef<Path>, guid: &str) -> Result<Self> {
         let file = OpenOptions::new()
             .create(true)
             .write(true)
@@ -84,7 +98,7 @@ impl E57Writer<File> {
             .truncate(true)
             .open(path)
             .read_err("Unable to create file for writing, reading and seeking")?;
-        Self::new(file)
+        Self::new(file, guid)
     }
 }
 
@@ -99,7 +113,7 @@ mod tests {
     #[test]
     fn write_read_cycle() {
         let path = Path::new("write_read_cycle.e57");
-        let mut e57_writer = E57Writer::from_file(path).unwrap();
+        let mut e57_writer = E57Writer::from_file(path, "guid_file").unwrap();
 
         let prototype = vec![
             Record::CARTESIAN_X_F64,
@@ -136,7 +150,7 @@ mod tests {
             pc_writer.add_point(p).unwrap();
         }
         pc_writer.finalize().unwrap();
-        e57_writer.finalize("guid_file").unwrap();
+        e57_writer.finalize().unwrap();
         drop(e57_writer);
 
         {
@@ -180,7 +194,7 @@ mod tests {
         };
 
         {
-            let mut writer = E57Writer::from_file(out_path).unwrap();
+            let mut writer = E57Writer::from_file(out_path, "file_guid").unwrap();
             let mut prototype = org_pc.prototype.clone();
             prototype.push(Record {
                 name: RecordName::CartesianInvalidState,
@@ -193,7 +207,7 @@ mod tests {
                 pc_writer.add_point(p).unwrap();
             }
             pc_writer.finalize().unwrap();
-            writer.finalize("file_guid").unwrap();
+            writer.finalize().unwrap();
         }
 
         let duplicated_points = {
@@ -214,7 +228,7 @@ mod tests {
         let out_path = Path::new("scaled_integers.e57");
 
         {
-            let mut writer = E57Writer::from_file(out_path).unwrap();
+            let mut writer = E57Writer::from_file(out_path, "file_guid").unwrap();
             const SCALED_INT: RecordDataType = RecordDataType::ScaledInteger {
                 min: -1000,
                 max: 1000,
@@ -250,7 +264,7 @@ mod tests {
                 ])
                 .unwrap();
             pc_writer.finalize().unwrap();
-            writer.finalize("file_guid").unwrap();
+            writer.finalize().unwrap();
         }
 
         {
@@ -285,7 +299,7 @@ mod tests {
         let out_path = Path::new("spherical_coordinates.e57");
 
         {
-            let mut writer = E57Writer::from_file(out_path).unwrap();
+            let mut writer = E57Writer::from_file(out_path, "file_guid").unwrap();
             let prototype = vec![
                 Record {
                     name: RecordName::SphericalAzimuth,
@@ -312,7 +326,7 @@ mod tests {
             }
 
             pc_writer.finalize().unwrap();
-            writer.finalize("file_guid").unwrap();
+            writer.finalize().unwrap();
         }
 
         {
@@ -337,7 +351,7 @@ mod tests {
     #[test]
     fn invalid_prototype() {
         let out_path = Path::new("invalid_prototype.e57");
-        let mut writer = E57Writer::from_file(out_path).unwrap();
+        let mut writer = E57Writer::from_file(out_path, "file_guid").unwrap();
 
         let prototype = vec![Record::CARTESIAN_X_F32];
         writer.add_pointcloud("pc_guid", prototype).err().unwrap();
@@ -348,13 +362,13 @@ mod tests {
             Record::CARTESIAN_Z_F32,
             Record::COLOR_BLUE_U8,
         ];
-        writer.add_pointcloud("pc_guid", prototype).err().unwrap();
+        writer.add_pointcloud("pc_guid1", prototype).err().unwrap();
 
         let prototype = vec![Record {
             name: RecordName::SphericalAzimuth,
             data_type: RecordDataType::F64,
         }];
-        writer.add_pointcloud("pc_guid", prototype).err().unwrap();
+        writer.add_pointcloud("pc_guid2", prototype).err().unwrap();
 
         remove_file(out_path).unwrap();
     }
@@ -362,7 +376,7 @@ mod tests {
     #[test]
     fn invalid_points() {
         let out_path = Path::new("invalid_points.e57");
-        let mut writer = E57Writer::from_file(out_path).unwrap();
+        let mut writer = E57Writer::from_file(out_path, "file_guid").unwrap();
         let prototype = vec![
             Record::CARTESIAN_X_F32,
             Record::CARTESIAN_Y_F32,
