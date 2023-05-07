@@ -110,5 +110,5 @@ pub fn generate_string_xml(tag_name: &str, value: &str) -> String {
 }
 
 pub fn generate_f64_xml(tag_name: &str, value: f64) -> String {
-    format!("<{tag_name} type=\"Float\"><![CDATA[{value}]]></{tag_name}>\n")
+    format!("<{tag_name} type=\"Float\">{value}</{tag_name}>\n")
 }

@@ -46,7 +46,7 @@ pub fn serialize_date_time(dt: &DateTime, tag_name: &str) -> String {
         dt.gps_time
     );
     xml += &format!(
-        "<isAtomicClockReferenced type=\"Integer\">{}</dateTimeValue>\n",
+        "<isAtomicClockReferenced type=\"Integer\">{}</isAtomicClockReferenced>\n",
         if dt.atomic_reference { "1" } else { "0" }
     );
     xml += &format!("</{tag_name}>\n");
