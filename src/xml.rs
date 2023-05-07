@@ -104,3 +104,11 @@ pub fn optional_transform(parent_node: &Node, tag_name: &str) -> Result<Option<T
         Ok(None)
     }
 }
+
+pub fn generate_string_xml(tag_name: &str, value: &str) -> String {
+    format!("<{tag_name} type=\"String\"><![CDATA[{value}]]></{tag_name}>\n")
+}
+
+pub fn generate_f64_xml(tag_name: &str, value: f64) -> String {
+    format!("<{tag_name} type=\"Float\"><![CDATA[{value}]]></{tag_name}>\n")
+}

@@ -5,6 +5,7 @@ use crate::packet::DataPacketHeader;
 use crate::paged_writer::PagedWriter;
 use crate::CartesianBounds;
 use crate::ColorLimits;
+use crate::DateTime;
 use crate::Error;
 use crate::IndexBounds;
 use crate::IntensityLimits;
@@ -16,6 +17,7 @@ use crate::RecordName;
 use crate::RecordValue;
 use crate::Result;
 use crate::SphericalBounds;
+use crate::Transform;
 use std::collections::VecDeque;
 use std::io::{Read, Seek, Write};
 
@@ -35,6 +37,20 @@ pub struct PointCloudWriter<'a, T: Read + Write + Seek> {
     index_bounds: Option<IndexBounds>,
     color_limits: Option<ColorLimits>,
     intensity_limits: Option<IntensityLimits>,
+    name: Option<String>,
+    description: Option<String>,
+    transform: Option<Transform>,
+    acquisition_start: Option<DateTime>,
+    acquisition_end: Option<DateTime>,
+    sensor_vendor: Option<String>,
+    sensor_model: Option<String>,
+    sensor_serial: Option<String>,
+    sensor_hw_version: Option<String>,
+    sensor_sw_version: Option<String>,
+    sensor_fw_version: Option<String>,
+    temperature: Option<f64>,
+    humidity: Option<f64>,
+    atmospheric_pressure: Option<f64>,
 }
 
 impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
@@ -126,7 +142,102 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             index_bounds,
             color_limits,
             intensity_limits,
+            name: None,
+            description: None,
+            transform: None,
+            acquisition_start: None,
+            acquisition_end: None,
+            sensor_vendor: None,
+            sensor_model: None,
+            sensor_serial: None,
+            sensor_hw_version: None,
+            sensor_sw_version: None,
+            sensor_fw_version: None,
+            temperature: None,
+            humidity: None,
+            atmospheric_pressure: None,
         })
+    }
+
+    /// Set optional user-defined name for the point cloud (empty by default).
+    pub fn set_name(&mut self, value: Option<String>) {
+        self.name = value;
+    }
+
+    /// Set optional user-defined description for the point cloud (empty by default).
+    pub fn set_description(&mut self, value: Option<String>) {
+        self.description = value;
+    }
+
+    /// Set optional transformation to convert data from the local
+    /// point cloud coordinates to the file-level coordinate system.
+    /// By default this is empty, meaning the point cloud has no transformation.
+    pub fn set_transform(&mut self, value: Option<Transform>) {
+        self.transform = value;
+    }
+
+    /// Set optional start date and time when the point cloud was
+    /// captured with a scanning device (empty by default).
+    pub fn set_acquisition_start(&mut self, value: Option<DateTime>) {
+        self.acquisition_start = value;
+    }
+
+    /// Set optional end date and time when the point cloud was
+    /// captured with a scanning device (empty by default).
+    pub fn set_acquisition_end(&mut self, value: Option<DateTime>) {
+        self.acquisition_end = value;
+    }
+
+    /// Set optional name of the manufacturer for the sensor used
+    /// to capture the point cloud (empty by default).
+    pub fn set_sensor_vendor(&mut self, value: Option<String>) {
+        self.sensor_vendor = value;
+    }
+
+    /// Set optional model name of the sensor used for capturing (empty by default).
+    pub fn set_sensor_model(&mut self, value: Option<String>) {
+        self.sensor_model = value;
+    }
+
+    /// Set optional serial number of the sensor used for capturing (empty by default).
+    pub fn set_sensor_serial(&mut self, value: Option<String>) {
+        self.sensor_serial = value;
+    }
+
+    /// Set optional version identifier for the sensor software
+    /// used for capturing (empty by default).
+    pub fn set_sensor_sw_version(&mut self, value: Option<String>) {
+        self.sensor_sw_version = value;
+    }
+
+    /// Set optional version identifier for the sensor hardware
+    /// used for capturing (empty by default).
+    pub fn set_sensor_hw_version(&mut self, value: Option<String>) {
+        self.sensor_hw_version = value;
+    }
+
+    /// Set optional version identifier for the sensor firmware
+    /// used for capturing (empty by default).
+    pub fn set_sensor_fw_version(&mut self, value: Option<String>) {
+        self.sensor_fw_version = value;
+    }
+
+    /// Set optional ambient temperature in degrees Celsius,
+    /// measured at the sensor at the time of capturing (empty by default).
+    pub fn set_temperature(&mut self, value: Option<f64>) {
+        self.temperature = value;
+    }
+
+    /// Set optional percentage of relative humidity between 0 and 100,
+    /// measured at the sensor at the time of capturing (empty by default).
+    pub fn set_humidity(&mut self, value: Option<f64>) {
+        self.humidity = value;
+    }
+
+    /// Set optional atmospheric pressure in Pascals,
+    /// measured at the sensor at the time of capturing (empty by default).
+    pub fn set_atmospheric_pressure(&mut self, value: Option<f64>) {
+        self.atmospheric_pressure = value;
     }
 
     fn validate_prototype(prototype: &[Record]) -> Result<()> {
@@ -495,7 +606,20 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             index_bounds: self.index_bounds.take(),
             color_limits: self.color_limits.take(),
             intensity_limits: self.intensity_limits.take(),
-            ..Default::default()
+            name: self.name.take(),
+            description: self.description.take(),
+            transform: self.transform.take(),
+            acquisition_start: self.acquisition_start.take(),
+            acquisition_end: self.acquisition_end.take(),
+            sensor_vendor: self.sensor_vendor.take(),
+            sensor_model: self.sensor_model.take(),
+            sensor_serial: self.sensor_serial.take(),
+            sensor_hw_version: self.sensor_hw_version.take(),
+            sensor_sw_version: self.sensor_sw_version.take(),
+            sensor_fw_version: self.sensor_fw_version.take(),
+            temperature: self.temperature.take(),
+            humidity: self.humidity.take(),
+            atmospheric_pressure: self.atmospheric_pressure.take(),
         };
 
         // Add metadata for XML generation later, when the file is completed.

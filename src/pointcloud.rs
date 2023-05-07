@@ -1,6 +1,9 @@
+use crate::date_time::serialize_date_time;
 use crate::error::Converter;
+use crate::transform::serialize_transform;
 use crate::xml::{
-    optional_date_time, optional_double, optional_string, optional_transform, required_string,
+    generate_f64_xml, generate_string_xml, optional_date_time, optional_double, optional_string,
+    optional_transform, required_string,
 };
 use crate::{
     CartesianBounds, ColorLimits, DateTime, Error, IndexBounds, IntensityLimits, Record,
@@ -183,10 +186,8 @@ pub fn serialize_pointcloud(pointcloud: &PointCloud) -> Result<String> {
     if pointcloud.guid.is_empty() {
         Error::invalid("Empty point cloud GUID is not allowed")?
     }
-    xml += &format!(
-        "<guid type=\"String\"><![CDATA[{}]]></guid>\n",
-        pointcloud.guid
-    );
+    xml += &generate_string_xml("guid", &pointcloud.guid);
+
     if let Some(bounds) = &pointcloud.cartesian_bounds {
         xml += &bounds.xml_string();
     }
@@ -196,12 +197,59 @@ pub fn serialize_pointcloud(pointcloud: &PointCloud) -> Result<String> {
     if let Some(bounds) = &pointcloud.index_bounds {
         xml += &bounds.xml_string();
     }
+
     if let Some(limits) = &pointcloud.color_limits {
         xml += &limits.xml_string();
     }
     if let Some(limits) = &pointcloud.intensity_limits {
         xml += &limits.xml_string();
     }
+
+    if let Some(name) = &pointcloud.name {
+        xml += &generate_string_xml("name", name);
+    }
+    if let Some(desc) = &pointcloud.description {
+        xml += &generate_string_xml("description", desc);
+    }
+    if let Some(sensor_vendor) = &pointcloud.sensor_vendor {
+        xml += &generate_string_xml("sensorVendor", sensor_vendor);
+    }
+    if let Some(sensor_model) = &pointcloud.sensor_model {
+        xml += &generate_string_xml("sensorModel", sensor_model);
+    }
+    if let Some(sensor_serial) = &pointcloud.sensor_serial {
+        xml += &generate_string_xml("sensorSerialNumber", sensor_serial);
+    }
+    if let Some(sensor_sw_version) = &pointcloud.sensor_sw_version {
+        xml += &generate_string_xml("sensorSoftwareVersion", sensor_sw_version);
+    }
+    if let Some(sensor_fw_version) = &pointcloud.sensor_fw_version {
+        xml += &generate_string_xml("sensorFirmwareVersion", sensor_fw_version);
+    }
+    if let Some(sensor_hw_version) = &pointcloud.sensor_hw_version {
+        xml += &generate_string_xml("sensorHardwareVersion", sensor_hw_version);
+    }
+
+    if let Some(transform) = &pointcloud.transform {
+        xml += &serialize_transform(transform, "pose");
+    }
+    if let Some(aq_start) = &pointcloud.acquisition_start {
+        xml += &serialize_date_time(aq_start, "acquisitionStart");
+    }
+    if let Some(aq_end) = &pointcloud.acquisition_end {
+        xml += &serialize_date_time(aq_end, "acquisitionEnd");
+    }
+
+    if let Some(temperature) = pointcloud.temperature {
+        xml += &generate_f64_xml("temperature", temperature);
+    }
+    if let Some(humidity) = pointcloud.humidity {
+        xml += &generate_f64_xml("relativeHumidity", humidity);
+    }
+    if let Some(pressure) = pointcloud.atmospheric_pressure {
+        xml += &generate_f64_xml("atmosphericPressure", pressure);
+    }
+
     xml += &format!(
         "<points type=\"CompressedVector\" fileOffset=\"{}\" recordCount=\"{}\">\n",
         pointcloud.file_offset, pointcloud.records
