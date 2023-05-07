@@ -105,7 +105,10 @@ impl E57Writer<File> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{E57Reader, Point, RawValues, RecordDataType, RecordName, RecordValue};
+    use crate::{
+        E57Reader, Point, Quaternion, RawValues, RecordDataType, RecordName, RecordValue,
+        Transform, Translation,
+    };
     use std::f32::consts::PI;
     use std::fs::{remove_file, File};
     use std::path::Path;
@@ -396,6 +399,103 @@ mod tests {
             ])
             .err()
             .unwrap();
+
+        remove_file(out_path).unwrap();
+    }
+
+    #[test]
+    fn write_read_meta_data() {
+        let out_path = Path::new("metadata.e57");
+
+        {
+            let mut e57_writer = E57Writer::from_file(out_path, "file_guid").unwrap();
+            e57_writer.set_creation(Some(DateTime {
+                gps_time: 12.34,
+                atomic_reference: true,
+            }));
+            let prototype = vec![
+                Record::CARTESIAN_X_F32,
+                Record::CARTESIAN_Y_F32,
+                Record::CARTESIAN_Z_F32,
+            ];
+            let mut pc_writer = e57_writer.add_pointcloud("pc_guid", prototype).unwrap();
+            pc_writer
+                .add_point(vec![
+                    RecordValue::Single(1.0),
+                    RecordValue::Single(1.0),
+                    RecordValue::Single(1.0),
+                ])
+                .unwrap();
+            pc_writer.set_name(Some(String::from("name")));
+            pc_writer.set_description(Some(String::from("desc")));
+            pc_writer.set_sensor_vendor(Some(String::from("vendor")));
+            pc_writer.set_sensor_model(Some(String::from("model")));
+            pc_writer.set_sensor_serial(Some(String::from("serial")));
+            pc_writer.set_sensor_hw_version(Some(String::from("hw")));
+            pc_writer.set_sensor_fw_version(Some(String::from("fw")));
+            pc_writer.set_sensor_sw_version(Some(String::from("sw")));
+            pc_writer.set_acquisition_start(Some(DateTime {
+                gps_time: 0.00,
+                atomic_reference: false,
+            }));
+            pc_writer.set_acquisition_end(Some(DateTime {
+                gps_time: 1.23,
+                atomic_reference: false,
+            }));
+            pc_writer.set_temperature(Some(23.0));
+            pc_writer.set_humidity(Some(66.6));
+            pc_writer.set_atmospheric_pressure(Some(1337.0));
+            pc_writer.set_transform(Some(Transform {
+                rotation: Quaternion {
+                    w: 1.1,
+                    x: 2.2,
+                    y: 3.3,
+                    z: 4.4,
+                },
+                translation: Translation {
+                    x: 5.5,
+                    y: 6.6,
+                    z: 7.7,
+                },
+            }));
+            pc_writer.finalize().unwrap();
+            e57_writer.finalize().unwrap();
+        }
+
+        {
+            let e57_reader = E57Reader::from_file(out_path).unwrap();
+            let creation = e57_reader.creation().unwrap();
+            assert_eq!(creation.gps_time, 12.34);
+            assert_eq!(creation.atomic_reference, true);
+
+            let pcs = e57_reader.pointclouds();
+            let pc = pcs[0].clone();
+            assert_eq!(pc.name, Some(String::from("name")));
+            assert_eq!(pc.description, Some(String::from("desc")));
+            assert_eq!(pc.sensor_vendor, Some(String::from("vendor")));
+            assert_eq!(pc.sensor_model, Some(String::from("model")));
+            assert_eq!(pc.sensor_serial, Some(String::from("serial")));
+            assert_eq!(pc.sensor_hw_version, Some(String::from("hw")));
+            assert_eq!(pc.sensor_fw_version, Some(String::from("fw")));
+            assert_eq!(pc.sensor_sw_version, Some(String::from("sw")));
+            let start = pc.acquisition_start.unwrap();
+            assert_eq!(start.gps_time, 0.0);
+            assert_eq!(start.atomic_reference, false);
+            let end = pc.acquisition_end.unwrap();
+            assert_eq!(end.gps_time, 1.23);
+            assert_eq!(end.atomic_reference, false);
+            assert_eq!(pc.temperature, Some(23.0));
+            assert_eq!(pc.humidity, Some(66.6));
+            assert_eq!(pc.atmospheric_pressure, Some(1337.0));
+            let transform = pc.transform.unwrap();
+            assert_eq!(transform.rotation.w, 1.1);
+            assert_eq!(transform.rotation.x, 2.2);
+            assert_eq!(transform.rotation.y, 3.3);
+            assert_eq!(transform.rotation.z, 4.4);
+            assert_eq!(transform.translation.x, 5.5);
+            assert_eq!(transform.translation.y, 6.6);
+            assert_eq!(transform.translation.z, 7.7);
+        }
 
         remove_file(out_path).unwrap();
     }
