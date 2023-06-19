@@ -1,4 +1,3 @@
-use crate::date_time::serialize_date_time;
 use crate::error::Converter;
 use crate::transform::serialize_transform;
 use crate::xml::{
@@ -234,10 +233,10 @@ pub fn serialize_pointcloud(pointcloud: &PointCloud) -> Result<String> {
         xml += &serialize_transform(transform, "pose");
     }
     if let Some(aq_start) = &pointcloud.acquisition_start {
-        xml += &serialize_date_time(aq_start, "acquisitionStart");
+        xml += &aq_start.xml_string("acquisitionStart");
     }
     if let Some(aq_end) = &pointcloud.acquisition_end {
-        xml += &serialize_date_time(aq_end, "acquisitionEnd");
+        xml += &aq_end.xml_string("acquisitionEnd");
     }
 
     if let Some(temperature) = pointcloud.temperature {

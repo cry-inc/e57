@@ -1,4 +1,3 @@
-use crate::date_time::serialize_date_time;
 use crate::error::Converter;
 use crate::pointcloud::serialize_pointcloud;
 use crate::xml::{optional_date_time, optional_string, required_integer, required_string};
@@ -86,7 +85,7 @@ pub fn serialize_root(root: &Root, pointclouds: &[PointCloud]) -> Result<String>
             &format!("<e57LibraryVersion type=\"String\"><![CDATA[{lv}]]></e57LibraryVersion>\n");
     }
     if let Some(dt) = &root.creation {
-        xml += &serialize_date_time(dt, "creationDateTime");
+        xml += &dt.xml_string("creationDateTime");
     }
     xml += "<data3D type=\"Vector\" allowHeterogeneousChildren=\"1\">\n";
     for pc in pointclouds {

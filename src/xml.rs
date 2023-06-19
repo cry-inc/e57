@@ -1,7 +1,4 @@
-use crate::{
-    date_time::date_time_from_node, error::Converter, transform::transform_from_node, DateTime,
-    Error, Result, Transform,
-};
+use crate::{error::Converter, transform::transform_from_node, DateTime, Error, Result, Transform};
 use roxmltree::Node;
 use std::str::FromStr;
 
@@ -90,7 +87,7 @@ pub fn optional_date_time(parent_node: &Node, tag_name: &str) -> Result<Option<D
         } else {
             Error::invalid(format!("XML tag '{tag_name}' has no 'type' attribute"))?
         }
-        date_time_from_node(&tag)
+        DateTime::from_node(&tag)
     } else {
         Ok(None)
     }
