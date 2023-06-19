@@ -1,5 +1,4 @@
 use crate::error::Converter;
-use crate::transform::serialize_transform;
 use crate::xml::{
     generate_f64_xml, generate_string_xml, optional_date_time, optional_double, optional_string,
     optional_transform, required_string,
@@ -230,7 +229,7 @@ pub fn serialize_pointcloud(pointcloud: &PointCloud) -> Result<String> {
     }
 
     if let Some(transform) = &pointcloud.transform {
-        xml += &serialize_transform(transform, "pose");
+        xml += &transform.xml_string("pose");
     }
     if let Some(aq_start) = &pointcloud.acquisition_start {
         xml += &aq_start.xml_string("acquisitionStart");

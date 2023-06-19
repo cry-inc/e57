@@ -1,4 +1,4 @@
-use crate::{error::Converter, transform::transform_from_node, DateTime, Error, Result, Transform};
+use crate::{error::Converter, DateTime, Error, Result, Transform};
 use roxmltree::Node;
 use std::str::FromStr;
 
@@ -96,7 +96,7 @@ pub fn optional_date_time(parent_node: &Node, tag_name: &str) -> Result<Option<D
 pub fn optional_transform(parent_node: &Node, tag_name: &str) -> Result<Option<Transform>> {
     let node = parent_node.children().find(|n| n.has_tag_name(tag_name));
     if let Some(node) = node {
-        Ok(Some(transform_from_node(&node)?))
+        Ok(Some(Transform::from_node(&node)?))
     } else {
         Ok(None)
     }
