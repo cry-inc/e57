@@ -5,7 +5,7 @@ use crate::Result;
 use std::io::Read;
 use std::io::Write;
 
-const SIGNATURE: [u8; 8] = [b'A', b'S', b'T', b'M', b'-', b'E', b'5', b'7'];
+const SIGNATURE: &[u8; 8] = b"ASTM-E57";
 const MAJOR_VERSION: u32 = 1;
 const MINOR_VERSION: u32 = 0;
 const PAGE_SIZE: u64 = 1024;
@@ -56,7 +56,7 @@ impl Header {
             page_size: u64::from_le_bytes(data[40..48].try_into().internal_err(WRONG_OFFSET)?),
         };
 
-        if header.signature != SIGNATURE {
+        if &header.signature != SIGNATURE {
             Error::invalid("Found unsupported signature in header")?
         }
         if header.major != MAJOR_VERSION {
@@ -101,7 +101,7 @@ impl Header {
 impl Default for Header {
     fn default() -> Self {
         Self {
-            signature: SIGNATURE,
+            signature: *SIGNATURE,
             major: MAJOR_VERSION,
             minor: MINOR_VERSION,
             phys_length: 0,
