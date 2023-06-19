@@ -1,4 +1,3 @@
-use crate::error::Converter;
 use crate::xml::{generate_f64_xml, required_double};
 use crate::Result;
 use roxmltree::Node;
@@ -57,17 +56,26 @@ pub struct Transform {
 
 impl Transform {
     pub(crate) fn from_node(node: &Node) -> Result<Self> {
-        let translation = node
-            .children()
-            .find(|n| n.has_tag_name("translation"))
-            .invalid_err("Cannot find translation tag of transform")?;
-        let quaternion = node
-            .children()
-            .find(|n| n.has_tag_name("rotation"))
-            .invalid_err("Cannot find quaternion tag of transform")?;
+        let translation = match node.children().find(|n| n.has_tag_name("translation")) {
+            Some(node) => Translation::from_node(&node)?,
+            None => Translation {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+        };
+        let rotation = match node.children().find(|n| n.has_tag_name("rotation")) {
+            Some(node) => Quaternion::from_node(&node)?,
+            None => Quaternion {
+                w: 1.0,
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+        };
         Ok(Self {
-            rotation: Quaternion::from_node(&quaternion)?,
-            translation: Translation::from_node(&translation)?,
+            rotation,
+            translation,
         })
     }
 
