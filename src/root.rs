@@ -1,7 +1,7 @@
 use crate::error::Converter;
 use crate::pointcloud::serialize_pointcloud;
 use crate::xml::{optional_date_time, optional_string, required_integer, required_string};
-use crate::{DateTime, Error, PointCloud, Result};
+use crate::{DateTime, Error, Image, PointCloud, Result};
 use roxmltree::Document;
 
 /// E57 XML Root structure with information shared by all elements in the file.
@@ -59,7 +59,7 @@ pub fn root_from_document(document: &Document) -> Result<Root> {
     })
 }
 
-pub fn serialize_root(root: &Root, pointclouds: &[PointCloud]) -> Result<String> {
+pub fn serialize_root(root: &Root, pointclouds: &[PointCloud], images: &[Image]) -> Result<String> {
     let mut xml = String::new();
     xml += "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
     xml += "<e57Root type=\"Structure\" xmlns=\"http://www.astm.org/COMMIT/E57/2010-e57-v1.0\">\n";
@@ -93,6 +93,9 @@ pub fn serialize_root(root: &Root, pointclouds: &[PointCloud]) -> Result<String>
     }
     xml += "</data3D>\n";
     xml += "<images2D type=\"Vector\" allowHeterogeneousChildren=\"1\">\n";
+    for img in images {
+        xml += &img.xml_string();
+    }
     xml += "</images2D>\n";
     xml += "</e57Root>\n";
     Ok(xml)

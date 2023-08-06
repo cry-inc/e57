@@ -1,6 +1,4 @@
-use crate::blob::extract_blob;
 use crate::error::Converter;
-use crate::images::images_from_document;
 use crate::paged_reader::PagedReader;
 use crate::pc_reader::PointCloudReader;
 use crate::pointcloud::pointclouds_from_document;
@@ -53,7 +51,7 @@ impl<T: Read + Seek> E57Reader<T> {
         let document = Document::parse(&xml).invalid_err("Failed to parse XML data")?;
         let root = root_from_document(&document)?;
         let pointclouds = pointclouds_from_document(&document)?;
-        let images = images_from_document(&document)?;
+        let images = Image::vec_from_document(&document)?;
 
         Ok(Self {
             reader,
@@ -102,7 +100,7 @@ impl<T: Read + Seek> E57Reader<T> {
 
     /// Writes the content of a blob to the supplied writer and returns the number of written bytes.
     pub fn blob(&mut self, blob: &Blob, writer: &mut dyn Write) -> Result<u64> {
-        extract_blob(&mut self.reader, blob, writer)
+        blob.read(&mut self.reader, writer)
     }
 
     /// Returns the optional creation date and time of the file.

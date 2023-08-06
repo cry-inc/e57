@@ -1,8 +1,7 @@
-use crate::blob::blob_from_node;
 use crate::error::Converter;
 use crate::xml::{
-    optional_date_time, optional_string, optional_transform, required_double, required_integer,
-    required_string,
+    generate_float_xml, generate_int_xml, generate_string_xml, optional_date_time, optional_string,
+    optional_transform, required_double, required_integer, required_string,
 };
 use crate::{Blob, DateTime, Error, Result, Transform};
 use roxmltree::{Document, Node};
@@ -35,6 +34,98 @@ pub struct Image {
     pub sensor_serial: Option<String>,
 }
 
+impl Image {
+    fn from_node(node: &Node) -> Result<Self> {
+        let guid = required_string(node, "guid")?;
+        let pointcloud_guid = optional_string(node, "associatedData3DGuid")?;
+        let transform = optional_transform(node, "pose")?;
+        let name = optional_string(node, "name")?;
+        let description = optional_string(node, "description")?;
+        let sensor_model = optional_string(node, "sensorModel")?;
+        let sensor_vendor = optional_string(node, "sensorVendor")?;
+        let sensor_serial = optional_string(node, "sensorSerialNumber")?;
+        let acquisition = optional_date_time(node, "acquisitionDateTime")?;
+        let representation = Representation::from_image_node(node)?;
+
+        let visual_reference_node = node
+            .children()
+            .find(|n| n.has_tag_name("visualReferenceRepresentation"));
+        let visual_reference = if let Some(node) = visual_reference_node {
+            Some(VisualReference::from_node(&node)?)
+        } else {
+            None
+        };
+
+        Ok(Self {
+            guid,
+            pointcloud_guid,
+            transform,
+            name,
+            description,
+            acquisition,
+            sensor_vendor,
+            sensor_model,
+            sensor_serial,
+            representation,
+            visual_reference,
+        })
+    }
+
+    pub(crate) fn vec_from_document(document: &Document) -> Result<Vec<Self>> {
+        let images2d_node = document
+            .descendants()
+            .find(|n| n.has_tag_name("images2D"))
+            .invalid_err("Cannot find 'images2D' tag in XML document")?;
+
+        let mut images = Vec::new();
+        for n in images2d_node.children() {
+            if n.has_tag_name("vectorChild") && n.attribute("type") == Some("Structure") {
+                let image = Self::from_node(&n)?;
+                images.push(image);
+            }
+        }
+        Ok(images)
+    }
+
+    pub(crate) fn xml_string(&self) -> String {
+        let mut xml = String::new();
+        xml += "<vectorChild type=\"Structure\">\n";
+        xml += &generate_string_xml("guid", &self.guid);
+        if let Some(vis_ref) = &self.visual_reference {
+            xml += &vis_ref.xml_string();
+        }
+        if let Some(rep) = &self.representation {
+            xml += &rep.xml_string();
+        }
+        if let Some(trans) = &self.transform {
+            xml += &trans.xml_string("pose");
+        }
+        if let Some(pc_guid) = &self.pointcloud_guid {
+            xml += &generate_string_xml("associatedData3DGuid", &pc_guid);
+        }
+        if let Some(name) = &self.name {
+            xml += &generate_string_xml("name", &name);
+        }
+        if let Some(desc) = &self.description {
+            xml += &generate_string_xml("description", &desc);
+        }
+        if let Some(acquisition) = &self.acquisition {
+            xml += &acquisition.xml_string("acquisitionDateTime");
+        }
+        if let Some(vendor) = &self.sensor_vendor {
+            xml += &generate_string_xml("sensorVendor", &vendor);
+        }
+        if let Some(model) = &self.sensor_model {
+            xml += &generate_string_xml("sensorModel", &model);
+        }
+        if let Some(serial) = &self.sensor_serial {
+            xml += &generate_string_xml("sensorSerialNumber", &serial);
+        }
+        xml += "</vectorChild>\n";
+        xml
+    }
+}
+
 /// Contains one of the tree possible types for projectable images.
 #[derive(Debug, Clone)]
 pub enum Representation {
@@ -44,6 +135,45 @@ pub enum Representation {
     Spherical(SphericalRepresentation),
     /// Image with a cylindrical projection model.
     Cylindrical(CylindricalRepresentation),
+}
+
+impl Representation {
+    pub(crate) fn from_image_node(image_node: &Node) -> Result<Option<Self>> {
+        let pinhole = image_node
+            .children()
+            .find(|n| n.has_tag_name("pinholeRepresentation"));
+        if let Some(node) = &pinhole {
+            return Ok(Some(Self::Pinhole(PinholeRepresentation::from_node(node)?)));
+        }
+
+        let spherical = image_node
+            .children()
+            .find(|n| n.has_tag_name("sphericalRepresentation"));
+        if let Some(node) = &spherical {
+            return Ok(Some(Self::Spherical(SphericalRepresentation::from_node(
+                node,
+            )?)));
+        }
+
+        let cylindrical = image_node
+            .children()
+            .find(|n| n.has_tag_name("cylindricalRepresentation"));
+        if let Some(node) = &cylindrical {
+            return Ok(Some(Self::Cylindrical(
+                CylindricalRepresentation::from_node(node)?,
+            )));
+        }
+
+        Ok(None)
+    }
+
+    pub(crate) fn xml_string(&self) -> String {
+        match self {
+            Representation::Pinhole(p) => p.xml_string(),
+            Representation::Spherical(s) => s.xml_string(),
+            Representation::Cylindrical(c) => c.xml_string(),
+        }
+    }
 }
 
 /// File format of an image stored inside the E57 file as blob.
@@ -65,6 +195,41 @@ pub struct ImageBlob {
     pub format: ImageFormat,
 }
 
+impl ImageBlob {
+    pub(crate) fn from_rep_node(rep_node: &Node) -> Result<Self> {
+        if let Some(node) = &rep_node.children().find(|n| n.has_tag_name("jpegImage")) {
+            Ok(Self {
+                data: Blob::from_node(node)?,
+                format: ImageFormat::Jpeg,
+            })
+        } else if let Some(node) = &rep_node.children().find(|n| n.has_tag_name("pngImage")) {
+            Ok(Self {
+                data: Blob::from_node(node)?,
+                format: ImageFormat::Png,
+            })
+        } else {
+            Error::invalid("Cannot find PNG or JPEG blob")
+        }
+    }
+
+    pub(crate) fn xml_string(&self) -> String {
+        match self.format {
+            ImageFormat::Png => self.data.xml_string("pngImage"),
+            ImageFormat::Jpeg => self.data.xml_string("jpegImage"),
+        }
+    }
+}
+
+/// Properties of an visual reference image.
+#[derive(Clone, Debug)]
+#[non_exhaustive]
+pub struct VisualReferenceProperties {
+    /// Width of the image in pixels.
+    pub width: u32,
+    /// Height of the image in pixels.
+    pub height: u32,
+}
+
 /// A visual reference image for preview and illustration purposes.
 ///
 /// Such images cannot be mapped to points and are not projectable!
@@ -73,6 +238,8 @@ pub struct ImageBlob {
 pub struct VisualReference {
     /// Reference to the binary image data.
     pub blob: ImageBlob,
+    /// Properties of the visual reference image.
+    pub properties: VisualReferenceProperties,
     /// Reference to a PNG image with a mask for non-rectangular images.
     ///
     /// The mask is used to indicate which pixels in the image are valid.
@@ -80,25 +247,38 @@ pub struct VisualReference {
     /// It has non-zero-valued pixels at locations where the image is valid
     /// and zero-valued pixels at locations where it is invalid.
     pub mask: Option<Blob>,
-    /// Width of the image in pixels.
-    pub width: u32,
-    /// Height of the image in pixels.
-    pub height: u32,
 }
 
-/// Describes an image with a pinhole camera projection model.
+impl VisualReference {
+    pub(crate) fn from_node(node: &Node) -> Result<Self> {
+        Ok(Self {
+            blob: ImageBlob::from_rep_node(node)?,
+            mask: Blob::from_parent_node("imageMask", node)?,
+            properties: VisualReferenceProperties {
+                width: required_integer(node, "imageWidth")?,
+                height: required_integer(node, "imageHeight")?,
+            },
+        })
+    }
+
+    pub(crate) fn xml_string(&self) -> String {
+        let mut xml = String::new();
+        xml += "<visualReferenceRepresentation type=\"Structure\">\n";
+        xml += &self.blob.xml_string();
+        if let Some(mask) = &self.mask {
+            xml += &mask.xml_string("imageMask");
+        }
+        xml += &generate_int_xml("imageWidth", self.properties.width);
+        xml += &generate_int_xml("imageHeight", self.properties.height);
+        xml += "</visualReferenceRepresentation>\n";
+        xml
+    }
+}
+
+/// Properties of a pinhole image.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
-pub struct PinholeRepresentation {
-    /// Reference to the binary image data.
-    pub blob: ImageBlob,
-    /// Reference to a PNG image with a mask for non-rectangular images.
-    ///
-    /// The mask is used to indicate which pixels in the image are valid.
-    /// The mask dimension are the same as the image itself.
-    /// It has non-zero-valued pixels at locations where the image is valid
-    /// and zero-valued pixels at locations where it is invalid.
-    pub mask: Option<Blob>,
+pub struct PinholeImageProperties {
     /// Width of the image in pixels.
     pub width: u32,
     /// Height of the image in pixels.
@@ -115,12 +295,14 @@ pub struct PinholeRepresentation {
     pub principal_y: f64,
 }
 
-/// Describes an image with a spherical projection model.
+/// Describes an image with a pinhole camera projection model.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
-pub struct SphericalRepresentation {
+pub struct PinholeRepresentation {
     /// Reference to the binary image data.
     pub blob: ImageBlob,
+    /// Properties of the pinhole image.
+    pub properties: PinholeImageProperties,
     /// Reference to a PNG image with a mask for non-rectangular images.
     ///
     /// The mask is used to indicate which pixels in the image are valid.
@@ -128,6 +310,48 @@ pub struct SphericalRepresentation {
     /// It has non-zero-valued pixels at locations where the image is valid
     /// and zero-valued pixels at locations where it is invalid.
     pub mask: Option<Blob>,
+}
+
+impl PinholeRepresentation {
+    pub(crate) fn from_node(node: &Node) -> Result<Self> {
+        Ok(Self {
+            blob: ImageBlob::from_rep_node(node)?,
+            mask: Blob::from_parent_node("imageMask", node)?,
+            properties: PinholeImageProperties {
+                width: required_integer(node, "imageWidth")?,
+                height: required_integer(node, "imageHeight")?,
+                focal_length: required_double(node, "focalLength")?,
+                pixel_width: required_double(node, "pixelWidth")?,
+                pixel_height: required_double(node, "pixelHeight")?,
+                principal_x: required_double(node, "principalPointX")?,
+                principal_y: required_double(node, "principalPointY")?,
+            },
+        })
+    }
+
+    pub(crate) fn xml_string(&self) -> String {
+        let mut xml = String::new();
+        xml += "<pinholeRepresentation type=\"Structure\">\n";
+        xml += &self.blob.xml_string();
+        if let Some(mask) = &self.mask {
+            xml += &mask.xml_string("imageMask");
+        }
+        xml += &generate_int_xml("imageWidth", self.properties.width);
+        xml += &generate_int_xml("imageHeight", self.properties.height);
+        xml += &generate_float_xml("focalLength", self.properties.focal_length);
+        xml += &generate_float_xml("pixelWidth", self.properties.pixel_width);
+        xml += &generate_float_xml("pixelHeight", self.properties.pixel_height);
+        xml += &generate_float_xml("principalPointX", self.properties.principal_x);
+        xml += &generate_float_xml("principalPointY", self.properties.principal_y);
+        xml += "</pinholeRepresentation>\n";
+        xml
+    }
+}
+
+/// Properties of a spherical image.
+#[derive(Clone, Debug)]
+#[non_exhaustive]
+pub struct SphericalImageProperties {
     /// Width of the image in pixels.
     pub width: u32,
     /// Height of the image in pixels.
@@ -138,12 +362,14 @@ pub struct SphericalRepresentation {
     pub pixel_height: f64,
 }
 
-/// Describes an image with a cylindrical projection model.
+/// Describes an image with a spherical projection model.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
-pub struct CylindricalRepresentation {
+pub struct SphericalRepresentation {
     /// Reference to the binary image data.
     pub blob: ImageBlob,
+    /// Properties of the spherical image.
+    pub properties: SphericalImageProperties,
     /// Reference to a PNG image with a mask for non-rectangular images.
     ///
     /// The mask is used to indicate which pixels in the image are valid.
@@ -151,6 +377,42 @@ pub struct CylindricalRepresentation {
     /// It has non-zero-valued pixels at locations where the image is valid
     /// and zero-valued pixels at locations where it is invalid.
     pub mask: Option<Blob>,
+}
+
+impl SphericalRepresentation {
+    pub(crate) fn from_node(node: &Node) -> Result<Self> {
+        Ok(Self {
+            blob: ImageBlob::from_rep_node(node)?,
+            mask: Blob::from_parent_node("imageMask", node)?,
+            properties: SphericalImageProperties {
+                width: required_integer(node, "imageWidth")?,
+                height: required_integer(node, "imageHeight")?,
+                pixel_width: required_double(node, "pixelWidth")?,
+                pixel_height: required_double(node, "pixelHeight")?,
+            },
+        })
+    }
+
+    pub(crate) fn xml_string(&self) -> String {
+        let mut xml = String::new();
+        xml += "<sphericalRepresentation type=\"Structure\">\n";
+        xml += &self.blob.xml_string();
+        if let Some(mask) = &self.mask {
+            xml += &mask.xml_string("imageMask");
+        }
+        xml += &generate_int_xml("imageWidth", self.properties.width);
+        xml += &generate_int_xml("imageHeight", self.properties.height);
+        xml += &generate_float_xml("pixelWidth", self.properties.pixel_width);
+        xml += &generate_float_xml("pixelHeight", self.properties.pixel_height);
+        xml += "</sphericalRepresentation>\n";
+        xml
+    }
+}
+
+/// Properties of a cylindrical image.
+#[derive(Clone, Debug)]
+#[non_exhaustive]
+pub struct CylindricalImageProperties {
     /// Width of the image in pixels.
     pub width: u32,
     /// Height of the image in pixels.
@@ -165,169 +427,53 @@ pub struct CylindricalRepresentation {
     pub pixel_height: f64,
 }
 
-pub fn images_from_document(document: &Document) -> Result<Vec<Image>> {
-    let images2d_node = document
-        .descendants()
-        .find(|n| n.has_tag_name("images2D"))
-        .invalid_err("Cannot find 'images2D' tag in XML document")?;
+/// Describes an image with a cylindrical projection model.
+#[derive(Clone, Debug)]
+#[non_exhaustive]
+pub struct CylindricalRepresentation {
+    /// Reference to the binary image data.
+    pub blob: ImageBlob,
+    /// Properties of the yylindrical image.
+    pub properties: CylindricalImageProperties,
+    /// Reference to a PNG image with a mask for non-rectangular images.
+    ///
+    /// The mask is used to indicate which pixels in the image are valid.
+    /// The mask dimension are the same as the image itself.
+    /// It has non-zero-valued pixels at locations where the image is valid
+    /// and zero-valued pixels at locations where it is invalid.
+    pub mask: Option<Blob>,
+}
 
-    let mut images = Vec::new();
-    for n in images2d_node.children() {
-        if n.has_tag_name("vectorChild") && n.attribute("type") == Some("Structure") {
-            let image = image_from_node(&n)?;
-            images.push(image);
+impl CylindricalRepresentation {
+    pub(crate) fn from_node(node: &Node) -> Result<Self> {
+        Ok(Self {
+            blob: ImageBlob::from_rep_node(node)?,
+            mask: Blob::from_parent_node("imageMask", node)?,
+            properties: CylindricalImageProperties {
+                width: required_integer(node, "imageWidth")?,
+                height: required_integer(node, "imageHeight")?,
+                radius: required_double(node, "radius")?,
+                principal_y: required_double(node, "principalPointY")?,
+                pixel_width: required_double(node, "pixelWidth")?,
+                pixel_height: required_double(node, "pixelHeight")?,
+            },
+        })
+    }
+
+    pub(crate) fn xml_string(&self) -> String {
+        let mut xml = String::new();
+        xml += "<cylindricalRepresentation type=\"Structure\">\n";
+        xml += &self.blob.xml_string();
+        if let Some(mask) = &self.mask {
+            xml += &mask.xml_string("imageMask");
         }
-    }
-    Ok(images)
-}
-
-fn image_from_node(node: &Node) -> Result<Image> {
-    let guid = required_string(node, "guid")?;
-    let pointcloud_guid = optional_string(node, "associatedData3DGuid")?;
-    let transform = optional_transform(node, "pose")?;
-    let name = optional_string(node, "name")?;
-    let description = optional_string(node, "description")?;
-    let sensor_model = optional_string(node, "sensorModel")?;
-    let sensor_vendor = optional_string(node, "sensorVendor")?;
-    let sensor_serial = optional_string(node, "sensorSerialNumber")?;
-    let acquisition = optional_date_time(node, "acquisitionDateTime")?;
-
-    let visual_reference_node = node
-        .children()
-        .find(|n| n.has_tag_name("visualReferenceRepresentation"));
-    let visual_reference = if let Some(node) = visual_reference_node {
-        Some(visual_reference_from_node(&node)?)
-    } else {
-        None
-    };
-
-    let representation = extract_representation(node)?;
-
-    Ok(Image {
-        guid,
-        pointcloud_guid,
-        transform,
-        name,
-        description,
-        acquisition,
-        sensor_vendor,
-        sensor_model,
-        sensor_serial,
-        representation,
-        visual_reference,
-    })
-}
-
-fn extract_representation(parent_node: &Node) -> Result<Option<Representation>> {
-    let pinhole = parent_node
-        .children()
-        .find(|n| n.has_tag_name("pinholeRepresentation"));
-    if let Some(node) = &pinhole {
-        return Ok(Some(Representation::Pinhole(pinhole_rep_from_node(node)?)));
-    }
-
-    let spherical = parent_node
-        .children()
-        .find(|n| n.has_tag_name("sphericalRepresentation"));
-    if let Some(node) = &spherical {
-        return Ok(Some(Representation::Spherical(spherical_rep_from_node(
-            node,
-        )?)));
-    }
-
-    let cylindrical = parent_node
-        .children()
-        .find(|n| n.has_tag_name("cylindricalRepresentation"));
-    if let Some(node) = &cylindrical {
-        return Ok(Some(Representation::Cylindrical(
-            cylindrical_rep_from_node(node)?,
-        )));
-    }
-
-    Ok(None)
-}
-
-fn visual_reference_from_node(node: &Node) -> Result<VisualReference> {
-    Ok(VisualReference {
-        blob: extract_image_blob(node)?,
-        mask: extract_mask_blob(node)?,
-        width: required_integer(node, "imageWidth")?,
-        height: required_integer(node, "imageHeight")?,
-    })
-}
-
-fn pinhole_rep_from_node(node: &Node) -> Result<PinholeRepresentation> {
-    Ok(PinholeRepresentation {
-        blob: extract_image_blob(node)?,
-        mask: extract_mask_blob(node)?,
-        width: required_integer(node, "imageWidth")?,
-        height: required_integer(node, "imageHeight")?,
-        focal_length: required_double(node, "focalLength")?,
-        pixel_width: required_double(node, "pixelWidth")?,
-        pixel_height: required_double(node, "pixelHeight")?,
-        principal_x: required_double(node, "principalPointX")?,
-        principal_y: required_double(node, "principalPointY")?,
-    })
-}
-
-fn spherical_rep_from_node(node: &Node) -> Result<SphericalRepresentation> {
-    let blob = extract_image_blob(node)?;
-    let mask = extract_mask_blob(node)?;
-    let width = required_integer(node, "imageWidth")?;
-    let height = required_integer(node, "imageHeight")?;
-    let pixel_width = required_double(node, "pixelWidth")?;
-    let pixel_height = required_double(node, "pixelHeight")?;
-    Ok(SphericalRepresentation {
-        blob,
-        mask,
-        width,
-        height,
-        pixel_width,
-        pixel_height,
-    })
-}
-
-fn cylindrical_rep_from_node(node: &Node) -> Result<CylindricalRepresentation> {
-    let blob = extract_image_blob(node)?;
-    let mask = extract_mask_blob(node)?;
-    let width = required_integer(node, "imageWidth")?;
-    let height = required_integer(node, "imageHeight")?;
-    let radius = required_double(node, "radius")?;
-    let principal_y = required_double(node, "principalPointY")?;
-    let pixel_width = required_double(node, "pixelWidth")?;
-    let pixel_height = required_double(node, "pixelHeight")?;
-    Ok(CylindricalRepresentation {
-        blob,
-        mask,
-        width,
-        height,
-        radius,
-        principal_y,
-        pixel_width,
-        pixel_height,
-    })
-}
-
-fn extract_image_blob(parent_node: &Node) -> Result<ImageBlob> {
-    if let Some(node) = &parent_node.children().find(|n| n.has_tag_name("jpegImage")) {
-        Ok(ImageBlob {
-            data: blob_from_node(node)?,
-            format: ImageFormat::Jpeg,
-        })
-    } else if let Some(node) = &parent_node.children().find(|n| n.has_tag_name("pngImage")) {
-        Ok(ImageBlob {
-            data: blob_from_node(node)?,
-            format: ImageFormat::Png,
-        })
-    } else {
-        Error::invalid("Cannot find PNG or JPEG blob")
-    }
-}
-
-fn extract_mask_blob(parent_node: &Node) -> Result<Option<Blob>> {
-    if let Some(node) = &parent_node.children().find(|n| n.has_tag_name("imageMask")) {
-        Ok(Some(blob_from_node(node)?))
-    } else {
-        Ok(None)
+        xml += &generate_int_xml("imageWidth", self.properties.width);
+        xml += &generate_int_xml("imageHeight", self.properties.height);
+        xml += &generate_float_xml("readius", self.properties.radius);
+        xml += &generate_float_xml("principalPointY", self.properties.principal_y);
+        xml += &generate_float_xml("pixelWidth", self.properties.pixel_width);
+        xml += &generate_float_xml("pixelHeight", self.properties.pixel_height);
+        xml += "</cylindricalRepresentation>\n";
+        xml
     }
 }

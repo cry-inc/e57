@@ -21,7 +21,7 @@ use crate::Transform;
 use std::collections::VecDeque;
 use std::io::{Read, Seek, Write};
 
-/// Creates a new point cloud by consuming points and writing them into an E57 file.
+/// Creates a new point cloud by taking points and writing them into an E57 file.
 pub struct PointCloudWriter<'a, T: Read + Write + Seek> {
     writer: &'a mut PagedWriter<T>,
     pointclouds: &'a mut Vec<PointCloud>,

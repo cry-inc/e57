@@ -1,4 +1,5 @@
-use crate::{error::Converter, Result};
+use crate::error::Converter;
+use crate::Result;
 use roxmltree::Node;
 
 /// Represents a specific date and time used in E57 files.

@@ -1,5 +1,6 @@
 use crate::{error::Converter, DateTime, Error, Result, Transform};
 use roxmltree::Node;
+use std::fmt::Display;
 use std::str::FromStr;
 
 pub fn optional_string(parent_node: &Node, tag_name: &str) -> Result<Option<String>> {
@@ -102,10 +103,14 @@ pub fn optional_transform(parent_node: &Node, tag_name: &str) -> Result<Option<T
     }
 }
 
-pub fn generate_string_xml(tag_name: &str, value: &str) -> String {
+pub fn generate_string_xml<T: Display>(tag_name: &str, value: &T) -> String {
     format!("<{tag_name} type=\"String\"><![CDATA[{value}]]></{tag_name}>\n")
 }
 
-pub fn generate_f64_xml(tag_name: &str, value: f64) -> String {
+pub fn generate_float_xml<T: Display>(tag_name: &str, value: T) -> String {
     format!("<{tag_name} type=\"Float\">{value}</{tag_name}>\n")
+}
+
+pub fn generate_int_xml<T: Display>(tag_name: &str, value: T) -> String {
+    format!("<{tag_name} type=\"Integer\">{value}</{tag_name}>\n")
 }

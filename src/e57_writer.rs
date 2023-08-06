@@ -2,7 +2,7 @@ use crate::error::Converter;
 use crate::paged_writer::PagedWriter;
 use crate::pc_writer::PointCloudWriter;
 use crate::root::{serialize_root, Root};
-use crate::{DateTime, Header, PointCloud, Record, Result};
+use crate::{DateTime, Header, Image, ImageWriter, PointCloud, Record, Result};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
 use std::path::Path;
@@ -11,6 +11,7 @@ use std::path::Path;
 pub struct E57Writer<T: Read + Write + Seek> {
     pub(crate) writer: PagedWriter<T>,
     pub(crate) pointclouds: Vec<PointCloud>,
+    images: Vec<Image>,
     root: Root,
 }
 
@@ -36,6 +37,7 @@ impl<T: Write + Read + Seek> E57Writer<T> {
         Ok(Self {
             writer,
             pointclouds: Vec::new(),
+            images: Vec::new(),
             root,
         })
     }
@@ -59,12 +61,17 @@ impl<T: Write + Read + Seek> E57Writer<T> {
         PointCloudWriter::new(&mut self.writer, &mut self.pointclouds, guid, prototype)
     }
 
+    /// Creates a new image writer for adding an image to the E57 file.
+    pub fn add_image(&mut self, guid: &str) -> Result<ImageWriter<T>> {
+        ImageWriter::new(&mut self.writer, &mut self.images, guid)
+    }
+
     /// Needs to be called after adding all point clouds and images.
     ///
     /// This will generate and write the XML metadata to finalize and complete the E57 file.
     /// Without calling this method before dropping the E57 file will be incomplete and invalid!
     pub fn finalize(&mut self) -> Result<()> {
-        let xml = serialize_root(&self.root, &self.pointclouds)?;
+        let xml = serialize_root(&self.root, &self.pointclouds, &self.images)?;
         let xml_bytes = xml.as_bytes();
         let xml_length = xml_bytes.len();
         let xml_offset = self.writer.physical_position()?;
@@ -106,16 +113,16 @@ impl E57Writer<File> {
 mod tests {
     use super::*;
     use crate::{
-        E57Reader, Point, Quaternion, RawValues, RecordDataType, RecordName, RecordValue,
-        Transform, Translation,
+        E57Reader, ImageFormat, Point, Quaternion, RawValues, RecordDataType, RecordName,
+        RecordValue, SphericalImageProperties, Transform, Translation, VisualReferenceProperties,
     };
     use std::f32::consts::PI;
     use std::fs::{remove_file, File};
     use std::path::Path;
 
     #[test]
-    fn write_read_cycle() {
-        let path = Path::new("write_read_cycle.e57");
+    fn write_read_cycle_points() {
+        let path = Path::new("write_read_cycle_points.e57");
         let mut e57_writer = E57Writer::from_file(path, "guid_file").unwrap();
 
         let prototype = vec![
@@ -179,6 +186,108 @@ mod tests {
             assert_eq!(points.len(), 2);
             //println!("Points: {points:#?}");
         }
+
+        remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn write_read_cycle_image() {
+        let path = Path::new("write_read_cycle_image.e57");
+        let mut e57_writer = E57Writer::from_file(path, "guid_file").unwrap();
+
+        let mut img_writer = e57_writer.add_image("guid_image").unwrap();
+        img_writer.set_name("name");
+        img_writer.set_description("desc");
+        img_writer.set_pointcloud_guid("guid_pc");
+        img_writer.set_sensor_model("model");
+        img_writer.set_sensor_serial("serial");
+        img_writer.set_sensor_vendor("vendor");
+        img_writer.set_acquisition(DateTime {
+            gps_time: 1.1,
+            atomic_reference: false,
+        });
+        img_writer.set_transform(Transform {
+            rotation: Quaternion {
+                w: 2.2,
+                x: 3.3,
+                y: 4.4,
+                z: 5.5,
+            },
+            translation: Translation {
+                x: 6.6,
+                y: 7.7,
+                z: 8.8,
+            },
+        });
+        let mut reader = File::open("testdata/square.png").unwrap();
+        let props = VisualReferenceProperties {
+            width: 100,
+            height: 100,
+        };
+        img_writer
+            .add_visual_reference(ImageFormat::Png, &mut reader, props, None)
+            .unwrap();
+
+        reader.rewind().unwrap();
+        let props = SphericalImageProperties {
+            width: 100,
+            height: 100,
+            pixel_width: 3.6,
+            pixel_height: 1.8,
+        };
+        img_writer
+            .add_spherical(ImageFormat::Png, &mut reader, props, None)
+            .unwrap();
+        img_writer.finalize().unwrap();
+        e57_writer.finalize().unwrap();
+        drop(e57_writer);
+
+        let mut e57 = E57Reader::from_file(path).unwrap();
+        assert_eq!(e57.guid(), "guid_file");
+
+        let pointclouds = e57.pointclouds();
+        assert_eq!(pointclouds.len(), 0);
+
+        let mut images = e57.images();
+        assert_eq!(images.len(), 1);
+        let img = images.remove(0);
+
+        assert_eq!(img.guid, "guid_image");
+        assert_eq!(img.acquisition.unwrap().gps_time, 1.1);
+        assert_eq!(img.name.unwrap(), "name");
+        assert_eq!(img.description.unwrap(), "desc");
+        assert_eq!(img.pointcloud_guid.unwrap(), "guid_pc");
+        assert_eq!(img.sensor_model.unwrap(), "model");
+        assert_eq!(img.sensor_serial.unwrap(), "serial");
+        assert_eq!(img.sensor_vendor.unwrap(), "vendor");
+
+        let vis_ref = img.visual_reference.unwrap();
+        assert_eq!(vis_ref.properties.width, 100);
+        assert_eq!(vis_ref.properties.height, 100);
+        assert!(matches!(vis_ref.blob.format, ImageFormat::Png));
+        assert_eq!(vis_ref.blob.data.offset, 48);
+        assert_eq!(vis_ref.blob.data.length, 1073);
+        assert!(vis_ref.mask.is_none());
+
+        let rep = match img.representation.unwrap() {
+            crate::Representation::Pinhole(_) => None,
+            crate::Representation::Spherical(s) => Some(s),
+            crate::Representation::Cylindrical(_) => None,
+        }
+        .unwrap();
+        assert_eq!(rep.properties.width, 100);
+        assert_eq!(rep.properties.height, 100);
+        assert_eq!(rep.properties.pixel_height, 1.8);
+        assert_eq!(rep.properties.pixel_width, 3.6);
+        assert!(matches!(rep.blob.format, ImageFormat::Png));
+        assert_eq!(rep.blob.data.offset, 1141);
+        assert_eq!(rep.blob.data.length, 1073);
+        assert!(rep.mask.is_none());
+
+        let mut img_bytes = Vec::new();
+        let img_length = e57.blob(&rep.blob.data, &mut img_bytes).unwrap();
+        assert_eq!(img_length, img_bytes.len() as u64);
+        assert_eq!(img_length, 1073);
 
         remove_file(path).unwrap();
     }

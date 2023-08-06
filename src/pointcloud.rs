@@ -1,6 +1,6 @@
 use crate::error::Converter;
 use crate::xml::{
-    generate_f64_xml, generate_string_xml, optional_date_time, optional_double, optional_string,
+    generate_float_xml, generate_string_xml, optional_date_time, optional_double, optional_string,
     optional_transform, required_string,
 };
 use crate::{
@@ -239,13 +239,13 @@ pub fn serialize_pointcloud(pointcloud: &PointCloud) -> Result<String> {
     }
 
     if let Some(temperature) = pointcloud.temperature {
-        xml += &generate_f64_xml("temperature", temperature);
+        xml += &generate_float_xml("temperature", temperature);
     }
     if let Some(humidity) = pointcloud.humidity {
-        xml += &generate_f64_xml("relativeHumidity", humidity);
+        xml += &generate_float_xml("relativeHumidity", humidity);
     }
     if let Some(pressure) = pointcloud.atmospheric_pressure {
-        xml += &generate_f64_xml("atmosphericPressure", pressure);
+        xml += &generate_float_xml("atmosphericPressure", pressure);
     }
 
     xml += &format!(

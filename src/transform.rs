@@ -1,4 +1,4 @@
-use crate::xml::{generate_f64_xml, required_double};
+use crate::xml::{generate_float_xml, required_double};
 use crate::Result;
 use roxmltree::Node;
 
@@ -80,15 +80,15 @@ impl Transform {
     }
 
     pub(crate) fn xml_string(&self, tag_name: &str) -> String {
-        let w = generate_f64_xml("w", self.rotation.w);
-        let x = generate_f64_xml("x", self.rotation.x);
-        let y = generate_f64_xml("y", self.rotation.y);
-        let z = generate_f64_xml("z", self.rotation.z);
+        let w = generate_float_xml("w", self.rotation.w);
+        let x = generate_float_xml("x", self.rotation.x);
+        let y = generate_float_xml("y", self.rotation.y);
+        let z = generate_float_xml("z", self.rotation.z);
         let quat = format!("<rotation type=\"Structure\">{w}{x}{y}{z}</rotation>\n");
 
-        let x = generate_f64_xml("x", self.translation.x);
-        let y = generate_f64_xml("y", self.translation.y);
-        let z = generate_f64_xml("z", self.translation.z);
+        let x = generate_float_xml("x", self.translation.x);
+        let y = generate_float_xml("y", self.translation.y);
+        let z = generate_float_xml("z", self.translation.z);
         let trans = format!("<translation type=\"Structure\">{x}{y}{z}</translation>\n");
 
         format!("<{tag_name} type=\"Structure\">{quat}{trans}</{tag_name}>\n")
