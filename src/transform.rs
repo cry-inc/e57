@@ -25,6 +25,17 @@ impl Quaternion {
     }
 }
 
+impl Default for Quaternion {
+    fn default() -> Self {
+        Self {
+            w: 1.0,
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }
+    }
+}
+
 /// Describes the translation of a point cloud.
 #[derive(Clone, Debug)]
 pub struct Translation {
@@ -45,8 +56,18 @@ impl Translation {
     }
 }
 
+impl Default for Translation {
+    fn default() -> Self {
+        Self {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }
+    }
+}
+
 /// Describes a transformation of a point cloud with a rotation and translation component.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Transform {
     /// A unit quaternion representing the rotation of the transform.
     pub rotation: Quaternion,
@@ -58,20 +79,11 @@ impl Transform {
     pub(crate) fn from_node(node: &Node) -> Result<Self> {
         let translation = match node.children().find(|n| n.has_tag_name("translation")) {
             Some(node) => Translation::from_node(&node)?,
-            None => Translation {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            },
+            None => Translation::default(),
         };
         let rotation = match node.children().find(|n| n.has_tag_name("rotation")) {
             Some(node) => Quaternion::from_node(&node)?,
-            None => Quaternion {
-                w: 1.0,
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            },
+            None => Quaternion::default(),
         };
         Ok(Self {
             rotation,

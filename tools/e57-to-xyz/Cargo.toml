@@ -6,4 +6,5 @@ publish = false
 
 [dependencies]
 e57 = { path = "../../" }
+nalgebra = "0.32"
 anyhow = "1"
