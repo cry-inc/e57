@@ -96,13 +96,13 @@ impl Transform {
         let x = generate_float_xml("x", self.rotation.x);
         let y = generate_float_xml("y", self.rotation.y);
         let z = generate_float_xml("z", self.rotation.z);
-        let quat = format!("<rotation type=\"Structure\">{w}{x}{y}{z}</rotation>\n");
+        let quat = format!("<rotation type=\"Structure\">\n{w}{x}{y}{z}</rotation>\n");
 
         let x = generate_float_xml("x", self.translation.x);
         let y = generate_float_xml("y", self.translation.y);
         let z = generate_float_xml("z", self.translation.z);
-        let trans = format!("<translation type=\"Structure\">{x}{y}{z}</translation>\n");
+        let trans = format!("<translation type=\"Structure\">\n{x}{y}{z}</translation>\n");
 
-        format!("<{tag_name} type=\"Structure\">{quat}{trans}</{tag_name}>\n")
+        format!("<{tag_name} type=\"Structure\">\n{quat}{trans}</{tag_name}>\n")
     }
 }
