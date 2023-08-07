@@ -22,7 +22,6 @@ but for that use case the LAS/LAZ file format is more commonly used.
 * Does not support any E57 extensions right now (e.g. normals or classification)
 * Does not support Point Grouping
 * Does not support Index Packets
-* Writing E57 files is currently very limited
 
 ## Please report incompatible files!
 If you found an E57 file that can be read with other software but produces an error with this crate,
