@@ -200,7 +200,7 @@ impl E57Reader<BufReader<File>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::images::Representation;
+    use crate::images::Projection;
     use crate::{Point, RawValues, RecordName, RecordValue};
     use std::io::{BufWriter, Write};
 
@@ -426,11 +426,11 @@ mod tests {
                 let size = reader.blob(&preview.blob.data, &mut file).unwrap();
                 println!("Exported preview image with {size} bytes");
             }
-            if let Some(rep) = &img.representation {
+            if let Some(rep) = &img.projection {
                 let (blob, type_name) = match rep {
-                    Representation::Pinhole(rep) => (&rep.blob, "pinhole"),
-                    Representation::Spherical(rep) => (&rep.blob, "spherical"),
-                    Representation::Cylindrical(rep) => (&rep.blob, "cylindrical"),
+                    Projection::Pinhole(rep) => (&rep.blob, "pinhole"),
+                    Projection::Spherical(rep) => (&rep.blob, "spherical"),
+                    Projection::Cylindrical(rep) => (&rep.blob, "cylindrical"),
                 };
                 let ext = format!("{:?}", blob.format).to_lowercase();
                 let filename = format!("{type_name}_{index}.{ext}");

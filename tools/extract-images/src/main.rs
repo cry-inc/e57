@@ -3,7 +3,7 @@
  */
 
 use anyhow::{bail, Context, Result};
-use e57::{E57Reader, Representation};
+use e57::{E57Reader, Projection};
 use std::fs::{write, File};
 
 fn main() -> Result<()> {
@@ -42,11 +42,11 @@ fn main() -> Result<()> {
         }
 
         // Extract projectable image, if available
-        if let Some(rep) = &img.representation {
+        if let Some(rep) = &img.projection {
             let (blob, mask, type_name) = match rep {
-                Representation::Pinhole(rep) => (&rep.blob, &rep.mask, "pinhole"),
-                Representation::Spherical(rep) => (&rep.blob, &rep.mask, "spherical"),
-                Representation::Cylindrical(rep) => (&rep.blob, &rep.mask, "cylindrical"),
+                Projection::Pinhole(rep) => (&rep.blob, &rep.mask, "pinhole"),
+                Projection::Spherical(rep) => (&rep.blob, &rep.mask, "spherical"),
+                Projection::Cylindrical(rep) => (&rep.blob, &rep.mask, "cylindrical"),
             };
             let ext = format!("{:?}", blob.format).to_lowercase();
             let filename = format!("image_{index}_{type_name}.{ext}");

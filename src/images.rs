@@ -13,9 +13,9 @@ pub struct Image {
     /// Globally unique identifier for the image object.
     pub guid: String,
     /// Preview/illustration image that does not define any camera projection model.
-    pub visual_reference: Option<VisualReference>,
+    pub visual_reference: Option<VisualReferenceImage>,
     /// Image that includes a projection model.
-    pub representation: Option<Representation>,
+    pub projection: Option<Projection>,
     /// Transforms the local coordinate system of the image to the file-level coordinate system.
     pub transform: Option<Transform>,
     /// GUID of the pointcloud that was captured with this image.
@@ -45,13 +45,13 @@ impl Image {
         let sensor_vendor = optional_string(node, "sensorVendor")?;
         let sensor_serial = optional_string(node, "sensorSerialNumber")?;
         let acquisition = optional_date_time(node, "acquisitionDateTime")?;
-        let representation = Representation::from_image_node(node)?;
+        let projection = Projection::from_image_node(node)?;
 
         let visual_reference_node = node
             .children()
             .find(|n| n.has_tag_name("visualReferenceRepresentation"));
         let visual_reference = if let Some(node) = visual_reference_node {
-            Some(VisualReference::from_node(&node)?)
+            Some(VisualReferenceImage::from_node(&node)?)
         } else {
             None
         };
@@ -66,7 +66,7 @@ impl Image {
             sensor_vendor,
             sensor_model,
             sensor_serial,
-            representation,
+            projection,
             visual_reference,
         })
     }
@@ -94,7 +94,7 @@ impl Image {
         if let Some(vis_ref) = &self.visual_reference {
             xml += &vis_ref.xml_string();
         }
-        if let Some(rep) = &self.representation {
+        if let Some(rep) = &self.projection {
             xml += &rep.xml_string();
         }
         if let Some(trans) = &self.transform {
@@ -128,40 +128,36 @@ impl Image {
 
 /// Contains one of the tree possible types for projectable images.
 #[derive(Debug, Clone)]
-pub enum Representation {
+pub enum Projection {
     /// Image with a pinhole projection model.
-    Pinhole(PinholeRepresentation),
+    Pinhole(PinholeImage),
     /// Image with a spherical projection model.
-    Spherical(SphericalRepresentation),
+    Spherical(SphericalImage),
     /// Image with a cylindrical projection model.
-    Cylindrical(CylindricalRepresentation),
+    Cylindrical(CylindricalImage),
 }
 
-impl Representation {
+impl Projection {
     pub(crate) fn from_image_node(image_node: &Node) -> Result<Option<Self>> {
         let pinhole = image_node
             .children()
             .find(|n| n.has_tag_name("pinholeRepresentation"));
         if let Some(node) = &pinhole {
-            return Ok(Some(Self::Pinhole(PinholeRepresentation::from_node(node)?)));
+            return Ok(Some(Self::Pinhole(PinholeImage::from_node(node)?)));
         }
 
         let spherical = image_node
             .children()
             .find(|n| n.has_tag_name("sphericalRepresentation"));
         if let Some(node) = &spherical {
-            return Ok(Some(Self::Spherical(SphericalRepresentation::from_node(
-                node,
-            )?)));
+            return Ok(Some(Self::Spherical(SphericalImage::from_node(node)?)));
         }
 
         let cylindrical = image_node
             .children()
             .find(|n| n.has_tag_name("cylindricalRepresentation"));
         if let Some(node) = &cylindrical {
-            return Ok(Some(Self::Cylindrical(
-                CylindricalRepresentation::from_node(node)?,
-            )));
+            return Ok(Some(Self::Cylindrical(CylindricalImage::from_node(node)?)));
         }
 
         Ok(None)
@@ -169,9 +165,9 @@ impl Representation {
 
     pub(crate) fn xml_string(&self) -> String {
         match self {
-            Representation::Pinhole(p) => p.xml_string(),
-            Representation::Spherical(s) => s.xml_string(),
-            Representation::Cylindrical(c) => c.xml_string(),
+            Projection::Pinhole(p) => p.xml_string(),
+            Projection::Spherical(s) => s.xml_string(),
+            Projection::Cylindrical(c) => c.xml_string(),
         }
     }
 }
@@ -223,7 +219,7 @@ impl ImageBlob {
 /// Properties of an visual reference image.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
-pub struct VisualReferenceProperties {
+pub struct VisualReferenceImageProperties {
     /// Width of the image in pixels.
     pub width: u32,
     /// Height of the image in pixels.
@@ -235,11 +231,11 @@ pub struct VisualReferenceProperties {
 /// Such images cannot be mapped to points and are not projectable!
 #[derive(Clone, Debug)]
 #[non_exhaustive]
-pub struct VisualReference {
+pub struct VisualReferenceImage {
     /// Reference to the binary image data.
     pub blob: ImageBlob,
     /// Properties of the visual reference image.
-    pub properties: VisualReferenceProperties,
+    pub properties: VisualReferenceImageProperties,
     /// Reference to a PNG image with a mask for non-rectangular images.
     ///
     /// The mask is used to indicate which pixels in the image are valid.
@@ -249,12 +245,12 @@ pub struct VisualReference {
     pub mask: Option<Blob>,
 }
 
-impl VisualReference {
+impl VisualReferenceImage {
     pub(crate) fn from_node(node: &Node) -> Result<Self> {
         Ok(Self {
             blob: ImageBlob::from_rep_node(node)?,
             mask: Blob::from_parent_node("imageMask", node)?,
-            properties: VisualReferenceProperties {
+            properties: VisualReferenceImageProperties {
                 width: required_integer(node, "imageWidth")?,
                 height: required_integer(node, "imageHeight")?,
             },
@@ -298,7 +294,7 @@ pub struct PinholeImageProperties {
 /// Describes an image with a pinhole camera projection model.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
-pub struct PinholeRepresentation {
+pub struct PinholeImage {
     /// Reference to the binary image data.
     pub blob: ImageBlob,
     /// Properties of the pinhole image.
@@ -312,7 +308,7 @@ pub struct PinholeRepresentation {
     pub mask: Option<Blob>,
 }
 
-impl PinholeRepresentation {
+impl PinholeImage {
     pub(crate) fn from_node(node: &Node) -> Result<Self> {
         Ok(Self {
             blob: ImageBlob::from_rep_node(node)?,
@@ -365,7 +361,7 @@ pub struct SphericalImageProperties {
 /// Describes an image with a spherical projection model.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
-pub struct SphericalRepresentation {
+pub struct SphericalImage {
     /// Reference to the binary image data.
     pub blob: ImageBlob,
     /// Properties of the spherical image.
@@ -379,7 +375,7 @@ pub struct SphericalRepresentation {
     pub mask: Option<Blob>,
 }
 
-impl SphericalRepresentation {
+impl SphericalImage {
     pub(crate) fn from_node(node: &Node) -> Result<Self> {
         Ok(Self {
             blob: ImageBlob::from_rep_node(node)?,
@@ -430,7 +426,7 @@ pub struct CylindricalImageProperties {
 /// Describes an image with a cylindrical projection model.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
-pub struct CylindricalRepresentation {
+pub struct CylindricalImage {
     /// Reference to the binary image data.
     pub blob: ImageBlob,
     /// Properties of the yylindrical image.
@@ -444,7 +440,7 @@ pub struct CylindricalRepresentation {
     pub mask: Option<Blob>,
 }
 
-impl CylindricalRepresentation {
+impl CylindricalImage {
     pub(crate) fn from_node(node: &Node) -> Result<Self> {
         Ok(Self {
             blob: ImageBlob::from_rep_node(node)?,

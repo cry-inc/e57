@@ -1,21 +1,21 @@
 use crate::paged_writer::PagedWriter;
 use crate::Blob;
+use crate::CylindricalImage;
 use crate::CylindricalImageProperties;
-use crate::CylindricalRepresentation;
 use crate::DateTime;
 use crate::Error;
 use crate::Image;
 use crate::ImageBlob;
 use crate::ImageFormat;
+use crate::PinholeImage;
 use crate::PinholeImageProperties;
-use crate::PinholeRepresentation;
-use crate::Representation;
+use crate::Projection;
 use crate::Result;
+use crate::SphericalImage;
 use crate::SphericalImageProperties;
-use crate::SphericalRepresentation;
 use crate::Transform;
-use crate::VisualReference;
-use crate::VisualReferenceProperties;
+use crate::VisualReferenceImage;
+use crate::VisualReferenceImageProperties;
 use std::io::{Read, Seek, Write};
 
 /// Defines a new image and writes it into an E57 file.
@@ -37,7 +37,7 @@ impl<'a, T: Read + Write + Seek> ImageWriter<'a, T> {
             image: Image {
                 guid: guid.to_owned(),
                 visual_reference: None,
-                representation: None,
+                projection: None,
                 transform: None,
                 pointcloud_guid: None,
                 name: None,
@@ -100,7 +100,7 @@ impl<'a, T: Read + Write + Seek> ImageWriter<'a, T> {
     }
 
     /// Adds an optional visual reference image, also known as preview image.
-    /// Width and height must match the actual binary PNG or JPEG image.
+    /// See also VisualReferenceImageProperties struct for more details.
     /// The optional PNG mask image can be used to indicate valid/invalid
     /// pixels in the image, for example if the image is not rectangular.
     /// The mask must have the same size as the actual image.
@@ -110,7 +110,7 @@ impl<'a, T: Read + Write + Seek> ImageWriter<'a, T> {
         &mut self,
         format: ImageFormat,
         image: &mut dyn Read,
-        properties: VisualReferenceProperties,
+        properties: VisualReferenceImageProperties,
         mask: Option<&mut dyn Read>,
     ) -> Result<()> {
         let data = Blob::write(self.writer, image)?;
@@ -120,7 +120,7 @@ impl<'a, T: Read + Write + Seek> ImageWriter<'a, T> {
         } else {
             None
         };
-        self.image.visual_reference = Some(VisualReference {
+        self.image.visual_reference = Some(VisualReferenceImage {
             properties,
             mask,
             blob,
@@ -130,7 +130,7 @@ impl<'a, T: Read + Write + Seek> ImageWriter<'a, T> {
 
     /// Adds pinhole image data.
     /// Width and height must match the actual binary PNG or JPEG image.
-    /// See also PinholeRepresentation struct for more details.
+    /// See also PinholeImageProperties struct for more details.
     /// The optional PNG mask image can be used to indicate valid/invalid
     /// pixels in the image, for example if the image is not rectangular.
     /// The mask must have the same size as the actual image.
@@ -143,8 +143,8 @@ impl<'a, T: Read + Write + Seek> ImageWriter<'a, T> {
         properties: PinholeImageProperties,
         mask: Option<&mut dyn Read>,
     ) -> Result<()> {
-        if self.image.representation.is_some() {
-            Error::invalid("Image has already another representation")?
+        if self.image.projection.is_some() {
+            Error::invalid("A projected image is already set")?
         }
         let data = Blob::write(self.writer, image)?;
         let blob = ImageBlob { data, format };
@@ -153,17 +153,17 @@ impl<'a, T: Read + Write + Seek> ImageWriter<'a, T> {
         } else {
             None
         };
-        let rep = PinholeRepresentation {
+        let rep = PinholeImage {
             blob,
             mask,
             properties,
         };
-        self.image.representation = Some(Representation::Pinhole(rep));
+        self.image.projection = Some(Projection::Pinhole(rep));
         Ok(())
     }
 
     /// Adds spherical image data.
-    /// See also SphericalRepresentation struct for more details.
+    /// See also SphericalImageProperties struct for more details.
     /// The optional PNG mask image can be used to indicate valid/invalid
     /// pixels in the image, for example if the image is not rectangular.
     /// The mask must have the same size as the actual image.
@@ -176,8 +176,8 @@ impl<'a, T: Read + Write + Seek> ImageWriter<'a, T> {
         properties: SphericalImageProperties,
         mask: Option<&mut dyn Read>,
     ) -> Result<()> {
-        if self.image.representation.is_some() {
-            Error::invalid("Image has already another representation")?
+        if self.image.projection.is_some() {
+            Error::invalid("A projected image is already set")?
         }
         let data = Blob::write(self.writer, image)?;
         let blob = ImageBlob { data, format };
@@ -186,17 +186,17 @@ impl<'a, T: Read + Write + Seek> ImageWriter<'a, T> {
         } else {
             None
         };
-        let rep = SphericalRepresentation {
+        let rep = SphericalImage {
             blob,
             mask,
             properties,
         };
-        self.image.representation = Some(Representation::Spherical(rep));
+        self.image.projection = Some(Projection::Spherical(rep));
         Ok(())
     }
 
     /// Adds cylindrical image data.
-    /// See also CylindricalRepresentation struct for more details.
+    /// See also CylindricalImageProperties struct for more details.
     /// The optional PNG mask image can be used to indicate valid/invalid
     /// pixels in the image, for example if the image is not rectangular.
     /// The mask must have the same size as the actual image.
@@ -209,8 +209,8 @@ impl<'a, T: Read + Write + Seek> ImageWriter<'a, T> {
         properties: CylindricalImageProperties,
         mask_data: Option<&mut dyn Read>,
     ) -> Result<()> {
-        if self.image.representation.is_some() {
-            Error::invalid("Image has already another representation")?
+        if self.image.projection.is_some() {
+            Error::invalid("A projected image is already set")?
         }
         let data = Blob::write(self.writer, image_data)?;
         let blob = ImageBlob { data, format };
@@ -219,12 +219,12 @@ impl<'a, T: Read + Write + Seek> ImageWriter<'a, T> {
         } else {
             None
         };
-        let rep = CylindricalRepresentation {
+        let rep = CylindricalImage {
             blob,
             mask,
             properties,
         };
-        self.image.representation = Some(Representation::Cylindrical(rep));
+        self.image.projection = Some(Projection::Cylindrical(rep));
         Ok(())
     }
 
@@ -235,8 +235,8 @@ impl<'a, T: Read + Write + Seek> ImageWriter<'a, T> {
     /// that the data will be part of the E57 file but is never referenced by
     /// its XML header section.
     pub fn finalize(&mut self) -> Result<()> {
-        if self.image.visual_reference.is_none() && self.image.representation.is_none() {
-            Error::invalid("Image must have a visual reference or a representation")?
+        if self.image.visual_reference.is_none() && self.image.projection.is_none() {
+            Error::invalid("Image must have a visual reference or a projection")?
         }
 
         // Add metadata for XML generation later, when the file is completed.

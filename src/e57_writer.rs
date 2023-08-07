@@ -114,7 +114,8 @@ mod tests {
     use super::*;
     use crate::{
         E57Reader, ImageFormat, Point, Quaternion, RawValues, RecordDataType, RecordName,
-        RecordValue, SphericalImageProperties, Transform, Translation, VisualReferenceProperties,
+        RecordValue, SphericalImageProperties, Transform, Translation,
+        VisualReferenceImageProperties,
     };
     use std::f32::consts::PI;
     use std::fs::{remove_file, File};
@@ -220,7 +221,7 @@ mod tests {
             },
         });
         let mut reader = File::open("testdata/square.png").unwrap();
-        let props = VisualReferenceProperties {
+        let props = VisualReferenceImageProperties {
             width: 100,
             height: 100,
         };
@@ -269,10 +270,10 @@ mod tests {
         assert_eq!(vis_ref.blob.data.length, 1073);
         assert!(vis_ref.mask.is_none());
 
-        let rep = match img.representation.unwrap() {
-            crate::Representation::Pinhole(_) => None,
-            crate::Representation::Spherical(s) => Some(s),
-            crate::Representation::Cylindrical(_) => None,
+        let rep = match img.projection.unwrap() {
+            crate::Projection::Pinhole(_) => None,
+            crate::Projection::Spherical(s) => Some(s),
+            crate::Projection::Cylindrical(_) => None,
         }
         .unwrap();
         assert_eq!(rep.properties.width, 100);
