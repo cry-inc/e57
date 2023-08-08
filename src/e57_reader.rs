@@ -83,22 +83,23 @@ impl<T: Read + Seek> E57Reader<T> {
         &self.root.guid
     }
 
-    /// Returns a list of all point clouds in the file.
+    /// Returns a list of all point cloud descriptors in the file.
     pub fn pointclouds(&self) -> Vec<PointCloud> {
         self.pointclouds.clone()
     }
 
-    /// Returns an iterator for the requested point cloud.
+    /// Returns an iterator for reading point cloud data.
     pub fn pointcloud(&mut self, pc: &PointCloud) -> Result<PointCloudReader<T>> {
         PointCloudReader::new(pc, &mut self.reader)
     }
 
-    /// Returns a list of all images in the file.
+    /// Returns a list of all image descriptors in the file.
     pub fn images(&self) -> Vec<Image> {
         self.images.clone()
     }
 
-    /// Writes the content of a blob to the supplied writer and returns the number of written bytes.
+    /// Reads the content of a blob and copies it into the supplied writer.
+    /// Returns the number of written bytes.
     pub fn blob(&mut self, blob: &Blob, writer: &mut dyn Write) -> Result<u64> {
         blob.read(&mut self.reader, writer)
     }
@@ -108,7 +109,7 @@ impl<T: Read + Seek> E57Reader<T> {
         self.root.creation.clone()
     }
 
-    /// Returns the optional coordinate system metadata.
+    /// Returns the optional coordinate system metadata of the file.
     ///
     /// This should contain a Coordinate Reference System that is specified by
     /// a string in a well-known text format for a spatial reference system,

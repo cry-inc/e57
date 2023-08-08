@@ -7,15 +7,15 @@ use roxmltree::{Document, Node};
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct Image {
-    /// Globally unique identifier for the image object.
+    /// Globally unique identifier for the image.
     pub guid: String,
-    /// Preview/illustration image that does not define any camera projection model.
+    /// Preview/illustration image without a projection model.
     pub visual_reference: Option<VisualReferenceImage>,
-    /// Image that includes a projection model.
+    /// Image with one of the supported projection models.
     pub projection: Option<Projection>,
     /// Transforms the local coordinate system of the image to the file-level coordinate system.
     pub transform: Option<Transform>,
-    /// GUID of the pointcloud that was captured with this image.
+    /// GUID of the point cloud that was captured with this image.
     pub pointcloud_guid: Option<String>,
     /// User-defined name for the image.
     pub name: Option<String>,
