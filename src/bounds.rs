@@ -15,43 +15,37 @@ pub struct CartesianBounds {
 
 impl CartesianBounds {
     pub(crate) fn from_node(node: &Node) -> Result<Self> {
-        let x_min = xml::opt_f64(node, "xMinimum")?;
-        let x_max = xml::opt_f64(node, "xMaximum")?;
-        let y_min = xml::opt_f64(node, "yMinimum")?;
-        let y_max = xml::opt_f64(node, "yMaximum")?;
-        let z_min = xml::opt_f64(node, "zMinimum")?;
-        let z_max = xml::opt_f64(node, "zMaximum")?;
         Ok(Self {
-            x_min,
-            x_max,
-            y_min,
-            y_max,
-            z_min,
-            z_max,
+            x_min: xml::opt_f64(node, "xMinimum")?,
+            x_max: xml::opt_f64(node, "xMaximum")?,
+            y_min: xml::opt_f64(node, "yMinimum")?,
+            y_max: xml::opt_f64(node, "yMaximum")?,
+            z_min: xml::opt_f64(node, "zMinimum")?,
+            z_max: xml::opt_f64(node, "zMaximum")?,
         })
     }
 
     pub(crate) fn xml_string(&self) -> String {
-        let mut xml = String::from("<cartesianBounds type=\"Structure\">");
+        let mut xml = String::from("<cartesianBounds type=\"Structure\">\n");
         if let Some(min) = self.x_min {
-            xml += &format!("<xMinimum type=\"Float\">{min}</xMinimum>");
+            xml += &xml::gen_float("xMinimum", min);
         }
         if let Some(max) = self.x_max {
-            xml += &format!("<xMaximum type=\"Float\">{max}</xMaximum>");
+            xml += &xml::gen_float("xMaximum", max);
         }
         if let Some(min) = self.y_min {
-            xml += &format!("<yMinimum type=\"Float\">{min}</yMinimum>");
+            xml += &xml::gen_float("yMinimum", min);
         }
         if let Some(max) = self.y_max {
-            xml += &format!("<yMaximum type=\"Float\">{max}</yMaximum>");
+            xml += &xml::gen_float("yMaximum", max);
         }
         if let Some(min) = self.z_min {
-            xml += &format!("<zMinimum type=\"Float\">{min}</zMinimum>");
+            xml += &xml::gen_float("zMinimum", min);
         }
         if let Some(max) = self.z_max {
-            xml += &format!("<zMaximum type=\"Float\">{max}</zMaximum>");
+            xml += &xml::gen_float("zMaximum", max);
         }
-        xml += "</cartesianBounds>";
+        xml += "</cartesianBounds>\n";
         xml
     }
 }
@@ -69,43 +63,37 @@ pub struct SphericalBounds {
 
 impl SphericalBounds {
     pub(crate) fn from_node(node: &Node) -> Result<Self> {
-        let range_min = xml::opt_f64(node, "rangeMinimum")?;
-        let range_max = xml::opt_f64(node, "rangeMaximum")?;
-        let elevation_min = xml::opt_f64(node, "elevationMinimum")?;
-        let elevation_max = xml::opt_f64(node, "elevationMaximum")?;
-        let azimuth_start = xml::opt_f64(node, "azimuthStart")?;
-        let azimuth_end = xml::opt_f64(node, "azimuthEnd")?;
         Ok(Self {
-            range_min,
-            range_max,
-            elevation_min,
-            elevation_max,
-            azimuth_start,
-            azimuth_end,
+            range_min: xml::opt_f64(node, "rangeMinimum")?,
+            range_max: xml::opt_f64(node, "rangeMaximum")?,
+            elevation_min: xml::opt_f64(node, "elevationMinimum")?,
+            elevation_max: xml::opt_f64(node, "elevationMaximum")?,
+            azimuth_start: xml::opt_f64(node, "azimuthStart")?,
+            azimuth_end: xml::opt_f64(node, "azimuthEnd")?,
         })
     }
 
     pub(crate) fn xml_string(&self) -> String {
-        let mut xml = String::from("<sphericalBounds type=\"Structure\">");
+        let mut xml = String::from("<sphericalBounds type=\"Structure\">\n");
         if let Some(min) = self.azimuth_start {
-            xml += &format!("<azimuthStart type=\"Float\">{min}</azimuthStart>");
+            xml += &xml::gen_float("azimuthStart", min);
         }
         if let Some(max) = self.azimuth_end {
-            xml += &format!("<azimuthEnd type=\"Float\">{max}</azimuthEnd>");
+            xml += &xml::gen_float("azimuthEnd", max);
         }
         if let Some(min) = self.elevation_min {
-            xml += &format!("<elevationMinimum type=\"Float\">{min}</elevationMinimum>");
+            xml += &xml::gen_float("elevationMinimum", min);
         }
         if let Some(max) = self.elevation_max {
-            xml += &format!("<elevationMaximum type=\"Float\">{max}</elevationMaximum>");
+            xml += &xml::gen_float("elevationMaximum", max);
         }
         if let Some(min) = self.range_min {
-            xml += &format!("<rangeMinimum type=\"Float\">{min}</rangeMinimum>");
+            xml += &xml::gen_float("rangeMinimum", min);
         }
         if let Some(max) = self.range_max {
-            xml += &format!("<rangeMaximum type=\"Float\">{max}</rangeMaximum>");
+            xml += &xml::gen_float("rangeMaximum", max);
         }
-        xml += "</sphericalBounds>";
+        xml += "</sphericalBounds>\n";
         xml
     }
 }
@@ -123,43 +111,37 @@ pub struct IndexBounds {
 
 impl IndexBounds {
     pub(crate) fn from_node(node: &Node) -> Result<Self> {
-        let row_min = xml::opt_int(node, "rowMinimum")?;
-        let row_max = xml::opt_int(node, "rowMaximum")?;
-        let column_min = xml::opt_int(node, "columnMinimum")?;
-        let column_max = xml::opt_int(node, "columnMaximum")?;
-        let return_min = xml::opt_int(node, "returnMinimum")?;
-        let return_max = xml::opt_int(node, "returnMaximum")?;
         Ok(Self {
-            row_min,
-            row_max,
-            column_min,
-            column_max,
-            return_min,
-            return_max,
+            row_min: xml::opt_int(node, "rowMinimum")?,
+            row_max: xml::opt_int(node, "rowMaximum")?,
+            column_min: xml::opt_int(node, "columnMinimum")?,
+            column_max: xml::opt_int(node, "columnMaximum")?,
+            return_min: xml::opt_int(node, "returnMinimum")?,
+            return_max: xml::opt_int(node, "returnMaximum")?,
         })
     }
 
     pub(crate) fn xml_string(&self) -> String {
-        let mut xml = String::from("<indexBounds type=\"Structure\">");
+        let mut xml = String::from("<indexBounds type=\"Structure\">\n");
         if let Some(min) = self.row_min {
-            xml += &format!("<rowMinimum type=\"Integer\">{min}</rowMinimum>");
+            xml += &xml::gen_int("rowMinimum", min);
         }
         if let Some(max) = self.row_max {
-            xml += &format!("<rowMaximum type=\"Integer\">{max}</rowMaximum>");
+            xml += &xml::gen_int("rowMaximum", max);
         }
         if let Some(min) = self.column_min {
-            xml += &format!("<columnMinimum type=\"Integer\">{min}</columnMinimum>");
+            xml += &xml::gen_int("columnMinimum", min);
         }
         if let Some(max) = self.column_max {
-            xml += &format!("<columnMaximum type=\"Integer\">{max}</columnMaximum>");
+            xml += &xml::gen_int("columnMaximum", max);
         }
         if let Some(min) = self.return_min {
-            xml += &format!("<returnMinimum type=\"Integer\">{min}</returnMinimum>");
+            xml += &xml::gen_int("returnMinimum", min);
         }
         if let Some(max) = self.return_max {
-            xml += &format!("<returnMaximum type=\"Integer\">{max}</returnMaximum>");
+            xml += &xml::gen_int("returnMaximum", max);
         }
-        xml += "</indexBounds>";
+        xml += "</indexBounds>\n";
         xml
     }
 }
