@@ -1,4 +1,4 @@
-use crate::xml::{generate_float_xml, required_double};
+use crate::xml;
 use crate::Result;
 use roxmltree::Node;
 
@@ -17,10 +17,10 @@ pub struct Quaternion {
 
 impl Quaternion {
     pub(crate) fn from_node(node: &Node) -> Result<Self> {
-        let w = required_double(node, "w")?;
-        let x = required_double(node, "x")?;
-        let y = required_double(node, "y")?;
-        let z = required_double(node, "z")?;
+        let w = xml::req_f64(node, "w")?;
+        let x = xml::req_f64(node, "x")?;
+        let y = xml::req_f64(node, "y")?;
+        let z = xml::req_f64(node, "z")?;
         Ok(Self { w, x, y, z })
     }
 }
@@ -49,9 +49,9 @@ pub struct Translation {
 
 impl Translation {
     pub(crate) fn from_node(node: &Node) -> Result<Self> {
-        let x = required_double(node, "x")?;
-        let y = required_double(node, "y")?;
-        let z = required_double(node, "z")?;
+        let x = xml::req_f64(node, "x")?;
+        let y = xml::req_f64(node, "y")?;
+        let z = xml::req_f64(node, "z")?;
         Ok(Self { x, y, z })
     }
 }
@@ -92,15 +92,15 @@ impl Transform {
     }
 
     pub(crate) fn xml_string(&self, tag_name: &str) -> String {
-        let w = generate_float_xml("w", self.rotation.w);
-        let x = generate_float_xml("x", self.rotation.x);
-        let y = generate_float_xml("y", self.rotation.y);
-        let z = generate_float_xml("z", self.rotation.z);
+        let w = xml::gen_float("w", self.rotation.w);
+        let x = xml::gen_float("x", self.rotation.x);
+        let y = xml::gen_float("y", self.rotation.y);
+        let z = xml::gen_float("z", self.rotation.z);
         let quat = format!("<rotation type=\"Structure\">\n{w}{x}{y}{z}</rotation>\n");
 
-        let x = generate_float_xml("x", self.translation.x);
-        let y = generate_float_xml("y", self.translation.y);
-        let z = generate_float_xml("z", self.translation.z);
+        let x = xml::gen_float("x", self.translation.x);
+        let y = xml::gen_float("y", self.translation.y);
+        let z = xml::gen_float("z", self.translation.z);
         let trans = format!("<translation type=\"Structure\">\n{x}{y}{z}</translation>\n");
 
         format!("<{tag_name} type=\"Structure\">\n{quat}{trans}</{tag_name}>\n")

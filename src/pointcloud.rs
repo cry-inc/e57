@@ -1,8 +1,5 @@
 use crate::error::Converter;
-use crate::xml::{
-    generate_float_xml, generate_string_xml, optional_date_time, optional_double, optional_string,
-    optional_transform, required_string,
-};
+use crate::xml;
 use crate::{
     CartesianBounds, ColorLimits, DateTime, Error, IndexBounds, IntensityLimits, Record,
     RecordDataType, RecordName, Result, SphericalBounds, Transform,
@@ -82,21 +79,21 @@ pub fn pointclouds_from_document(document: &Document) -> Result<Vec<PointCloud>>
 }
 
 fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
-    let guid = required_string(node, "guid")?;
-    let name = optional_string(node, "name")?;
-    let description = optional_string(node, "description")?;
-    let sensor_model = optional_string(node, "sensorModel")?;
-    let sensor_vendor = optional_string(node, "sensorVendor")?;
-    let sensor_serial = optional_string(node, "sensorSerialNumber")?;
-    let sensor_hw_version = optional_string(node, "sensorHardwareVersion")?;
-    let sensor_sw_version = optional_string(node, "sensorSoftwareVersion")?;
-    let sensor_fw_version = optional_string(node, "sensorFirmwareVersion")?;
-    let temperature = optional_double(node, "temperature")?;
-    let humidity = optional_double(node, "relativeHumidity")?;
-    let atmospheric_pressure = optional_double(node, "atmosphericPressure")?;
-    let acquisition_start = optional_date_time(node, "acquisitionStart")?;
-    let acquisition_end = optional_date_time(node, "acquisitionEnd")?;
-    let transform = optional_transform(node, "pose")?;
+    let guid = xml::req_string(node, "guid")?;
+    let name = xml::opt_string(node, "name")?;
+    let description = xml::opt_string(node, "description")?;
+    let sensor_model = xml::opt_string(node, "sensorModel")?;
+    let sensor_vendor = xml::opt_string(node, "sensorVendor")?;
+    let sensor_serial = xml::opt_string(node, "sensorSerialNumber")?;
+    let sensor_hw_version = xml::opt_string(node, "sensorHardwareVersion")?;
+    let sensor_sw_version = xml::opt_string(node, "sensorSoftwareVersion")?;
+    let sensor_fw_version = xml::opt_string(node, "sensorFirmwareVersion")?;
+    let temperature = xml::opt_f64(node, "temperature")?;
+    let humidity = xml::opt_f64(node, "relativeHumidity")?;
+    let atmospheric_pressure = xml::opt_f64(node, "atmosphericPressure")?;
+    let acquisition_start = xml::opt_date_time(node, "acquisitionStart")?;
+    let acquisition_end = xml::opt_date_time(node, "acquisitionEnd")?;
+    let transform = xml::opt_transform(node, "pose")?;
     let cartesian_bounds = node.children().find(|n| n.has_tag_name("cartesianBounds"));
     let spherical_bounds = node.children().find(|n| n.has_tag_name("sphericalBounds"));
     let index_bounds = node.children().find(|n| n.has_tag_name("indexBounds"));
@@ -184,7 +181,7 @@ pub fn serialize_pointcloud(pointcloud: &PointCloud) -> Result<String> {
     if pointcloud.guid.is_empty() {
         Error::invalid("Empty point cloud GUID is not allowed")?
     }
-    xml += &generate_string_xml("guid", &pointcloud.guid);
+    xml += &xml::gen_string("guid", &pointcloud.guid);
 
     if let Some(bounds) = &pointcloud.cartesian_bounds {
         xml += &bounds.xml_string();
@@ -204,28 +201,28 @@ pub fn serialize_pointcloud(pointcloud: &PointCloud) -> Result<String> {
     }
 
     if let Some(name) = &pointcloud.name {
-        xml += &generate_string_xml("name", name);
+        xml += &xml::gen_string("name", name);
     }
     if let Some(desc) = &pointcloud.description {
-        xml += &generate_string_xml("description", desc);
+        xml += &xml::gen_string("description", desc);
     }
     if let Some(sensor_vendor) = &pointcloud.sensor_vendor {
-        xml += &generate_string_xml("sensorVendor", sensor_vendor);
+        xml += &xml::gen_string("sensorVendor", sensor_vendor);
     }
     if let Some(sensor_model) = &pointcloud.sensor_model {
-        xml += &generate_string_xml("sensorModel", sensor_model);
+        xml += &xml::gen_string("sensorModel", sensor_model);
     }
     if let Some(sensor_serial) = &pointcloud.sensor_serial {
-        xml += &generate_string_xml("sensorSerialNumber", sensor_serial);
+        xml += &xml::gen_string("sensorSerialNumber", sensor_serial);
     }
     if let Some(sensor_sw_version) = &pointcloud.sensor_sw_version {
-        xml += &generate_string_xml("sensorSoftwareVersion", sensor_sw_version);
+        xml += &xml::gen_string("sensorSoftwareVersion", sensor_sw_version);
     }
     if let Some(sensor_fw_version) = &pointcloud.sensor_fw_version {
-        xml += &generate_string_xml("sensorFirmwareVersion", sensor_fw_version);
+        xml += &xml::gen_string("sensorFirmwareVersion", sensor_fw_version);
     }
     if let Some(sensor_hw_version) = &pointcloud.sensor_hw_version {
-        xml += &generate_string_xml("sensorHardwareVersion", sensor_hw_version);
+        xml += &xml::gen_string("sensorHardwareVersion", sensor_hw_version);
     }
 
     if let Some(transform) = &pointcloud.transform {
@@ -239,13 +236,13 @@ pub fn serialize_pointcloud(pointcloud: &PointCloud) -> Result<String> {
     }
 
     if let Some(temperature) = pointcloud.temperature {
-        xml += &generate_float_xml("temperature", temperature);
+        xml += &xml::gen_float("temperature", temperature);
     }
     if let Some(humidity) = pointcloud.humidity {
-        xml += &generate_float_xml("relativeHumidity", humidity);
+        xml += &xml::gen_float("relativeHumidity", humidity);
     }
     if let Some(pressure) = pointcloud.atmospheric_pressure {
-        xml += &generate_float_xml("atmosphericPressure", pressure);
+        xml += &xml::gen_float("atmosphericPressure", pressure);
     }
 
     xml += &format!(
@@ -258,6 +255,7 @@ pub fn serialize_pointcloud(pointcloud: &PointCloud) -> Result<String> {
     }
     xml += "</prototype>\n";
     xml += "</points>\n";
+
     xml += "</vectorChild>\n";
     Ok(xml)
 }

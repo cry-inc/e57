@@ -1,8 +1,5 @@
 use crate::error::Converter;
-use crate::xml::{
-    generate_float_xml, generate_int_xml, generate_string_xml, optional_date_time, optional_string,
-    optional_transform, required_double, required_integer, required_string,
-};
+use crate::xml;
 use crate::{Blob, DateTime, Error, Result, Transform};
 use roxmltree::{Document, Node};
 
@@ -36,15 +33,15 @@ pub struct Image {
 
 impl Image {
     fn from_node(node: &Node) -> Result<Self> {
-        let guid = required_string(node, "guid")?;
-        let pointcloud_guid = optional_string(node, "associatedData3DGuid")?;
-        let transform = optional_transform(node, "pose")?;
-        let name = optional_string(node, "name")?;
-        let description = optional_string(node, "description")?;
-        let sensor_model = optional_string(node, "sensorModel")?;
-        let sensor_vendor = optional_string(node, "sensorVendor")?;
-        let sensor_serial = optional_string(node, "sensorSerialNumber")?;
-        let acquisition = optional_date_time(node, "acquisitionDateTime")?;
+        let guid = xml::req_string(node, "guid")?;
+        let pointcloud_guid = xml::opt_string(node, "associatedData3DGuid")?;
+        let transform = xml::opt_transform(node, "pose")?;
+        let name = xml::opt_string(node, "name")?;
+        let description = xml::opt_string(node, "description")?;
+        let sensor_model = xml::opt_string(node, "sensorModel")?;
+        let sensor_vendor = xml::opt_string(node, "sensorVendor")?;
+        let sensor_serial = xml::opt_string(node, "sensorSerialNumber")?;
+        let acquisition = xml::opt_date_time(node, "acquisitionDateTime")?;
         let projection = Projection::from_image_node(node)?;
 
         let visual_reference_node = node
@@ -90,7 +87,7 @@ impl Image {
     pub(crate) fn xml_string(&self) -> String {
         let mut xml = String::new();
         xml += "<vectorChild type=\"Structure\">\n";
-        xml += &generate_string_xml("guid", &self.guid);
+        xml += &xml::gen_string("guid", &self.guid);
         if let Some(vis_ref) = &self.visual_reference {
             xml += &vis_ref.xml_string();
         }
@@ -101,25 +98,25 @@ impl Image {
             xml += &trans.xml_string("pose");
         }
         if let Some(pc_guid) = &self.pointcloud_guid {
-            xml += &generate_string_xml("associatedData3DGuid", &pc_guid);
+            xml += &xml::gen_string("associatedData3DGuid", &pc_guid);
         }
         if let Some(name) = &self.name {
-            xml += &generate_string_xml("name", &name);
+            xml += &xml::gen_string("name", &name);
         }
         if let Some(desc) = &self.description {
-            xml += &generate_string_xml("description", &desc);
+            xml += &xml::gen_string("description", &desc);
         }
         if let Some(acquisition) = &self.acquisition {
             xml += &acquisition.xml_string("acquisitionDateTime");
         }
         if let Some(vendor) = &self.sensor_vendor {
-            xml += &generate_string_xml("sensorVendor", &vendor);
+            xml += &xml::gen_string("sensorVendor", &vendor);
         }
         if let Some(model) = &self.sensor_model {
-            xml += &generate_string_xml("sensorModel", &model);
+            xml += &xml::gen_string("sensorModel", &model);
         }
         if let Some(serial) = &self.sensor_serial {
-            xml += &generate_string_xml("sensorSerialNumber", &serial);
+            xml += &xml::gen_string("sensorSerialNumber", &serial);
         }
         xml += "</vectorChild>\n";
         xml
@@ -251,8 +248,8 @@ impl VisualReferenceImage {
             blob: ImageBlob::from_rep_node(node)?,
             mask: Blob::from_parent_node("imageMask", node)?,
             properties: VisualReferenceImageProperties {
-                width: required_integer(node, "imageWidth")?,
-                height: required_integer(node, "imageHeight")?,
+                width: xml::req_int(node, "imageWidth")?,
+                height: xml::req_int(node, "imageHeight")?,
             },
         })
     }
@@ -264,8 +261,8 @@ impl VisualReferenceImage {
         if let Some(mask) = &self.mask {
             xml += &mask.xml_string("imageMask");
         }
-        xml += &generate_int_xml("imageWidth", self.properties.width);
-        xml += &generate_int_xml("imageHeight", self.properties.height);
+        xml += &xml::gen_int("imageWidth", self.properties.width);
+        xml += &xml::gen_int("imageHeight", self.properties.height);
         xml += "</visualReferenceRepresentation>\n";
         xml
     }
@@ -314,13 +311,13 @@ impl PinholeImage {
             blob: ImageBlob::from_rep_node(node)?,
             mask: Blob::from_parent_node("imageMask", node)?,
             properties: PinholeImageProperties {
-                width: required_integer(node, "imageWidth")?,
-                height: required_integer(node, "imageHeight")?,
-                focal_length: required_double(node, "focalLength")?,
-                pixel_width: required_double(node, "pixelWidth")?,
-                pixel_height: required_double(node, "pixelHeight")?,
-                principal_x: required_double(node, "principalPointX")?,
-                principal_y: required_double(node, "principalPointY")?,
+                width: xml::req_int(node, "imageWidth")?,
+                height: xml::req_int(node, "imageHeight")?,
+                focal_length: xml::req_f64(node, "focalLength")?,
+                pixel_width: xml::req_f64(node, "pixelWidth")?,
+                pixel_height: xml::req_f64(node, "pixelHeight")?,
+                principal_x: xml::req_f64(node, "principalPointX")?,
+                principal_y: xml::req_f64(node, "principalPointY")?,
             },
         })
     }
@@ -332,13 +329,13 @@ impl PinholeImage {
         if let Some(mask) = &self.mask {
             xml += &mask.xml_string("imageMask");
         }
-        xml += &generate_int_xml("imageWidth", self.properties.width);
-        xml += &generate_int_xml("imageHeight", self.properties.height);
-        xml += &generate_float_xml("focalLength", self.properties.focal_length);
-        xml += &generate_float_xml("pixelWidth", self.properties.pixel_width);
-        xml += &generate_float_xml("pixelHeight", self.properties.pixel_height);
-        xml += &generate_float_xml("principalPointX", self.properties.principal_x);
-        xml += &generate_float_xml("principalPointY", self.properties.principal_y);
+        xml += &xml::gen_int("imageWidth", self.properties.width);
+        xml += &xml::gen_int("imageHeight", self.properties.height);
+        xml += &xml::gen_float("focalLength", self.properties.focal_length);
+        xml += &xml::gen_float("pixelWidth", self.properties.pixel_width);
+        xml += &xml::gen_float("pixelHeight", self.properties.pixel_height);
+        xml += &xml::gen_float("principalPointX", self.properties.principal_x);
+        xml += &xml::gen_float("principalPointY", self.properties.principal_y);
         xml += "</pinholeRepresentation>\n";
         xml
     }
@@ -381,10 +378,10 @@ impl SphericalImage {
             blob: ImageBlob::from_rep_node(node)?,
             mask: Blob::from_parent_node("imageMask", node)?,
             properties: SphericalImageProperties {
-                width: required_integer(node, "imageWidth")?,
-                height: required_integer(node, "imageHeight")?,
-                pixel_width: required_double(node, "pixelWidth")?,
-                pixel_height: required_double(node, "pixelHeight")?,
+                width: xml::req_int(node, "imageWidth")?,
+                height: xml::req_int(node, "imageHeight")?,
+                pixel_width: xml::req_f64(node, "pixelWidth")?,
+                pixel_height: xml::req_f64(node, "pixelHeight")?,
             },
         })
     }
@@ -396,10 +393,10 @@ impl SphericalImage {
         if let Some(mask) = &self.mask {
             xml += &mask.xml_string("imageMask");
         }
-        xml += &generate_int_xml("imageWidth", self.properties.width);
-        xml += &generate_int_xml("imageHeight", self.properties.height);
-        xml += &generate_float_xml("pixelWidth", self.properties.pixel_width);
-        xml += &generate_float_xml("pixelHeight", self.properties.pixel_height);
+        xml += &xml::gen_int("imageWidth", self.properties.width);
+        xml += &xml::gen_int("imageHeight", self.properties.height);
+        xml += &xml::gen_float("pixelWidth", self.properties.pixel_width);
+        xml += &xml::gen_float("pixelHeight", self.properties.pixel_height);
         xml += "</sphericalRepresentation>\n";
         xml
     }
@@ -446,12 +443,12 @@ impl CylindricalImage {
             blob: ImageBlob::from_rep_node(node)?,
             mask: Blob::from_parent_node("imageMask", node)?,
             properties: CylindricalImageProperties {
-                width: required_integer(node, "imageWidth")?,
-                height: required_integer(node, "imageHeight")?,
-                radius: required_double(node, "radius")?,
-                principal_y: required_double(node, "principalPointY")?,
-                pixel_width: required_double(node, "pixelWidth")?,
-                pixel_height: required_double(node, "pixelHeight")?,
+                width: xml::req_int(node, "imageWidth")?,
+                height: xml::req_int(node, "imageHeight")?,
+                radius: xml::req_f64(node, "radius")?,
+                principal_y: xml::req_f64(node, "principalPointY")?,
+                pixel_width: xml::req_f64(node, "pixelWidth")?,
+                pixel_height: xml::req_f64(node, "pixelHeight")?,
             },
         })
     }
@@ -463,12 +460,12 @@ impl CylindricalImage {
         if let Some(mask) = &self.mask {
             xml += &mask.xml_string("imageMask");
         }
-        xml += &generate_int_xml("imageWidth", self.properties.width);
-        xml += &generate_int_xml("imageHeight", self.properties.height);
-        xml += &generate_float_xml("readius", self.properties.radius);
-        xml += &generate_float_xml("principalPointY", self.properties.principal_y);
-        xml += &generate_float_xml("pixelWidth", self.properties.pixel_width);
-        xml += &generate_float_xml("pixelHeight", self.properties.pixel_height);
+        xml += &xml::gen_int("imageWidth", self.properties.width);
+        xml += &xml::gen_int("imageHeight", self.properties.height);
+        xml += &xml::gen_float("readius", self.properties.radius);
+        xml += &xml::gen_float("principalPointY", self.properties.principal_y);
+        xml += &xml::gen_float("pixelWidth", self.properties.pixel_width);
+        xml += &xml::gen_float("pixelHeight", self.properties.pixel_height);
         xml += "</cylindricalRepresentation>\n";
         xml
     }

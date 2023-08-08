@@ -1,5 +1,4 @@
-use crate::xml::optional_double;
-use crate::xml::optional_integer;
+use crate::xml;
 use crate::Result;
 use roxmltree::Node;
 
@@ -16,12 +15,12 @@ pub struct CartesianBounds {
 
 impl CartesianBounds {
     pub(crate) fn from_node(node: &Node) -> Result<Self> {
-        let x_min = optional_double(node, "xMinimum")?;
-        let x_max = optional_double(node, "xMaximum")?;
-        let y_min = optional_double(node, "yMinimum")?;
-        let y_max = optional_double(node, "yMaximum")?;
-        let z_min = optional_double(node, "zMinimum")?;
-        let z_max = optional_double(node, "zMaximum")?;
+        let x_min = xml::opt_f64(node, "xMinimum")?;
+        let x_max = xml::opt_f64(node, "xMaximum")?;
+        let y_min = xml::opt_f64(node, "yMinimum")?;
+        let y_max = xml::opt_f64(node, "yMaximum")?;
+        let z_min = xml::opt_f64(node, "zMinimum")?;
+        let z_max = xml::opt_f64(node, "zMaximum")?;
         Ok(Self {
             x_min,
             x_max,
@@ -70,12 +69,12 @@ pub struct SphericalBounds {
 
 impl SphericalBounds {
     pub(crate) fn from_node(node: &Node) -> Result<Self> {
-        let range_min = optional_double(node, "rangeMinimum")?;
-        let range_max = optional_double(node, "rangeMaximum")?;
-        let elevation_min = optional_double(node, "elevationMinimum")?;
-        let elevation_max = optional_double(node, "elevationMaximum")?;
-        let azimuth_start = optional_double(node, "azimuthStart")?;
-        let azimuth_end = optional_double(node, "azimuthEnd")?;
+        let range_min = xml::opt_f64(node, "rangeMinimum")?;
+        let range_max = xml::opt_f64(node, "rangeMaximum")?;
+        let elevation_min = xml::opt_f64(node, "elevationMinimum")?;
+        let elevation_max = xml::opt_f64(node, "elevationMaximum")?;
+        let azimuth_start = xml::opt_f64(node, "azimuthStart")?;
+        let azimuth_end = xml::opt_f64(node, "azimuthEnd")?;
         Ok(Self {
             range_min,
             range_max,
@@ -124,12 +123,12 @@ pub struct IndexBounds {
 
 impl IndexBounds {
     pub(crate) fn from_node(node: &Node) -> Result<Self> {
-        let row_min = optional_integer(node, "rowMinimum")?;
-        let row_max = optional_integer(node, "rowMaximum")?;
-        let column_min = optional_integer(node, "columnMinimum")?;
-        let column_max = optional_integer(node, "columnMaximum")?;
-        let return_min = optional_integer(node, "returnMinimum")?;
-        let return_max = optional_integer(node, "returnMaximum")?;
+        let row_min = xml::opt_int(node, "rowMinimum")?;
+        let row_max = xml::opt_int(node, "rowMaximum")?;
+        let column_min = xml::opt_int(node, "columnMinimum")?;
+        let column_max = xml::opt_int(node, "columnMaximum")?;
+        let return_min = xml::opt_int(node, "returnMinimum")?;
+        let return_max = xml::opt_int(node, "returnMaximum")?;
         Ok(Self {
             row_min,
             row_max,

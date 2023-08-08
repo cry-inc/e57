@@ -1,7 +1,6 @@
 use crate::error::Converter;
 use crate::pointcloud::serialize_pointcloud;
-use crate::xml::{optional_date_time, optional_string, required_integer, required_string};
-use crate::{DateTime, Error, Image, PointCloud, Result};
+use crate::{xml, DateTime, Error, Image, PointCloud, Result};
 use roxmltree::Document;
 
 /// E57 XML Root structure with information shared by all elements in the file.
@@ -38,15 +37,15 @@ pub fn root_from_document(document: &Document) -> Result<Root> {
         .invalid_err("Unable to find e57Root tag in XML document")?;
 
     // Required fields
-    let format = required_string(&root, "formatName")?;
-    let guid = required_string(&root, "guid")?;
-    let major_version = required_integer(&root, "versionMajor")?;
-    let minor_version = required_integer(&root, "versionMajor")?;
+    let format = xml::req_string(&root, "formatName")?;
+    let guid = xml::req_string(&root, "guid")?;
+    let major_version = xml::req_int(&root, "versionMajor")?;
+    let minor_version = xml::req_int(&root, "versionMajor")?;
 
     // Optional fields
-    let creation = optional_date_time(&root, "creationDateTime")?;
-    let coordinate_metadata = optional_string(&root, "coordinateMetadata")?;
-    let library_version = optional_string(&root, "e57LibraryVersion")?;
+    let creation = xml::opt_date_time(&root, "creationDateTime")?;
+    let coordinate_metadata = xml::opt_string(&root, "coordinateMetadata")?;
+    let library_version = xml::opt_string(&root, "e57LibraryVersion")?;
 
     Ok(Root {
         format,

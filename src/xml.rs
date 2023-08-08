@@ -1,9 +1,10 @@
-use crate::{error::Converter, DateTime, Error, Result, Transform};
+use crate::error::Converter;
+use crate::{DateTime, Error, Result, Transform};
 use roxmltree::Node;
 use std::fmt::Display;
 use std::str::FromStr;
 
-pub fn optional_string(parent_node: &Node, tag_name: &str) -> Result<Option<String>> {
+pub fn opt_string(parent_node: &Node, tag_name: &str) -> Result<Option<String>> {
     if let Some(tag) = parent_node.children().find(|n| n.has_tag_name(tag_name)) {
         let expected_type = "String";
         if let Some(found_type) = tag.attribute("type") {
@@ -22,12 +23,12 @@ pub fn optional_string(parent_node: &Node, tag_name: &str) -> Result<Option<Stri
     }
 }
 
-pub fn required_string(parent_node: &Node, tag_name: &str) -> Result<String> {
-    let str = optional_string(parent_node, tag_name)?;
+pub fn req_string(parent_node: &Node, tag_name: &str) -> Result<String> {
+    let str = opt_string(parent_node, tag_name)?;
     str.invalid_err(format!("XML tag '{tag_name}' was not found"))
 }
 
-fn optional_number<T: FromStr + Sync + Send>(
+fn opt_num<T: FromStr + Sync + Send>(
     parent_node: &Node,
     tag_name: &str,
     expected_type: &str,
@@ -55,28 +56,25 @@ fn optional_number<T: FromStr + Sync + Send>(
     }
 }
 
-pub fn optional_double(parent_node: &Node, tag_name: &str) -> Result<Option<f64>> {
-    optional_number(parent_node, tag_name, "Float")
+pub fn opt_f64(parent_node: &Node, tag_name: &str) -> Result<Option<f64>> {
+    opt_num(parent_node, tag_name, "Float")
 }
 
-pub fn required_double(parent_node: &Node, tag_name: &str) -> Result<f64> {
-    let double = optional_number(parent_node, tag_name, "Float")?;
+pub fn req_f64(parent_node: &Node, tag_name: &str) -> Result<f64> {
+    let double = opt_num(parent_node, tag_name, "Float")?;
     double.invalid_err(format!("XML tag '{tag_name}' was not found"))
 }
 
-pub fn optional_integer<T: FromStr + Sync + Send>(
-    parent_node: &Node,
-    tag_name: &str,
-) -> Result<Option<T>> {
-    optional_number(parent_node, tag_name, "Integer")
+pub fn opt_int<T: FromStr + Sync + Send>(parent_node: &Node, tag_name: &str) -> Result<Option<T>> {
+    opt_num(parent_node, tag_name, "Integer")
 }
 
-pub fn required_integer<T: FromStr + Send + Sync>(parent_node: &Node, tag_name: &str) -> Result<T> {
-    let integer = optional_number(parent_node, tag_name, "Integer")?;
+pub fn req_int<T: FromStr + Send + Sync>(parent_node: &Node, tag_name: &str) -> Result<T> {
+    let integer = opt_num(parent_node, tag_name, "Integer")?;
     integer.invalid_err(format!("XML tag '{tag_name}' was not found"))
 }
 
-pub fn optional_date_time(parent_node: &Node, tag_name: &str) -> Result<Option<DateTime>> {
+pub fn opt_date_time(parent_node: &Node, tag_name: &str) -> Result<Option<DateTime>> {
     if let Some(tag) = parent_node.children().find(|n| n.has_tag_name(tag_name)) {
         let expected_type = "Structure";
         if let Some(found_type) = tag.attribute("type") {
@@ -94,7 +92,7 @@ pub fn optional_date_time(parent_node: &Node, tag_name: &str) -> Result<Option<D
     }
 }
 
-pub fn optional_transform(parent_node: &Node, tag_name: &str) -> Result<Option<Transform>> {
+pub fn opt_transform(parent_node: &Node, tag_name: &str) -> Result<Option<Transform>> {
     let node = parent_node.children().find(|n| n.has_tag_name(tag_name));
     if let Some(node) = node {
         Ok(Some(Transform::from_node(&node)?))
@@ -103,14 +101,14 @@ pub fn optional_transform(parent_node: &Node, tag_name: &str) -> Result<Option<T
     }
 }
 
-pub fn generate_string_xml<T: Display>(tag_name: &str, value: &T) -> String {
+pub fn gen_string<T: Display>(tag_name: &str, value: &T) -> String {
     format!("<{tag_name} type=\"String\"><![CDATA[{value}]]></{tag_name}>\n")
 }
 
-pub fn generate_float_xml<T: Display>(tag_name: &str, value: T) -> String {
+pub fn gen_float<T: Display>(tag_name: &str, value: T) -> String {
     format!("<{tag_name} type=\"Float\">{value}</{tag_name}>\n")
 }
 
-pub fn generate_int_xml<T: Display>(tag_name: &str, value: T) -> String {
+pub fn gen_int<T: Display>(tag_name: &str, value: T) -> String {
     format!("<{tag_name} type=\"Integer\">{value}</{tag_name}>\n")
 }
