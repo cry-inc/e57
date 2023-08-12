@@ -53,26 +53,17 @@ fn main() -> Result<()> {
         );
 
         // Iterate over all points in point cloud
-        let iter = file
+        let mut iter = file
             .pointcloud_simple(&pointcloud)
             .context("Unable to get point cloud iterator")?;
+        iter.skip_invalid(true);
         for p in iter {
             let p = p.context("Unable to read next point")?;
 
             // Read cartesian or spherical points and convert to cartesian
             let xyz = if let Some(c) = p.cartesian {
-                if let Some(invalid) = p.cartesian_invalid {
-                    if invalid != 0 {
-                        continue;
-                    }
-                }
                 Point3::new(c.x, c.y, c.z)
             } else if let Some(s) = p.spherical {
-                if let Some(invalid) = p.spherical_invalid {
-                    if invalid != 0 {
-                        continue;
-                    }
-                }
                 let cos_ele = f64::cos(s.elevation);
                 Point3::new(
                     s.range * cos_ele * f64::cos(s.azimuth),
