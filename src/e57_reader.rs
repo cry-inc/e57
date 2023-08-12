@@ -1,6 +1,5 @@
 use crate::error::Converter;
 use crate::paged_reader::PagedReader;
-use crate::pc_reader::PointCloudReader;
 use crate::pointcloud::pointclouds_from_document;
 use crate::root::root_from_document;
 use crate::root::Root;
@@ -10,6 +9,8 @@ use crate::Error;
 use crate::Header;
 use crate::Image;
 use crate::PointCloud;
+use crate::PointCloudReaderRaw;
+use crate::PointCloudReaderSimple;
 use crate::Result;
 use roxmltree::Document;
 use std::fs::File;
@@ -89,8 +90,18 @@ impl<T: Read + Seek> E57Reader<T> {
     }
 
     /// Returns an iterator for reading point cloud data.
-    pub fn pointcloud(&mut self, pc: &PointCloud) -> Result<PointCloudReader<T>> {
-        PointCloudReader::new(pc, &mut self.reader)
+    /// The data provided by this interface is already normalized for convenience.
+    /// There is also a raw iterator for advanced use-cases that require direct access.
+    pub fn pointcloud_simple(&mut self, pc: &PointCloud) -> Result<PointCloudReaderSimple<T>> {
+        PointCloudReaderSimple::new(pc, &mut self.reader)
+    }
+
+    /// Returns an iterator for reading raw low level point cloud data.
+    /// This provides access to the original values stored in the E57 file.
+    /// This interface is only recommended for advanced use-cases.
+    /// In most scenarios the simple iterator is the better choice.
+    pub fn pointcloud_raw(&mut self, pc: &PointCloud) -> Result<PointCloudReaderRaw<T>> {
+        PointCloudReaderRaw::new(pc, &mut self.reader)
     }
 
     /// Returns a list of all image descriptors in the file.
@@ -298,8 +309,11 @@ mod tests {
             let mut reader = E57Reader::from_file(file).unwrap();
             let pcs = reader.pointclouds();
             let pc = pcs.first().unwrap();
-            let points: Vec<RawValues> =
-                reader.pointcloud(pc).unwrap().map(|p| p.unwrap()).collect();
+            let points: Vec<RawValues> = reader
+                .pointcloud_raw(pc)
+                .unwrap()
+                .map(|p| p.unwrap())
+                .collect();
             assert_eq!(points.len(), 30571);
         }
     }
@@ -341,7 +355,7 @@ mod tests {
         let pcs = reader.pointclouds();
         let pc = pcs.first().unwrap();
         let mut counter = 0;
-        for p in reader.pointcloud(pc).unwrap() {
+        for p in reader.pointcloud_raw(pc).unwrap() {
             let p = p.unwrap();
             assert_eq!(p.len(), 6);
             assert!(matches!(p[0], RecordValue::Single(..)));
@@ -365,7 +379,7 @@ mod tests {
         let pc = pcs.first().unwrap();
         let writer = File::create("dump.xyz").unwrap();
         let mut writer = BufWriter::new(writer);
-        for p in reader.pointcloud(pc).unwrap() {
+        for p in reader.pointcloud_raw(pc).unwrap() {
             let p = Point::from_values(p.unwrap(), &pc.prototype).unwrap();
             if let Some(c) = p.cartesian {
                 if let Some(invalid) = p.cartesian_invalid {

@@ -33,7 +33,7 @@ pub struct Return {
     pub count: i64,
 }
 
-/// Represents a high level point with all its different attributes.
+/// Represents a high level point with its different attributes.
 #[derive(Clone, Debug, Default)]
 pub struct Point {
     /// Cartesian XYZ coordinates.

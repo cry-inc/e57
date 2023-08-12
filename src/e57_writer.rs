@@ -181,7 +181,7 @@ mod tests {
             assert_eq!(pc.records, 2);
             //println!("PC: {pc:#?}");
 
-            let iter = e57.pointcloud(&pc).unwrap();
+            let iter = e57.pointcloud_raw(&pc).unwrap();
             let points: Result<Vec<RawValues>> = iter.collect();
             let points = points.unwrap();
             assert_eq!(points.len(), 2);
@@ -302,7 +302,7 @@ mod tests {
             let mut reader = E57Reader::from_file(in_path).unwrap();
             let pcs = reader.pointclouds();
             let pc = pcs.first().unwrap().clone();
-            let iter = reader.pointcloud(&pc).unwrap();
+            let iter = reader.pointcloud_raw(&pc).unwrap();
             (iter.collect::<Result<Vec<RawValues>>>().unwrap(), pc)
         };
 
@@ -327,7 +327,7 @@ mod tests {
             let mut reader = E57Reader::from_file(out_path).unwrap();
             let pcs = reader.pointclouds();
             let pc = pcs.first().unwrap();
-            let iter = reader.pointcloud(pc).unwrap();
+            let iter = reader.pointcloud_raw(pc).unwrap();
             iter.collect::<Result<Vec<RawValues>>>().unwrap()
         };
 
@@ -384,7 +384,7 @@ mod tests {
             let mut reader = E57Reader::from_file(out_path).unwrap();
             let pcs = reader.pointclouds();
             let pc = pcs.first().unwrap();
-            let iter = reader.pointcloud(pc).unwrap();
+            let iter = reader.pointcloud_raw(pc).unwrap();
             let read_points = iter.collect::<Result<Vec<RawValues>>>().unwrap();
             assert_eq!(read_points.len(), 2);
             let p1 = Point::from_values(read_points[0].clone(), &pc.prototype).unwrap();
@@ -446,7 +446,7 @@ mod tests {
             let mut reader = E57Reader::from_file(out_path).unwrap();
             let pcs = reader.pointclouds();
             let pc = pcs.first().unwrap();
-            let iter = reader.pointcloud(pc).unwrap();
+            let iter = reader.pointcloud_raw(pc).unwrap();
             let read_points = iter.collect::<Result<Vec<RawValues>>>().unwrap();
             assert_eq!(read_points.len(), 100);
             let bounds = pc.spherical_bounds.as_ref().unwrap();

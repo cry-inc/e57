@@ -13,8 +13,8 @@ use crate::Result;
 use std::collections::VecDeque;
 use std::io::{Read, Seek};
 
-/// Iterate over all points of an existing point cloud to read it.
-pub struct PointCloudReader<'a, T: Read + Seek> {
+/// Iterate over all raw points of a point cloud for reading.
+pub struct PointCloudReaderRaw<'a, T: Read + Seek> {
     pc: PointCloud,
     reader: &'a mut PagedReader<T>,
     byte_streams: Vec<ByteStreamReadBuffer>,
@@ -22,7 +22,7 @@ pub struct PointCloudReader<'a, T: Read + Seek> {
     queues: Vec<VecDeque<RecordValue>>,
 }
 
-impl<'a, T: Read + Seek> PointCloudReader<'a, T> {
+impl<'a, T: Read + Seek> PointCloudReaderRaw<'a, T> {
     pub(crate) fn new(pc: &PointCloud, reader: &'a mut PagedReader<T>) -> Result<Self> {
         reader
             .seek_physical(pc.file_offset)
@@ -35,7 +35,7 @@ impl<'a, T: Read + Seek> PointCloudReader<'a, T> {
         let queues = vec![VecDeque::new(); pc.prototype.len()];
         let pc = pc.clone();
 
-        Ok(PointCloudReader {
+        Ok(Self {
             pc,
             reader,
             read: 0,
@@ -133,7 +133,7 @@ impl<'a, T: Read + Seek> PointCloudReader<'a, T> {
     }
 }
 
-impl<'a, T: Read + Seek> Iterator for PointCloudReader<'a, T> {
+impl<'a, T: Read + Seek> Iterator for PointCloudReaderRaw<'a, T> {
     /// Each iterator item is a result for an extracted point.
     type Item = Result<RawValues>;
 

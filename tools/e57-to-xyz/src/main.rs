@@ -11,7 +11,7 @@
  */
 
 use anyhow::{bail, Context, Result};
-use e57::{E57Reader, Point, Transform};
+use e57::{E57Reader, Transform};
 use nalgebra::{Point3, Quaternion, UnitQuaternion, Vector3};
 use std::env::args;
 use std::fs::File;
@@ -54,14 +54,10 @@ fn main() -> Result<()> {
 
         // Iterate over all points in point cloud
         let iter = file
-            .pointcloud(&pointcloud)
+            .pointcloud_simple(&pointcloud)
             .context("Unable to get point cloud iterator")?;
         for p in iter {
             let p = p.context("Unable to read next point")?;
-
-            // Convert raw values to simple point data structure
-            let p = Point::from_values(p, &pointcloud.prototype)
-                .context("Failed to convert raw point to simple point")?;
 
             // Read cartesian or spherical points and convert to cartesian
             let xyz = if let Some(c) = p.cartesian {
