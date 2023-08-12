@@ -1,11 +1,22 @@
-use crate::error::Converter;
 use crate::paged_reader::PagedReader;
 use crate::{
-    CartesianCoordinate, Color, Point, PointCloud, PointCloudReaderRaw, RawValues, Record,
-    RecordName, Result, SphericalCoordinate, Transform, Translation,
+    CartesianCoordinate, Color, Point, PointCloud, PointCloudReaderRaw, RawValues, RecordName,
+    Result, SphericalCoordinate, Transform, Translation,
 };
-use std::collections::HashMap;
 use std::io::{Read, Seek};
+
+struct ValueIndices {
+    cartesian: Option<(usize, usize, usize)>,
+    cartesian_invalid: Option<usize>,
+    spherical: Option<(usize, usize, usize)>,
+    spherical_invalid: Option<usize>,
+    color: Option<(usize, usize, usize)>,
+    color_invalid: Option<usize>,
+    intensity: Option<usize>,
+    intensity_invalid: Option<usize>,
+    row: Option<usize>,
+    column: Option<usize>,
+}
 
 /// Iterate over all normalized points of a point cloud for reading.
 pub struct PointCloudReaderSimple<'a, T: Read + Seek> {
@@ -17,6 +28,7 @@ pub struct PointCloudReaderSimple<'a, T: Read + Seek> {
     i2c: bool,
     rotation: [f64; 9],
     translation: Translation,
+    indices: ValueIndices,
 }
 
 impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
@@ -37,6 +49,96 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
         ];
         let translation = transform.translation;
 
+        // Prepare indices for fast value lookup
+        let cx = pc
+            .prototype
+            .iter()
+            .position(|r| r.name == RecordName::CartesianX);
+        let cy = pc
+            .prototype
+            .iter()
+            .position(|r| r.name == RecordName::CartesianY);
+        let cz = pc
+            .prototype
+            .iter()
+            .position(|r| r.name == RecordName::CartesianZ);
+        let cartesian = match (cx, cy, cz) {
+            (Some(cx), Some(cy), Some(cz)) => Some((cx, cy, cz)),
+            _ => None,
+        };
+        let cartesian_invalid = pc
+            .prototype
+            .iter()
+            .position(|r| r.name == RecordName::CartesianInvalidState);
+        let sr = pc
+            .prototype
+            .iter()
+            .position(|r| r.name == RecordName::SphericalRange);
+        let sa = pc
+            .prototype
+            .iter()
+            .position(|r| r.name == RecordName::SphericalAzimuth);
+        let se = pc
+            .prototype
+            .iter()
+            .position(|r| r.name == RecordName::SphericalElevation);
+        let spherical = match (sr, sa, se) {
+            (Some(sr), Some(sa), Some(se)) => Some((sr, sa, se)),
+            _ => None,
+        };
+        let spherical_invalid = pc
+            .prototype
+            .iter()
+            .position(|r| r.name == RecordName::SphericalInvalidState);
+        let red = pc
+            .prototype
+            .iter()
+            .position(|r| r.name == RecordName::ColorRed);
+        let green = pc
+            .prototype
+            .iter()
+            .position(|r| r.name == RecordName::ColorGreen);
+        let blue = pc
+            .prototype
+            .iter()
+            .position(|r| r.name == RecordName::ColorBlue);
+        let color = match (red, green, blue) {
+            (Some(red), Some(green), Some(blue)) => Some((red, green, blue)),
+            _ => None,
+        };
+        let color_invalid = pc
+            .prototype
+            .iter()
+            .position(|r| r.name == RecordName::IsColorInvalid);
+        let intensity = pc
+            .prototype
+            .iter()
+            .position(|r| r.name == RecordName::Intensity);
+        let intensity_invalid = pc
+            .prototype
+            .iter()
+            .position(|r| r.name == RecordName::IsIntensityInvalid);
+        let row = pc
+            .prototype
+            .iter()
+            .position(|r| r.name == RecordName::RowIndex);
+        let column = pc
+            .prototype
+            .iter()
+            .position(|r| r.name == RecordName::ColumnIndex);
+        let indices = ValueIndices {
+            cartesian,
+            cartesian_invalid,
+            spherical,
+            spherical_invalid,
+            color,
+            color_invalid,
+            intensity,
+            intensity_invalid,
+            row,
+            column,
+        };
+
         Ok(Self {
             pc: pc.clone(),
             raw_iter: PointCloudReaderRaw::new(pc, reader)?,
@@ -46,6 +148,7 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
             i2c: true,
             rotation,
             translation,
+            indices,
         })
     }
 
@@ -78,7 +181,7 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
     fn get_next_point(&mut self) -> Option<Result<Point>> {
         let p = self.raw_iter.next()?;
         match p {
-            Ok(p) => Some(Self::create_point(p, &self.pc.prototype)),
+            Ok(p) => Some(self.create_point(p)),
             Err(err) => Some(Err(err)),
         }
     }
@@ -116,110 +219,84 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
         }
     }
 
-    fn create_point(values: RawValues, prototype: &[Record]) -> Result<Point> {
-        let mut data = HashMap::new();
-        for (i, p) in prototype.iter().enumerate() {
-            let value = values
-                .get(i)
-                .invalid_err("Cannot find value defined by prototype")?;
-            data.insert(p.name.clone(), (p.data_type.clone(), value.clone()));
-        }
+    fn create_point(&self, values: RawValues) -> Result<Point> {
+        let prototype = &self.pc.prototype;
 
-        let (cartesian, has_cartesian) = if let (Some((xt, xv)), Some((yt, yv)), Some((zt, zv))) = (
-            data.get(&RecordName::CartesianX),
-            data.get(&RecordName::CartesianY),
-            data.get(&RecordName::CartesianZ),
-        ) {
-            (
-                CartesianCoordinate {
-                    x: xv.to_f64(xt)?,
-                    y: yv.to_f64(yt)?,
-                    z: zv.to_f64(zt)?,
-                },
-                true,
-            )
+        let cartesian = if let Some(indices) = self.indices.cartesian {
+            CartesianCoordinate {
+                x: values[indices.0].to_f64(&prototype[indices.0].data_type)?,
+                y: values[indices.1].to_f64(&prototype[indices.1].data_type)?,
+                z: values[indices.2].to_f64(&prototype[indices.2].data_type)?,
+            }
         } else {
-            (CartesianCoordinate::default(), false)
+            CartesianCoordinate::default()
         };
-        let cartesian_invalid =
-            if let Some((cit, civ)) = data.get(&RecordName::CartesianInvalidState) {
-                civ.to_u8(cit)?
-            } else if has_cartesian {
-                0
-            } else {
-                2
-            };
-        let (spherical, has_spherical) = if let (Some((at, av)), Some((et, ev)), Some((rt, rv))) = (
-            data.get(&RecordName::SphericalAzimuth),
-            data.get(&RecordName::SphericalElevation),
-            data.get(&RecordName::SphericalRange),
-        ) {
-            (
-                SphericalCoordinate {
-                    azimuth: av.to_f64(at)?,
-                    elevation: ev.to_f64(et)?,
-                    range: rv.to_f64(rt)?,
-                },
-                true,
-            )
+        let cartesian_invalid = if let Some(index) = self.indices.cartesian_invalid {
+            values[index].to_u8(&prototype[index].data_type)?
+        } else if self.indices.cartesian.is_some() {
+            0
         } else {
-            (SphericalCoordinate::default(), false)
+            2
         };
-        let spherical_invalid =
-            if let Some((sit, siv)) = data.get(&RecordName::SphericalInvalidState) {
-                siv.to_u8(sit)?
-            } else if has_spherical {
-                0
-            } else {
-                2
-            };
 
-        let (color, has_color) = if let (Some((rt, rv)), Some((gt, gv)), Some((bt, bv))) = (
-            data.get(&RecordName::ColorRed),
-            data.get(&RecordName::ColorGreen),
-            data.get(&RecordName::ColorBlue),
-        ) {
-            (
-                Color {
-                    red: rv.to_unit_f32(rt)?,
-                    green: gv.to_unit_f32(gt)?,
-                    blue: bv.to_unit_f32(bt)?,
-                },
-                true,
-            )
+        let spherical = if let Some(indices) = self.indices.spherical {
+            SphericalCoordinate {
+                range: values[indices.0].to_f64(&prototype[indices.0].data_type)?,
+                azimuth: values[indices.1].to_f64(&prototype[indices.1].data_type)?,
+                elevation: values[indices.2].to_f64(&prototype[indices.2].data_type)?,
+            }
         } else {
-            (Color::default(), false)
+            SphericalCoordinate::default()
         };
-        let color_invalid = if let Some((cit, civ)) = data.get(&RecordName::IsColorInvalid) {
-            civ.to_u8(cit)?
-        } else if has_color {
+        let spherical_invalid = if let Some(index) = self.indices.spherical_invalid {
+            values[index].to_u8(&prototype[index].data_type)?
+        } else if self.indices.spherical.is_some() {
+            0
+        } else {
+            2
+        };
+
+        let color = if let Some(indices) = self.indices.color {
+            Color {
+                red: values[indices.0].to_unit_f32(&prototype[indices.0].data_type)?,
+                green: values[indices.1].to_unit_f32(&prototype[indices.1].data_type)?,
+                blue: values[indices.2].to_unit_f32(&prototype[indices.2].data_type)?,
+            }
+        } else {
+            Color::default()
+        };
+        let color_invalid = if let Some(index) = self.indices.color_invalid {
+            values[index].to_u8(&prototype[index].data_type)?
+        } else if self.indices.color.is_some() {
             0
         } else {
             1
         };
-        let (intensity, has_intensity) = if let Some((it, iv)) = data.get(&RecordName::Intensity) {
-            (iv.to_unit_f32(it)?, true)
+
+        let intensity = if let Some(index) = self.indices.intensity {
+            values[index].to_unit_f32(&prototype[index].data_type)?
         } else {
-            (0.0, false)
+            0.0
         };
-        let intensity_invalid = if let Some((iit, iiv)) = data.get(&RecordName::IsIntensityInvalid)
-        {
-            iiv.to_u8(iit)?
-        } else if has_intensity {
+        let intensity_invalid = if let Some(index) = self.indices.intensity_invalid {
+            values[index].to_u8(&prototype[index].data_type)?
+        } else if self.indices.intensity.is_some() {
             0
         } else {
             1
         };
-        let row = if let Some((rt, rv)) = data.get(&RecordName::RowIndex) {
-            rv.to_i64(rt)?
+
+        let row = if let Some(index) = self.indices.row {
+            values[index].to_i64(&prototype[index].data_type)?
         } else {
             -1
         };
-        let column = if let Some((ct, cv)) = data.get(&RecordName::ColumnIndex) {
-            cv.to_i64(ct)?
+        let column = if let Some(index) = self.indices.column {
+            values[index].to_i64(&prototype[index].data_type)?
         } else {
             -1
         };
+
         Ok(Point {
             cartesian,
             cartesian_invalid,
