@@ -127,11 +127,11 @@ impl<'a, T: Read + Seek> Iterator for PointCloudReaderSimple<'a, T> {
                     Ok(p) => p,
                     Err(err) => return Some(Err(err)),
                 };
-                if p.cartesian_invalid != 0 {
-                    continue;
-                }
                 if self.s2c {
                     self.convert_spherical(&mut p);
+                }
+                if p.cartesian_invalid != 0 {
+                    continue;
                 }
                 if self.i2c {
                     self.convert_intensity(&mut p);
