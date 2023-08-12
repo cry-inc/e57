@@ -47,36 +47,31 @@ fn main() -> Result<()> {
         for p in iter {
             let p = p.context("Unable to read next point")?;
 
-            // Read cartesian or spherical points and convert to Cartesian
-            let xyz = if let Some(c) = p.cartesian {
-                (c.x, c.y, c.z)
-            } else {
-                // No coordinates found, skip point
-                continue;
-            };
-
             // Write XYZ data to output file
             writer
-                .write_fmt(format_args!("{} {} {}", xyz.0, xyz.1, xyz.2))
+                .write_fmt(format_args!(
+                    "{} {} {}",
+                    p.cartesian.x, p.cartesian.y, p.cartesian.z
+                ))
                 .context("Failed to write XYZ coordinates")?;
 
             // If available, write RGB color or intensity color values
-            if let Some(color) = p.color {
+            if p.color_invalid == 0 {
                 writer
                     .write_fmt(format_args!(
                         " {} {} {}",
-                        (color.red * 255.) as u8,
-                        (color.green * 255.) as u8,
-                        (color.blue * 255.) as u8
+                        (p.color.red * 255.) as u8,
+                        (p.color.green * 255.) as u8,
+                        (p.color.blue * 255.) as u8
                     ))
                     .context("Failed to write RGB color")?;
-            } else if let Some(intensity) = p.intensity {
+            } else if p.intensity_invalid == 0 {
                 writer
                     .write_fmt(format_args!(
                         " {} {} {}",
-                        (intensity * 255.) as u8,
-                        (intensity * 255.) as u8,
-                        (intensity * 255.) as u8
+                        (p.intensity * 255.) as u8,
+                        (p.intensity * 255.) as u8,
+                        (p.intensity * 255.) as u8
                     ))
                     .context("Failed to write intensity color")?;
             }

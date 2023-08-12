@@ -381,43 +381,36 @@ mod tests {
         let mut writer = BufWriter::new(writer);
         for p in reader.pointcloud_raw(pc).unwrap() {
             let p = Point::from_values(p.unwrap(), &pc.prototype, false).unwrap();
-            if let Some(c) = p.cartesian {
-                if let Some(invalid) = p.cartesian_invalid {
-                    if invalid != 0 {
-                        continue;
-                    }
-                }
-                writer
-                    .write_fmt(format_args!("{} {} {}", c.x, c.y, c.z))
-                    .unwrap();
-            } else if let Some(s) = p.spherical {
-                if let Some(invalid) = p.spherical_invalid {
-                    if invalid != 0 {
-                        continue;
-                    }
-                }
-                let cos_ele = f64::cos(s.elevation);
-                let x = s.range * cos_ele * f64::cos(s.azimuth);
-                let y = s.range * cos_ele * f64::sin(s.azimuth);
-                let z = s.range * f64::sin(s.elevation);
-                writer.write_fmt(format_args!("{x} {y} {z}")).unwrap();
-            }
-            if let Some(color) = p.color {
+            if p.cartesian_invalid == 0 {
                 writer
                     .write_fmt(format_args!(
-                        " {} {} {}",
-                        (color.red * 255.) as u8,
-                        (color.green * 255.) as u8,
-                        (color.blue * 255.) as u8
+                        "{} {} {}",
+                        p.cartesian.x, p.cartesian.y, p.cartesian.z
                     ))
                     .unwrap();
-            } else if let Some(intensity) = p.intensity {
+            } else if p.spherical_invalid == 0 {
+                let cos_ele = f64::cos(p.spherical.elevation);
+                let x = p.spherical.range * cos_ele * f64::cos(p.spherical.azimuth);
+                let y = p.spherical.range * cos_ele * f64::sin(p.spherical.azimuth);
+                let z = p.spherical.range * f64::sin(p.spherical.elevation);
+                writer.write_fmt(format_args!("{x} {y} {z}")).unwrap();
+            }
+            if p.color_invalid == 0 {
                 writer
                     .write_fmt(format_args!(
                         " {} {} {}",
-                        (intensity * 255.) as u8,
-                        (intensity * 255.) as u8,
-                        (intensity * 255.) as u8
+                        (p.color.red * 255.) as u8,
+                        (p.color.green * 255.) as u8,
+                        (p.color.blue * 255.) as u8
+                    ))
+                    .unwrap();
+            } else if p.intensity_invalid == 0 {
+                writer
+                    .write_fmt(format_args!(
+                        " {} {} {}",
+                        (p.intensity * 255.) as u8,
+                        (p.intensity * 255.) as u8,
+                        (p.intensity * 255.) as u8
                     ))
                     .unwrap();
             }

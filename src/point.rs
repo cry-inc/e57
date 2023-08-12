@@ -3,7 +3,7 @@ use crate::{RawValues, Record, RecordName, Result};
 use std::collections::HashMap;
 
 /// Simple structure for cartesian coordinates with an X, Y and Z value.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct CartesianCoordinate {
     pub x: f64,
     pub y: f64,
@@ -11,7 +11,7 @@ pub struct CartesianCoordinate {
 }
 
 /// Simple spherical coordinates with range, azimuth and elevation.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct SphericalCoordinate {
     pub range: f64,
     pub azimuth: f64,
@@ -19,7 +19,7 @@ pub struct SphericalCoordinate {
 }
 
 /// Simple point colors with RGB values between 0 and 1.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Color {
     pub red: f32,
     pub green: f32,
@@ -34,42 +34,36 @@ pub struct Return {
 }
 
 /// Represents a high level point with its different attributes.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Point {
     /// Cartesian XYZ coordinates.
-    pub cartesian: Option<CartesianCoordinate>,
+    pub cartesian: CartesianCoordinate,
     /// Invalid states of the Cartesian coordinates.
     /// 0 means valid, 1: means its a direction vector, 2 means fully invalid.
-    pub cartesian_invalid: Option<u8>,
+    pub cartesian_invalid: u8,
 
     /// Spherical coordinates with range, azimuth and elevation.
-    pub spherical: Option<SphericalCoordinate>,
+    pub spherical: SphericalCoordinate,
     /// Invalid states of the spherical coordinates.
     /// 0 means valid, 1: means range is not meaningful, 2 means fully invalid.
-    pub spherical_invalid: Option<u8>,
+    pub spherical_invalid: u8,
 
     /// RGB point colors.
-    pub color: Option<Color>,
+    pub color: Color,
     /// A value of zero means the color is valid, 1 means invalid.
-    pub color_invalid: Option<u8>,
+    pub color_invalid: u8,
 
     /// Floating point intensity value between 0 and 1.
-    pub intensity: Option<f32>,
+    pub intensity: f32,
     /// A value of zero means the intensity is valid, 1 means invalid.
-    pub intensity_invalid: Option<u8>,
-
-    /// Point return values with index and count.
-    pub ret: Option<Return>,
+    pub intensity_invalid: u8,
 
     /// Row index (Y-axis) to describe point data in a 2D image-like grid.
-    pub row: Option<i64>,
+    /// Default value for point clouds without row index will be -1.
+    pub row: i64,
     /// Column index (X-axis) to describe point data in a 2D image-like grid.
-    pub column: Option<i64>,
-
-    /// Recording/capture time of the point in seconds relative to scan capture start.
-    pub time: Option<f64>,
-    /// A value of zero means the time is valid, 1 means invalid.
-    pub time_invalid: Option<u8>,
+    /// Default value for point clouds without column index will be -1.
+    pub column: i64,
 }
 
 impl Point {
@@ -86,95 +80,122 @@ impl Point {
             data.insert(p.name.clone(), (p.data_type.clone(), value.clone()));
         }
 
-        let mut sp = Point::default();
-        if let Some((cit, civ)) = data.get(&RecordName::CartesianInvalidState) {
-            sp.cartesian_invalid = Some(civ.to_u8(cit)?);
-        }
-        if let (Some((xt, xv)), Some((yt, yv)), Some((zt, zv))) = (
-            data.get(&RecordName::CartesianX),
-            data.get(&RecordName::CartesianY),
-            data.get(&RecordName::CartesianZ),
-        ) {
-            sp.cartesian = Some(CartesianCoordinate {
-                x: xv.to_f64(xt)?,
-                y: yv.to_f64(yt)?,
-                z: zv.to_f64(zt)?,
-            });
-        }
-        let spherical_valid = if let Some((sit, siv)) = data.get(&RecordName::SphericalInvalidState)
-        {
-            let value = siv.to_u8(sit)?;
-            sp.spherical_invalid = Some(value);
-            value == 0
-        } else {
-            true
-        };
-        if let (Some((at, av)), Some((et, ev)), Some((rt, rv))) = (
+        let (mut cartesian, has_cartesian) =
+            if let (Some((xt, xv)), Some((yt, yv)), Some((zt, zv))) = (
+                data.get(&RecordName::CartesianX),
+                data.get(&RecordName::CartesianY),
+                data.get(&RecordName::CartesianZ),
+            ) {
+                (
+                    CartesianCoordinate {
+                        x: xv.to_f64(xt)?,
+                        y: yv.to_f64(yt)?,
+                        z: zv.to_f64(zt)?,
+                    },
+                    true,
+                )
+            } else {
+                (CartesianCoordinate::default(), false)
+            };
+        let mut cartesian_invalid =
+            if let Some((cit, civ)) = data.get(&RecordName::CartesianInvalidState) {
+                civ.to_u8(cit)?
+            } else if has_cartesian {
+                0
+            } else {
+                2
+            };
+        let (spherical, has_spherical) = if let (Some((at, av)), Some((et, ev)), Some((rt, rv))) = (
             data.get(&RecordName::SphericalAzimuth),
             data.get(&RecordName::SphericalElevation),
             data.get(&RecordName::SphericalRange),
         ) {
-            let sc = SphericalCoordinate {
-                azimuth: av.to_f64(at)?,
-                elevation: ev.to_f64(et)?,
-                range: rv.to_f64(rt)?,
+            (
+                SphericalCoordinate {
+                    azimuth: av.to_f64(at)?,
+                    elevation: ev.to_f64(et)?,
+                    range: rv.to_f64(rt)?,
+                },
+                true,
+            )
+        } else {
+            (SphericalCoordinate::default(), false)
+        };
+        let spherical_invalid =
+            if let Some((sit, siv)) = data.get(&RecordName::SphericalInvalidState) {
+                siv.to_u8(sit)?
+            } else if has_spherical {
+                0
+            } else {
+                2
             };
-            if convert_spherical && spherical_valid && sp.cartesian.is_none() {
-                let cos_ele = f64::cos(sc.elevation);
-                let cc = CartesianCoordinate {
-                    x: sc.range * cos_ele * f64::cos(sc.azimuth),
-                    y: sc.range * cos_ele * f64::sin(sc.azimuth),
-                    z: sc.range * f64::sin(sc.elevation),
-                };
-                sp.cartesian = Some(cc);
-                sp.cartesian_invalid = None;
-            }
-            sp.spherical = Some(sc);
+        if convert_spherical && spherical_invalid == 0 && cartesian_invalid != 0 {
+            let cos_ele = f64::cos(spherical.elevation);
+            cartesian = CartesianCoordinate {
+                x: spherical.range * cos_ele * f64::cos(spherical.azimuth),
+                y: spherical.range * cos_ele * f64::sin(spherical.azimuth),
+                z: spherical.range * f64::sin(spherical.elevation),
+            };
+            cartesian_invalid = 0;
         }
-        if let (Some((rt, rv)), Some((gt, gv)), Some((bt, bv))) = (
+
+        let (color, has_color) = if let (Some((rt, rv)), Some((gt, gv)), Some((bt, bv))) = (
             data.get(&RecordName::ColorRed),
             data.get(&RecordName::ColorGreen),
             data.get(&RecordName::ColorBlue),
         ) {
-            sp.color = Some(Color {
-                red: rv.to_unit_f32(rt)?,
-                green: gv.to_unit_f32(gt)?,
-                blue: bv.to_unit_f32(bt)?,
-            });
-        }
-        if let Some((cit, civ)) = data.get(&RecordName::IsColorInvalid) {
-            sp.color_invalid = Some(civ.to_u8(cit)?);
-        }
-        if let Some((cit, civ)) = data.get(&RecordName::IsColorInvalid) {
-            sp.color_invalid = Some(civ.to_u8(cit)?);
-        }
-        if let Some((it, iv)) = data.get(&RecordName::Intensity) {
-            sp.intensity = Some(iv.to_unit_f32(it)?);
-        }
-        if let Some((iit, iiv)) = data.get(&RecordName::IsIntensityInvalid) {
-            sp.intensity_invalid = Some(iiv.to_u8(iit)?);
-        }
-        if let (Some((rit, riv)), Some((rct, rcv))) = (
-            data.get(&RecordName::ReturnIndex),
-            data.get(&RecordName::ReturnCount),
-        ) {
-            sp.ret = Some(Return {
-                index: riv.to_i64(rit)?,
-                count: rcv.to_i64(rct)?,
-            });
-        }
-        if let Some((rt, rv)) = data.get(&RecordName::RowIndex) {
-            sp.row = Some(rv.to_i64(rt)?);
-        }
-        if let Some((ct, cv)) = data.get(&RecordName::ColumnIndex) {
-            sp.column = Some(cv.to_i64(ct)?);
-        }
-        if let Some((tt, tv)) = data.get(&RecordName::TimeStamp) {
-            sp.time = Some(tv.to_f64(tt)?);
-        }
-        if let Some((tit, tiv)) = data.get(&RecordName::IsTimeStampInvalid) {
-            sp.time_invalid = Some(tiv.to_u8(tit)?);
-        }
-        Ok(sp)
+            (
+                Color {
+                    red: rv.to_unit_f32(rt)?,
+                    green: gv.to_unit_f32(gt)?,
+                    blue: bv.to_unit_f32(bt)?,
+                },
+                true,
+            )
+        } else {
+            (Color::default(), false)
+        };
+        let color_invalid = if let Some((cit, civ)) = data.get(&RecordName::IsColorInvalid) {
+            civ.to_u8(cit)?
+        } else if has_color {
+            0
+        } else {
+            1
+        };
+        let (intensity, has_intensity) = if let Some((it, iv)) = data.get(&RecordName::Intensity) {
+            (iv.to_unit_f32(it)?, true)
+        } else {
+            (0.0, false)
+        };
+        let intensity_invalid = if let Some((iit, iiv)) = data.get(&RecordName::IsIntensityInvalid)
+        {
+            iiv.to_u8(iit)?
+        } else if has_intensity {
+            0
+        } else {
+            1
+        };
+        let row = if let Some((rt, rv)) = data.get(&RecordName::RowIndex) {
+            rv.to_i64(rt)?
+        } else {
+            -1
+        };
+        let column = if let Some((ct, cv)) = data.get(&RecordName::ColumnIndex) {
+            cv.to_i64(ct)?
+        } else {
+            -1
+        };
+        Ok(Point {
+            cartesian,
+            cartesian_invalid,
+            spherical,
+            spherical_invalid,
+            color,
+            color_invalid,
+            intensity,
+            intensity_invalid,
+            row,
+            column,
+        })
     }
 }

@@ -49,7 +49,7 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
         self.convert = enable;
     }
 
-    /// If enabled, the iterator will skip over invalid points.
+    /// If enabled, the iterator will skip over points without valid Cartesian coordinates.
     /// Default setting is disabled, meaning the iterator will visit invalid points.
     pub fn skip_invalid(&mut self, enable: bool) {
         self.skip = enable;
@@ -70,7 +70,8 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
     }
 
     fn transform_point(&self, p: &mut Point) {
-        if let Some(c) = &mut p.cartesian {
+        if p.cartesian_invalid == 0 {
+            let c = &mut p.cartesian;
             let x = self.rotation[0] * c.x + self.rotation[3] * c.y + self.rotation[6] * c.z;
             let y = self.rotation[1] * c.x + self.rotation[4] * c.y + self.rotation[7] * c.z;
             let z = self.rotation[2] * c.x + self.rotation[5] * c.y + self.rotation[8] * c.z;
@@ -94,15 +95,8 @@ impl<'a, T: Read + Seek> Iterator for PointCloudReaderSimple<'a, T> {
                     Ok(p) => p,
                     Err(err) => return Some(Err(err)),
                 };
-                if let Some(invalid) = p.cartesian_invalid {
-                    if invalid != 0 {
-                        continue;
-                    }
-                }
-                if let Some(invalid) = p.spherical_invalid {
-                    if p.cartesian.is_none() && invalid != 0 {
-                        continue;
-                    }
+                if p.cartesian_invalid != 0 {
+                    continue;
                 }
                 if self.transform {
                     self.transform_point(&mut p);
