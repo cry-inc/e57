@@ -41,8 +41,8 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
         })
     }
 
-    /// If enabled, the iterator will automatically convert spherical to cartesian coordinates.
-    /// Default setting is disabled, meaning the iterator will return no cartesian coordinates for
+    /// If enabled, the iterator will automatically convert spherical to Cartesian coordinates.
+    /// Default setting is disabled, meaning the iterator will return no Cartesian coordinates for
     /// point clouds with spherical coordinates.
     pub fn convert_spherical(&mut self, enable: bool) {
         self.convert = enable;
@@ -54,8 +54,8 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
         self.skip = enable;
     }
 
-    /// If enabled, the iterator will apply the point cloud pose to the cartesian coordinates.
-    /// Default setting is disabled, meaning the iterator will return the unmodified cartesian coordinates.
+    /// If enabled, the iterator will apply the point cloud pose to the Cartesian coordinates.
+    /// Default setting is disabled, meaning the iterator will return the unmodified Cartesian coordinates.
     pub fn apply_pose(&mut self, enable: bool) {
         self.transform = enable;
     }

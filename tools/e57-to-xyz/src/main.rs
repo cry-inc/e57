@@ -5,8 +5,8 @@
  * The output file name will be the input file plus ".xyz".
  * The values in the output file will be separated by a space as separator.
  *
- * Spherical coordinates are converted automatically to cartesian coordinates.
- * Invalid coordinates (cartesian or spherical) will be skipped.
+ * Spherical coordinates are converted automatically to Cartesian coordinates.
+ * Invalid coordinates will be skipped.
  * If there is no RGB color, it will try to use the intensity as grayscale RGB values.
  */
 
@@ -47,7 +47,7 @@ fn main() -> Result<()> {
         for p in iter {
             let p = p.context("Unable to read next point")?;
 
-            // Read cartesian or spherical points and convert to cartesian
+            // Read cartesian or spherical points and convert to Cartesian
             let xyz = if let Some(c) = p.cartesian {
                 (c.x, c.y, c.z)
             } else {
