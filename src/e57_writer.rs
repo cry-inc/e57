@@ -387,11 +387,11 @@ mod tests {
             let iter = reader.pointcloud_raw(pc).unwrap();
             let read_points = iter.collect::<Result<Vec<RawValues>>>().unwrap();
             assert_eq!(read_points.len(), 2);
-            let p1 = Point::from_values(read_points[0].clone(), &pc.prototype).unwrap();
+            let p1 = Point::from_values(read_points[0].clone(), &pc.prototype, false).unwrap();
             assert_eq!(p1.cartesian.as_ref().unwrap().x, -1.0);
             assert_eq!(p1.cartesian.as_ref().unwrap().y, -1.0);
             assert_eq!(p1.cartesian.as_ref().unwrap().z, -1.0);
-            let p2 = Point::from_values(read_points[1].clone(), &pc.prototype).unwrap();
+            let p2 = Point::from_values(read_points[1].clone(), &pc.prototype, false).unwrap();
             assert_eq!(p2.cartesian.as_ref().unwrap().x, 1.0);
             assert_eq!(p2.cartesian.as_ref().unwrap().y, 1.0);
             assert_eq!(p2.cartesian.as_ref().unwrap().z, 1.0);

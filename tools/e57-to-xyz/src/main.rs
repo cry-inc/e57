@@ -41,6 +41,7 @@ fn main() -> Result<()> {
         let mut iter = file
             .pointcloud_simple(&pointcloud)
             .context("Unable to get point cloud iterator")?;
+        iter.convert_spherical(true);
         iter.skip_invalid(true);
         iter.apply_pose(true);
         for p in iter {
@@ -49,13 +50,6 @@ fn main() -> Result<()> {
             // Read cartesian or spherical points and convert to cartesian
             let xyz = if let Some(c) = p.cartesian {
                 (c.x, c.y, c.z)
-            } else if let Some(s) = p.spherical {
-                let cos_ele = f64::cos(s.elevation);
-                (
-                    s.range * cos_ele * f64::cos(s.azimuth),
-                    s.range * cos_ele * f64::sin(s.azimuth),
-                    s.range * f64::sin(s.elevation),
-                )
             } else {
                 // No coordinates found, skip point
                 continue;

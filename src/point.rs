@@ -73,7 +73,11 @@ pub struct Point {
 }
 
 impl Point {
-    pub(crate) fn from_values(values: RawValues, prototype: &[Record]) -> Result<Self> {
+    pub(crate) fn from_values(
+        values: RawValues,
+        prototype: &[Record],
+        convert_spherical: bool,
+    ) -> Result<Self> {
         let mut data = HashMap::new();
         for (i, p) in prototype.iter().enumerate() {
             let value = values
@@ -83,6 +87,9 @@ impl Point {
         }
 
         let mut sp = Point::default();
+        if let Some((cit, civ)) = data.get(&RecordName::CartesianInvalidState) {
+            sp.cartesian_invalid = Some(civ.to_u8(cit)?);
+        }
         if let (Some((xt, xv)), Some((yt, yv)), Some((zt, zv))) = (
             data.get(&RecordName::CartesianX),
             data.get(&RecordName::CartesianY),
@@ -94,22 +101,35 @@ impl Point {
                 z: zv.to_f64(zt)?,
             });
         }
-        if let Some((cit, civ)) = data.get(&RecordName::CartesianInvalidState) {
-            sp.cartesian_invalid = Some(civ.to_u8(cit)?);
-        }
+        let spherical_valid = if let Some((sit, siv)) = data.get(&RecordName::SphericalInvalidState)
+        {
+            let value = siv.to_u8(sit)?;
+            sp.spherical_invalid = Some(value);
+            value == 0
+        } else {
+            true
+        };
         if let (Some((at, av)), Some((et, ev)), Some((rt, rv))) = (
             data.get(&RecordName::SphericalAzimuth),
             data.get(&RecordName::SphericalElevation),
             data.get(&RecordName::SphericalRange),
         ) {
-            sp.spherical = Some(SphericalCoordinate {
+            let sc = SphericalCoordinate {
                 azimuth: av.to_f64(at)?,
                 elevation: ev.to_f64(et)?,
                 range: rv.to_f64(rt)?,
-            });
-        }
-        if let Some((sit, siv)) = data.get(&RecordName::SphericalInvalidState) {
-            sp.spherical_invalid = Some(siv.to_u8(sit)?);
+            };
+            if convert_spherical && spherical_valid && sp.cartesian.is_none() {
+                let cos_ele = f64::cos(sc.elevation);
+                let cc = CartesianCoordinate {
+                    x: sc.range * cos_ele * f64::cos(sc.azimuth),
+                    y: sc.range * cos_ele * f64::sin(sc.azimuth),
+                    z: sc.range * f64::sin(sc.elevation),
+                };
+                sp.cartesian = Some(cc);
+                sp.cartesian_invalid = None;
+            }
+            sp.spherical = Some(sc);
         }
         if let (Some((rt, rv)), Some((gt, gv)), Some((bt, bv))) = (
             data.get(&RecordName::ColorRed),

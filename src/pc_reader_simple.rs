@@ -9,6 +9,7 @@ pub struct PointCloudReaderSimple<'a, T: Read + Seek> {
     raw_iter: PointCloudReaderRaw<'a, T>,
     skip: bool,
     transform: bool,
+    convert: bool,
     rotation: UnitQuaternion<f64>,
     translation: Vector3<f64>,
 }
@@ -34,9 +35,17 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
             raw_iter: PointCloudReaderRaw::new(pc, reader)?,
             skip: false,
             transform: false,
+            convert: false,
             rotation,
             translation,
         })
+    }
+
+    /// If enabled, the iterator will automatically convert spherical to cartesian coordinates.
+    /// Default setting is disabled, meaning the iterator will return no cartesian coordinates for
+    /// point clouds with spherical coordinates.
+    pub fn convert_spherical(&mut self, enable: bool) {
+        self.convert = enable;
     }
 
     /// If enabled, the iterator will skip over invalid points.
@@ -54,7 +63,7 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
     fn get_next_point(&mut self) -> Option<Result<Point>> {
         let p = self.raw_iter.next()?;
         match p {
-            Ok(p) => Some(Point::from_values(p, &self.pc.prototype)),
+            Ok(p) => Some(Point::from_values(p, &self.pc.prototype, self.convert)),
             Err(err) => Some(Err(err)),
         }
     }
