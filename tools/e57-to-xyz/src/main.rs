@@ -11,8 +11,7 @@
  */
 
 use anyhow::{bail, Context, Result};
-use e57::{E57Reader, Transform};
-use nalgebra::{Point3, Quaternion, UnitQuaternion, Vector3};
+use e57::E57Reader;
 use std::env::args;
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -38,34 +37,21 @@ fn main() -> Result<()> {
     // Loop over all point clouds in the E57 file
     let pointclouds = file.pointclouds();
     for pointcloud in pointclouds {
-        // Prepare rotation and translation data
-        let transform = pointcloud.transform.clone().unwrap_or(Transform::default());
-        let rotation = UnitQuaternion::from_quaternion(Quaternion::new(
-            transform.rotation.w,
-            transform.rotation.x,
-            transform.rotation.y,
-            transform.rotation.z,
-        ));
-        let translation = Vector3::new(
-            transform.translation.x,
-            transform.translation.y,
-            transform.translation.z,
-        );
-
         // Iterate over all points in point cloud
         let mut iter = file
             .pointcloud_simple(&pointcloud)
             .context("Unable to get point cloud iterator")?;
         iter.skip_invalid(true);
+        iter.apply_pose(true);
         for p in iter {
             let p = p.context("Unable to read next point")?;
 
             // Read cartesian or spherical points and convert to cartesian
             let xyz = if let Some(c) = p.cartesian {
-                Point3::new(c.x, c.y, c.z)
+                (c.x, c.y, c.z)
             } else if let Some(s) = p.spherical {
                 let cos_ele = f64::cos(s.elevation);
-                Point3::new(
+                (
                     s.range * cos_ele * f64::cos(s.azimuth),
                     s.range * cos_ele * f64::sin(s.azimuth),
                     s.range * f64::sin(s.elevation),
@@ -75,12 +61,9 @@ fn main() -> Result<()> {
                 continue;
             };
 
-            // Apply per point cloud transformation
-            let xyz = rotation.transform_point(&xyz) + translation;
-
             // Write XYZ data to output file
             writer
-                .write_fmt(format_args!("{} {} {}", xyz[0], xyz[1], xyz[2]))
+                .write_fmt(format_args!("{} {} {}", xyz.0, xyz.1, xyz.2))
                 .context("Failed to write XYZ coordinates")?;
 
             // If available, write RGB color or intensity color values
