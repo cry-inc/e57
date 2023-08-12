@@ -38,24 +38,24 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
             pc: pc.clone(),
             raw_iter: PointCloudReaderRaw::new(pc, reader)?,
             skip: false,
-            transform: false,
-            s2c: false,
-            i2c: false,
+            transform: true,
+            s2c: true,
+            i2c: true,
             rotation,
             translation,
         })
     }
 
     /// If enabled, the iterator will automatically convert spherical to Cartesian coordinates.
-    /// Will only replace fully invalid cartesian coordinates.
-    /// Default setting is disabled.
+    /// Will only replace fully invalid cartesian coordinates and do nothing otherwise.
+    /// Default setting is enabled.
     pub fn spherical_to_cartesian(&mut self, enable: bool) {
         self.s2c = enable;
     }
 
-    /// If enabled, the iterator will automatically convert intesity to grey colors.
-    /// Will only replace fully invalid color values.
-    /// Default setting is disabled.
+    /// If enabled, the iterator will automatically convert intensity to grey colors.
+    /// Will only replace fully invalid color values and do nothing otherwise.
+    /// Default setting is enabled.
     pub fn intensity_to_color(&mut self, enable: bool) {
         self.i2c = enable;
     }
@@ -67,7 +67,7 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
     }
 
     /// If enabled, the iterator will apply the point cloud pose to the Cartesian coordinates.
-    /// Default setting is disabled, meaning the iterator will return the unmodified Cartesian coordinates.
+    /// Default setting is enabled.
     pub fn apply_pose(&mut self, enable: bool) {
         self.transform = enable;
     }

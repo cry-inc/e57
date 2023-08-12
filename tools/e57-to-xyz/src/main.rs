@@ -41,10 +41,7 @@ fn main() -> Result<()> {
         let mut iter = file
             .pointcloud_simple(&pointcloud)
             .context("Unable to get point cloud iterator")?;
-        iter.spherical_to_cartesian(true);
-        iter.intensity_to_color(true);
         iter.skip_invalid(true);
-        iter.apply_pose(true);
         for p in iter {
             let p = p.context("Unable to read next point")?;
 
