@@ -73,7 +73,7 @@ pub struct Point {
 }
 
 impl Point {
-    pub fn from_values(values: RawValues, prototype: &[Record]) -> Result<Self> {
+    pub(crate) fn from_values(values: RawValues, prototype: &[Record]) -> Result<Self> {
         let mut data = HashMap::new();
         for (i, p) in prototype.iter().enumerate() {
             let value = values
