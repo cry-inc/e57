@@ -380,7 +380,7 @@ mod tests {
         let writer = File::create("dump.xyz").unwrap();
         let mut writer = BufWriter::new(writer);
         for p in reader.pointcloud_raw(pc).unwrap() {
-            let p = Point::from_values(p.unwrap(), &pc.prototype, false).unwrap();
+            let p = Point::from_values(p.unwrap(), &pc.prototype).unwrap();
             if p.cartesian_invalid == 0 {
                 writer
                     .write_fmt(format_args!(

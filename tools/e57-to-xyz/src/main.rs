@@ -41,7 +41,8 @@ fn main() -> Result<()> {
         let mut iter = file
             .pointcloud_simple(&pointcloud)
             .context("Unable to get point cloud iterator")?;
-        iter.convert_spherical(true);
+        iter.spherical_to_cartesian(true);
+        iter.intensity_to_color(true);
         iter.skip_invalid(true);
         iter.apply_pose(true);
         for p in iter {
@@ -65,15 +66,6 @@ fn main() -> Result<()> {
                         (p.color.blue * 255.) as u8
                     ))
                     .context("Failed to write RGB color")?;
-            } else if p.intensity_invalid == 0 {
-                writer
-                    .write_fmt(format_args!(
-                        " {} {} {}",
-                        (p.intensity * 255.) as u8,
-                        (p.intensity * 255.) as u8,
-                        (p.intensity * 255.) as u8
-                    ))
-                    .context("Failed to write intensity color")?;
             }
 
             // Write new line before next point
