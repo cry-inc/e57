@@ -1,6 +1,5 @@
 use crate::paged_reader::PagedReader;
-use crate::{Point, PointCloud, PointCloudReaderRaw, Result, Transform};
-use nalgebra::{Point3, Quaternion, UnitQuaternion, Vector3};
+use crate::{Point, PointCloud, PointCloudReaderRaw, Result, Transform, Translation};
 use std::io::{Read, Seek};
 
 /// Iterate over all normalized points of a point cloud for reading.
@@ -10,25 +9,27 @@ pub struct PointCloudReaderSimple<'a, T: Read + Seek> {
     skip: bool,
     transform: bool,
     convert: bool,
-    rotation: UnitQuaternion<f64>,
-    translation: Vector3<f64>,
+    rotation: [f64; 9],
+    translation: Translation,
 }
 
 impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
     pub(crate) fn new(pc: &PointCloud, reader: &'a mut PagedReader<T>) -> Result<Self> {
         // Prepare rotation and translation data
         let transform = pc.transform.clone().unwrap_or(Transform::default());
-        let rotation = UnitQuaternion::from_quaternion(Quaternion::new(
-            transform.rotation.w,
-            transform.rotation.x,
-            transform.rotation.y,
-            transform.rotation.z,
-        ));
-        let translation = Vector3::new(
-            transform.translation.x,
-            transform.translation.y,
-            transform.translation.z,
-        );
+        let q = transform.rotation;
+        let rotation = [
+            q.w * q.w + q.x * q.x - q.y * q.y - q.z * q.z,
+            2.0 * (q.x * q.y + q.w * q.z),
+            2.0 * (q.x * q.z - q.w * q.y),
+            2.0 * (q.x * q.y - q.w * q.z),
+            q.w * q.w + q.y * q.y - q.x * q.x - q.z * q.z,
+            2.0 * (q.y * q.z + q.w * q.x),
+            2.0 * (q.x * q.z + q.w * q.y),
+            2.0 * (q.y * q.z - q.w * q.x),
+            q.w * q.w + q.z * q.z - q.x * q.x - q.y * q.y,
+        ];
+        let translation = transform.translation;
 
         Ok(Self {
             pc: pc.clone(),
@@ -69,12 +70,13 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
     }
 
     fn transform_point(&self, p: &mut Point) {
-        if let Some(cartesian) = &mut p.cartesian {
-            let xyz = Point3::new(cartesian.x, cartesian.y, cartesian.z);
-            let xyz = self.rotation.transform_point(&xyz) + self.translation;
-            cartesian.x = xyz[0];
-            cartesian.y = xyz[1];
-            cartesian.z = xyz[2];
+        if let Some(c) = &mut p.cartesian {
+            let x = self.rotation[0] * c.x + self.rotation[3] * c.y + self.rotation[6] * c.z;
+            let y = self.rotation[1] * c.x + self.rotation[4] * c.y + self.rotation[7] * c.z;
+            let z = self.rotation[2] * c.x + self.rotation[5] * c.y + self.rotation[8] * c.z;
+            c.x = x + self.translation.x;
+            c.y = y + self.translation.y;
+            c.z = z + self.translation.z;
         }
     }
 }

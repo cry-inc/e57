@@ -27,4 +27,3 @@ members = [
 
 [dependencies]
 roxmltree = "0.18"
-nalgebra = "0.32"
