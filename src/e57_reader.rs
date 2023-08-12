@@ -213,7 +213,7 @@ impl E57Reader<BufReader<File>> {
 mod tests {
     use super::*;
     use crate::images::Projection;
-    use crate::{Point, RawValues, RecordName, RecordValue};
+    use crate::{RawValues, RecordName, RecordValue};
     use std::io::{BufWriter, Write};
 
     #[test]
@@ -379,8 +379,8 @@ mod tests {
         let pc = pcs.first().unwrap();
         let writer = File::create("dump.xyz").unwrap();
         let mut writer = BufWriter::new(writer);
-        for p in reader.pointcloud_raw(pc).unwrap() {
-            let p = Point::from_values(p.unwrap(), &pc.prototype).unwrap();
+        for p in reader.pointcloud_simple(pc).unwrap() {
+            let p = p.unwrap();
             if p.cartesian_invalid == 0 {
                 writer
                     .write_fmt(format_args!(
