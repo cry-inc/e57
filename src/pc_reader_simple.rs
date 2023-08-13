@@ -5,7 +5,7 @@ use crate::{
 };
 use std::io::{Read, Seek};
 
-struct ValueIndices {
+struct Indices {
     cartesian: Option<(usize, usize, usize)>,
     cartesian_invalid: Option<usize>,
     spherical: Option<(usize, usize, usize)>,
@@ -28,120 +28,17 @@ pub struct PointCloudReaderSimple<'a, T: Read + Seek> {
     i2c: bool,
     rotation: [f64; 9],
     translation: Translation,
-    indices: ValueIndices,
+    indices: Indices,
 }
 
 impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
     pub(crate) fn new(pc: &PointCloud, reader: &'a mut PagedReader<T>) -> Result<Self> {
-        // Prepare rotation and translation data
-        let transform = pc.transform.clone().unwrap_or(Transform::default());
-        let q = transform.rotation;
-        let rotation = [
-            q.w * q.w + q.x * q.x - q.y * q.y - q.z * q.z,
-            2.0 * (q.x * q.y + q.w * q.z),
-            2.0 * (q.x * q.z - q.w * q.y),
-            2.0 * (q.x * q.y - q.w * q.z),
-            q.w * q.w + q.y * q.y - q.x * q.x - q.z * q.z,
-            2.0 * (q.y * q.z + q.w * q.x),
-            2.0 * (q.x * q.z + q.w * q.y),
-            2.0 * (q.y * q.z - q.w * q.x),
-            q.w * q.w + q.z * q.z - q.x * q.x - q.y * q.y,
-        ];
-        let translation = transform.translation;
-
-        // Prepare indices for fast value lookup
-        let cx = pc
-            .prototype
-            .iter()
-            .position(|r| r.name == RecordName::CartesianX);
-        let cy = pc
-            .prototype
-            .iter()
-            .position(|r| r.name == RecordName::CartesianY);
-        let cz = pc
-            .prototype
-            .iter()
-            .position(|r| r.name == RecordName::CartesianZ);
-        let cartesian = match (cx, cy, cz) {
-            (Some(cx), Some(cy), Some(cz)) => Some((cx, cy, cz)),
-            _ => None,
-        };
-        let cartesian_invalid = pc
-            .prototype
-            .iter()
-            .position(|r| r.name == RecordName::CartesianInvalidState);
-        let sr = pc
-            .prototype
-            .iter()
-            .position(|r| r.name == RecordName::SphericalRange);
-        let sa = pc
-            .prototype
-            .iter()
-            .position(|r| r.name == RecordName::SphericalAzimuth);
-        let se = pc
-            .prototype
-            .iter()
-            .position(|r| r.name == RecordName::SphericalElevation);
-        let spherical = match (sr, sa, se) {
-            (Some(sr), Some(sa), Some(se)) => Some((sr, sa, se)),
-            _ => None,
-        };
-        let spherical_invalid = pc
-            .prototype
-            .iter()
-            .position(|r| r.name == RecordName::SphericalInvalidState);
-        let red = pc
-            .prototype
-            .iter()
-            .position(|r| r.name == RecordName::ColorRed);
-        let green = pc
-            .prototype
-            .iter()
-            .position(|r| r.name == RecordName::ColorGreen);
-        let blue = pc
-            .prototype
-            .iter()
-            .position(|r| r.name == RecordName::ColorBlue);
-        let color = match (red, green, blue) {
-            (Some(red), Some(green), Some(blue)) => Some((red, green, blue)),
-            _ => None,
-        };
-        let color_invalid = pc
-            .prototype
-            .iter()
-            .position(|r| r.name == RecordName::IsColorInvalid);
-        let intensity = pc
-            .prototype
-            .iter()
-            .position(|r| r.name == RecordName::Intensity);
-        let intensity_invalid = pc
-            .prototype
-            .iter()
-            .position(|r| r.name == RecordName::IsIntensityInvalid);
-        let row = pc
-            .prototype
-            .iter()
-            .position(|r| r.name == RecordName::RowIndex);
-        let column = pc
-            .prototype
-            .iter()
-            .position(|r| r.name == RecordName::ColumnIndex);
-        let indices = ValueIndices {
-            cartesian,
-            cartesian_invalid,
-            spherical,
-            spherical_invalid,
-            color,
-            color_invalid,
-            intensity,
-            intensity_invalid,
-            row,
-            column,
-        };
-
+        let (rotation, translation) = Self::prepare_transform(pc);
+        let indices = Self::prepare_indices(pc);
+        let raw_iter = PointCloudReaderRaw::new(pc, reader)?;
         Ok(Self {
             pc: pc.clone(),
-            raw_iter: PointCloudReaderRaw::new(pc, reader)?,
+            raw_iter,
             skip: false,
             transform: true,
             s2c: true,
@@ -176,6 +73,68 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
     /// Default setting is enabled.
     pub fn apply_pose(&mut self, enable: bool) {
         self.transform = enable;
+    }
+
+    fn prepare_transform(pc: &PointCloud) -> ([f64; 9], Translation) {
+        let t = if let Some(t) = &pc.transform {
+            t.clone()
+        } else {
+            Transform::default()
+        };
+        let q = &t.rotation;
+        (
+            [
+                q.w * q.w + q.x * q.x - q.y * q.y - q.z * q.z,
+                2.0 * (q.x * q.y + q.w * q.z),
+                2.0 * (q.x * q.z - q.w * q.y),
+                2.0 * (q.x * q.y - q.w * q.z),
+                q.w * q.w + q.y * q.y - q.x * q.x - q.z * q.z,
+                2.0 * (q.y * q.z + q.w * q.x),
+                2.0 * (q.x * q.z + q.w * q.y),
+                2.0 * (q.y * q.z - q.w * q.x),
+                q.w * q.w + q.z * q.z - q.x * q.x - q.y * q.y,
+            ],
+            t.translation,
+        )
+    }
+
+    fn prepare_indices(pc: &PointCloud) -> Indices {
+        let fi = |name: RecordName| -> Option<usize> {
+            pc.prototype.iter().position(|r| r.name == name)
+        };
+        let cx = fi(RecordName::CartesianX);
+        let cy = fi(RecordName::CartesianY);
+        let cz = fi(RecordName::CartesianZ);
+        let cartesian = match (cx, cy, cz) {
+            (Some(cx), Some(cy), Some(cz)) => Some((cx, cy, cz)),
+            _ => None,
+        };
+        let sr = fi(RecordName::SphericalRange);
+        let sa = fi(RecordName::SphericalAzimuth);
+        let se = fi(RecordName::SphericalElevation);
+        let spherical = match (sr, sa, se) {
+            (Some(sr), Some(sa), Some(se)) => Some((sr, sa, se)),
+            _ => None,
+        };
+        let red = fi(RecordName::ColorRed);
+        let green = fi(RecordName::ColorGreen);
+        let blue = fi(RecordName::ColorBlue);
+        let color = match (red, green, blue) {
+            (Some(red), Some(green), Some(blue)) => Some((red, green, blue)),
+            _ => None,
+        };
+        Indices {
+            cartesian,
+            cartesian_invalid: fi(RecordName::CartesianInvalidState),
+            spherical,
+            spherical_invalid: fi(RecordName::SphericalInvalidState),
+            color,
+            color_invalid: fi(RecordName::IsColorInvalid),
+            intensity: fi(RecordName::Intensity),
+            intensity_invalid: fi(RecordName::IsIntensityInvalid),
+            row: fi(RecordName::RowIndex),
+            column: fi(RecordName::ColumnIndex),
+        }
     }
 
     fn get_next_point(&mut self) -> Option<Result<Point>> {
@@ -220,79 +179,86 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
     }
 
     fn create_point(&self, values: RawValues) -> Result<Point> {
-        let prototype = &self.pc.prototype;
+        let proto = &self.pc.prototype;
 
-        let cartesian = if let Some(indices) = self.indices.cartesian {
+        // Cartesian coordinates
+        let cartesian = if let Some(ind) = self.indices.cartesian {
             CartesianCoordinate {
-                x: values[indices.0].to_f64(&prototype[indices.0].data_type)?,
-                y: values[indices.1].to_f64(&prototype[indices.1].data_type)?,
-                z: values[indices.2].to_f64(&prototype[indices.2].data_type)?,
+                x: values[ind.0].to_f64(&proto[ind.0].data_type)?,
+                y: values[ind.1].to_f64(&proto[ind.1].data_type)?,
+                z: values[ind.2].to_f64(&proto[ind.2].data_type)?,
             }
         } else {
             CartesianCoordinate::default()
         };
-        let cartesian_invalid = if let Some(index) = self.indices.cartesian_invalid {
-            values[index].to_u8(&prototype[index].data_type)?
+        let cartesian_invalid = if let Some(ind) = self.indices.cartesian_invalid {
+            values[ind].to_u8(&proto[ind].data_type)?
         } else if self.indices.cartesian.is_some() {
             0
         } else {
             2
         };
 
-        let spherical = if let Some(indices) = self.indices.spherical {
+        // Spherical coordinates
+        let spherical = if let Some(ind) = self.indices.spherical {
             SphericalCoordinate {
-                range: values[indices.0].to_f64(&prototype[indices.0].data_type)?,
-                azimuth: values[indices.1].to_f64(&prototype[indices.1].data_type)?,
-                elevation: values[indices.2].to_f64(&prototype[indices.2].data_type)?,
+                range: values[ind.0].to_f64(&proto[ind.0].data_type)?,
+                azimuth: values[ind.1].to_f64(&proto[ind.1].data_type)?,
+                elevation: values[ind.2].to_f64(&proto[ind.2].data_type)?,
             }
         } else {
             SphericalCoordinate::default()
         };
-        let spherical_invalid = if let Some(index) = self.indices.spherical_invalid {
-            values[index].to_u8(&prototype[index].data_type)?
+        let spherical_invalid = if let Some(ind) = self.indices.spherical_invalid {
+            values[ind].to_u8(&proto[ind].data_type)?
         } else if self.indices.spherical.is_some() {
             0
         } else {
             2
         };
 
-        let color = if let Some(indices) = self.indices.color {
+        // RGB colors
+        let color = if let Some(ind) = self.indices.color {
             Color {
-                red: values[indices.0].to_unit_f32(&prototype[indices.0].data_type)?,
-                green: values[indices.1].to_unit_f32(&prototype[indices.1].data_type)?,
-                blue: values[indices.2].to_unit_f32(&prototype[indices.2].data_type)?,
+                red: values[ind.0].to_unit_f32(&proto[ind.0].data_type)?,
+                green: values[ind.1].to_unit_f32(&proto[ind.1].data_type)?,
+                blue: values[ind.2].to_unit_f32(&proto[ind.2].data_type)?,
             }
         } else {
             Color::default()
         };
-        let color_invalid = if let Some(index) = self.indices.color_invalid {
-            values[index].to_u8(&prototype[index].data_type)?
+        let color_invalid = if let Some(ind) = self.indices.color_invalid {
+            values[ind].to_u8(&proto[ind].data_type)?
         } else if self.indices.color.is_some() {
             0
         } else {
             1
         };
 
-        let intensity = if let Some(index) = self.indices.intensity {
-            values[index].to_unit_f32(&prototype[index].data_type)?
+        // Intensity values
+        let intensity = if let Some(ind) = self.indices.intensity {
+            values[ind].to_unit_f32(&proto[ind].data_type)?
         } else {
             0.0
         };
-        let intensity_invalid = if let Some(index) = self.indices.intensity_invalid {
-            values[index].to_u8(&prototype[index].data_type)?
+        let intensity_invalid = if let Some(ind) = self.indices.intensity_invalid {
+            values[ind].to_u8(&proto[ind].data_type)?
         } else if self.indices.intensity.is_some() {
             0
         } else {
             1
         };
 
-        let row = if let Some(index) = self.indices.row {
-            values[index].to_i64(&prototype[index].data_type)?
+        // Row index
+        let row = if let Some(ind) = self.indices.row {
+            values[ind].to_i64(&proto[ind].data_type)?
         } else {
             -1
         };
-        let column = if let Some(index) = self.indices.column {
-            values[index].to_i64(&prototype[index].data_type)?
+
+        // Column index
+        let column = if let Some(ind) = self.indices.column {
+            values[ind].to_i64(&proto[ind].data_type)?
         } else {
             -1
         };
@@ -318,43 +284,24 @@ impl<'a, T: Read + Seek> Iterator for PointCloudReaderSimple<'a, T> {
 
     /// Returns the next available point or None if the end was reached.
     fn next(&mut self) -> Option<Self::Item> {
-        if self.skip {
-            loop {
-                let p = self.get_next_point()?;
-                let mut p = match p {
-                    Ok(p) => p,
-                    Err(err) => return Some(Err(err)),
-                };
-                if self.s2c {
-                    self.convert_spherical(&mut p);
-                }
-                if p.cartesian_invalid != 0 {
-                    continue;
-                }
-                if self.i2c {
-                    self.convert_intensity(&mut p);
-                }
-                if self.transform {
-                    self.transform_point(&mut p);
-                }
-                return Some(Ok(p));
+        loop {
+            let mut p = match self.get_next_point()? {
+                Ok(p) => p,
+                Err(err) => return Some(Err(err)),
+            };
+            if self.s2c {
+                self.convert_spherical(&mut p);
             }
-        } else {
-            match self.get_next_point()? {
-                Ok(mut p) => {
-                    if self.s2c {
-                        self.convert_spherical(&mut p);
-                    }
-                    if self.i2c {
-                        self.convert_intensity(&mut p);
-                    }
-                    if self.transform {
-                        self.transform_point(&mut p);
-                    }
-                    Some(Ok(p))
-                }
-                Err(err) => Some(Err(err)),
+            if self.skip && p.cartesian_invalid != 0 {
+                continue;
             }
+            if self.i2c {
+                self.convert_intensity(&mut p);
+            }
+            if self.transform {
+                self.transform_point(&mut p);
+            }
+            return Some(Ok(p));
         }
     }
 }
