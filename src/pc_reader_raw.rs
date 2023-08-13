@@ -45,21 +45,18 @@ impl<'a, T: Read + Seek> PointCloudReaderRaw<'a, T> {
     }
 
     fn available_in_queue(&self) -> usize {
-        let mut available: Option<usize> = None;
+        if self.queues.is_empty() {
+            return 0;
+        }
+
+        let mut av = usize::MAX;
         for q in &self.queues {
             let len = q.len();
-            match available {
-                Some(old_len) => {
-                    if len < old_len {
-                        available = Some(len);
-                    }
-                }
-                None => {
-                    available = Some(len);
-                }
+            if len < av {
+                av = len;
             }
         }
-        available.unwrap_or(0)
+        av
     }
 
     fn pop_queue_point(&mut self) -> Result<RawValues> {
@@ -152,22 +149,23 @@ impl<'a, T: Read + Seek> Iterator for PointCloudReaderRaw<'a, T> {
         }
 
         // Try to read next point from properties queues
-        if self.available_in_queue() > 0 {
-            match self.pop_queue_point() {
-                Ok(point) => {
-                    self.read += 1;
-                    Some(Ok(point))
-                }
-                Err(err) => Some(Err(err)),
+        if self.available_in_queue() < 1 {
+            return None;
+        }
+
+        // Extract next point
+        match self.pop_queue_point() {
+            Ok(point) => {
+                self.read += 1;
+                Some(Ok(point))
             }
-        } else {
-            None
+            Err(err) => Some(Err(err)),
         }
     }
 }
 
-fn append_vec_to_queue<T>(v: Vec<T>, q: &mut VecDeque<T>) {
-    for e in v {
+fn append_vec_to_queue<T>(mut v: Vec<T>, q: &mut VecDeque<T>) {
+    for e in v.drain(..) {
         q.push_back(e)
     }
 }
