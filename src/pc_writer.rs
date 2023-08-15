@@ -3,12 +3,10 @@ use crate::cv_section::CompressedVectorSectionHeader;
 use crate::error::Converter;
 use crate::packet::DataPacketHeader;
 use crate::paged_writer::PagedWriter;
-use crate::root::create_e57_root_element;
 use crate::CartesianBounds;
 use crate::ColorLimits;
 use crate::DateTime;
 use crate::Error;
-use crate::Extension;
 use crate::IndexBounds;
 use crate::IntensityLimits;
 use crate::PointCloud;
@@ -20,7 +18,6 @@ use crate::RecordValue;
 use crate::Result;
 use crate::SphericalBounds;
 use crate::Transform;
-use roxmltree::Document;
 use std::collections::VecDeque;
 use std::io::{Read, Seek, Write};
 
@@ -394,16 +391,6 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
                 _ => Error::invalid("IsTimeStampInvalid needs to be an integer between 0 and 1")?,
             }
         }
-
-        // Check that any extensions have a valid name by verifying that they respect the xml namespace requirements
-        let mut xml: String = Default::default();
-        xml += &create_e57_root_element(&Extension::from_prototype(prototype));
-        for record in prototype {
-            xml += &record.xml_string();
-        }
-        xml += "</e57Root>";
-        Document::parse(&xml)
-            .invalid_err("At least one of the records provided is not valid XML element")?;
 
         Ok(())
     }

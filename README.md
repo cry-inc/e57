@@ -21,11 +21,12 @@ but for that use case the LAS/LAZ file format is more commonly used.
 ## Known Limitations
 * Does not support Point Grouping
 * Does not support Index Packets
+* Only very basic support for extensions
 
 ## Please report incompatible files!
 If you found an E57 file that can be read with other software but produces an error with this crate,
 please let me know and create an issue on Github.
-The same applies for E57 that were created by this library and are not correctly read by this library or any other software.
+The same applies for E57 files that were created by this library and are not correctly read by this or any other software.
 I want this library to work with as many files and applications as possible!
 
 Ideally, you can provide a link to the file itself. If that is not possible,

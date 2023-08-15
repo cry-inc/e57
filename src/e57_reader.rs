@@ -6,6 +6,7 @@ use crate::root::Root;
 use crate::Blob;
 use crate::DateTime;
 use crate::Error;
+use crate::Extension;
 use crate::Header;
 use crate::Image;
 use crate::PointCloud;
@@ -30,6 +31,7 @@ pub struct E57Reader<T: Read + Seek> {
     root: Root,
     pointclouds: Vec<PointCloud>,
     images: Vec<Image>,
+    extensions: Vec<Extension>,
 }
 
 impl<T: Read + Seek> E57Reader<T> {
@@ -53,6 +55,7 @@ impl<T: Read + Seek> E57Reader<T> {
         let root = root_from_document(&document)?;
         let pointclouds = pointclouds_from_document(&document)?;
         let images = Image::vec_from_document(&document)?;
+        let extensions = Extension::vec_from_document(&document);
 
         Ok(Self {
             reader,
@@ -61,6 +64,7 @@ impl<T: Read + Seek> E57Reader<T> {
             root,
             pointclouds,
             images,
+            extensions,
         })
     }
 
@@ -82,6 +86,11 @@ impl<T: Read + Seek> E57Reader<T> {
     /// Returns GUID stored in the XML section.
     pub fn guid(&self) -> &str {
         &self.root.guid
+    }
+
+    /// Returns a list of all extensions defined in this file.
+    pub fn extensions(&self) -> Vec<Extension> {
+        self.extensions.clone()
     }
 
     /// Returns a list of all point cloud descriptors in the file.

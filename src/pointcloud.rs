@@ -1,6 +1,5 @@
 use crate::error::Converter;
 use crate::xml;
-use crate::Extension;
 use crate::{
     CartesianBounds, ColorLimits, DateTime, Error, IndexBounds, IntensityLimits, Record,
     RecordDataType, RecordName, Result, SphericalBounds, Transform,
@@ -63,19 +62,6 @@ pub struct PointCloud {
     pub atmospheric_pressure: Option<f64>,
 }
 
-fn extract_extensions_from_root(document: &Document) -> Vec<Extension> {
-    let mut ext = Vec::new();
-    for item in document.root_element().namespaces() {
-        if let Some(name) = item.name() {
-            ext.push(Extension {
-                name: name.to_string(),
-                url: item.uri().to_string(),
-            });
-        }
-    }
-    ext
-}
-
 pub fn pointclouds_from_document(document: &Document) -> Result<Vec<PointCloud>> {
     let data3d_node = document
         .descendants()
@@ -85,14 +71,14 @@ pub fn pointclouds_from_document(document: &Document) -> Result<Vec<PointCloud>>
     let mut pointclouds = Vec::new();
     for n in data3d_node.children() {
         if n.has_tag_name("vectorChild") && n.attribute("type") == Some("Structure") {
-            let pointcloud = extract_pointcloud(&n, &extract_extensions_from_root(document))?;
+            let pointcloud = extract_pointcloud(&n)?;
             pointclouds.push(pointcloud);
         }
     }
     Ok(pointclouds)
 }
 
-fn extract_pointcloud(node: &Node, extensions: &[Extension]) -> Result<PointCloud> {
+fn extract_pointcloud(node: &Node) -> Result<PointCloud> {
     let guid = xml::req_string(node, "guid")?;
     let name = xml::opt_string(node, "name")?;
     let description = xml::opt_string(node, "description")?;
@@ -134,18 +120,14 @@ fn extract_pointcloud(node: &Node, extensions: &[Extension]) -> Result<PointClou
         .invalid_err("Cannot find 'prototype' child in 'points' tag")?;
     let mut prototype = Vec::new();
     for n in prototype_tag.children() {
-        if n.is_element() {
-            let ns = n.lookup_prefix(n.tag_name().namespace().unwrap_or_default());
-            let tag_name = n.tag_name().name();
-            // find the namespace in the list of extensions
-            let ext = ns
-                .and_then(|item| extensions.iter().find(|&ext| ext.name == item))
-                .cloned();
-
-            let name = RecordName::from_extension_and_tag_name(ext, tag_name)?;
-            let data_type = RecordDataType::from_node(&n)?;
-            prototype.push(Record { name, data_type });
+        if !n.is_element() {
+            continue;
         }
+        let ns = n.lookup_prefix(n.tag_name().namespace().unwrap_or_default());
+        let tag = n.tag_name().name();
+        let name = RecordName::from_namespace_and_tag_name(ns, tag)?;
+        let data_type = RecordDataType::from_node(&n)?;
+        prototype.push(Record { name, data_type });
     }
 
     Ok(PointCloud {

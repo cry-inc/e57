@@ -1,6 +1,6 @@
 use crate::bs_write::ByteStreamWriteBuffer;
 use crate::error::Converter;
-use crate::{Error, Extension, Result};
+use crate::{Error, Result};
 use roxmltree::Node;
 use std::error::Error as StdError;
 use std::fmt::{Debug, Display};
@@ -28,6 +28,7 @@ pub enum RecordDataType {
 
 /// Used to describe the prototype records with all attributes that exit in the point cloud.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum RecordName {
     /// Cartesian X coordinate (in meters).
     CartesianX,
@@ -81,14 +82,18 @@ pub enum RecordName {
     /// Can have the value 0 (valid) or 1 (invalid).
     IsTimeStampInvalid,
 
-    /// A RecordName not known to the library. This is common for current and future extensions of the standard.
+    /// Unknown point attribute that is not part of the E57 standard.
+    /// Files with such attributes are still valid, since any E57 reader must be able to handle unknown extensions.
+    /// Most extensions are described on <http://www.libe57.org/extensions.html>, but others might be proprietary.
     Unknown {
-        extension: Extension,
+        /// XML namespace of the extension that defines this attribute.
+        namespace: String,
+        /// Name of the point atribute.
         name: String,
     },
 }
 
-/// Represents a raw value of records inside a point cloud.
+/// Represents a raw value of attributes inside a point cloud.
 ///
 /// For scaled integers the record data type with the scale is needed to calulcate the actual f64 value.
 #[derive(Clone, Debug, PartialEq)]
@@ -101,41 +106,53 @@ pub enum RecordValue {
 
 impl Record {
     pub(crate) fn xml_string(&self) -> String {
+        let namespace = self
+            .name
+            .namespace()
+            .map(|n| n.to_owned() + ":")
+            .unwrap_or("".to_owned());
         let tag_name = self.name.tag_name();
         let (attrs, value) = serialize_record_type(&self.data_type);
-        format!("<{tag_name} {attrs}>{value}</{tag_name}>\n")
+        format!("<{namespace}{tag_name} {attrs}>{value}</{namespace}{tag_name}>\n")
     }
 }
 
 impl RecordName {
-    pub(crate) fn tag_name(&self) -> String {
+    pub(crate) fn tag_name(&self) -> &str {
         match self {
-            RecordName::CartesianX => "cartesianX".to_owned(),
-            RecordName::CartesianY => "cartesianY".to_owned(),
-            RecordName::CartesianZ => "cartesianZ".to_owned(),
-            RecordName::CartesianInvalidState => "cartesianInvalidState".to_owned(),
-            RecordName::SphericalRange => "sphericalRange".to_owned(),
-            RecordName::SphericalAzimuth => "sphericalAzimuth".to_owned(),
-            RecordName::SphericalElevation => "sphericalElevation".to_owned(),
-            RecordName::SphericalInvalidState => "sphericalInvalidState".to_owned(),
-            RecordName::Intensity => "intensity".to_owned(),
-            RecordName::IsIntensityInvalid => "isIntensityInvalid".to_owned(),
-            RecordName::ColorRed => "colorRed".to_owned(),
-            RecordName::ColorGreen => "colorGreen".to_owned(),
-            RecordName::ColorBlue => "colorBlue".to_owned(),
-            RecordName::IsColorInvalid => "isColorInvalid".to_owned(),
-            RecordName::RowIndex => "rowIndex".to_owned(),
-            RecordName::ColumnIndex => "columnIndex".to_owned(),
-            RecordName::ReturnCount => "returnCount".to_owned(),
-            RecordName::ReturnIndex => "returnIndex".to_owned(),
-            RecordName::TimeStamp => "timeStamp".to_owned(),
-            RecordName::IsTimeStampInvalid => "isTimeStampInvalid".to_owned(),
-            RecordName::Unknown { extension, name } => format!("{}:{}", extension.name, name),
+            RecordName::CartesianX => "cartesianX",
+            RecordName::CartesianY => "cartesianY",
+            RecordName::CartesianZ => "cartesianZ",
+            RecordName::CartesianInvalidState => "cartesianInvalidState",
+            RecordName::SphericalRange => "sphericalRange",
+            RecordName::SphericalAzimuth => "sphericalAzimuth",
+            RecordName::SphericalElevation => "sphericalElevation",
+            RecordName::SphericalInvalidState => "sphericalInvalidState",
+            RecordName::Intensity => "intensity",
+            RecordName::IsIntensityInvalid => "isIntensityInvalid",
+            RecordName::ColorRed => "colorRed",
+            RecordName::ColorGreen => "colorGreen",
+            RecordName::ColorBlue => "colorBlue",
+            RecordName::IsColorInvalid => "isColorInvalid",
+            RecordName::RowIndex => "rowIndex",
+            RecordName::ColumnIndex => "columnIndex",
+            RecordName::ReturnCount => "returnCount",
+            RecordName::ReturnIndex => "returnIndex",
+            RecordName::TimeStamp => "timeStamp",
+            RecordName::IsTimeStampInvalid => "isTimeStampInvalid",
+            RecordName::Unknown { name, .. } => name,
         }
     }
 
-    pub(crate) fn from_extension_and_tag_name(
-        extension: Option<Extension>,
+    pub(crate) fn namespace(&self) -> Option<&str> {
+        match self {
+            RecordName::Unknown { namespace, .. } => Some(namespace),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn from_namespace_and_tag_name(
+        namespace: Option<&str>,
         tag_name: &str,
     ) -> Result<Self> {
         Ok(match tag_name {
@@ -160,10 +177,11 @@ impl RecordName {
             "timeStamp" => RecordName::TimeStamp,
             "isTimeStampInvalid" => RecordName::IsTimeStampInvalid,
             _ => RecordName::Unknown {
-                extension: extension.ok_or(Error::Invalid{
-                    desc: format!("An appropriate extension should be present with an unknown tag_name {tag_name}"),
-                    source: None,
-                    })?,
+                namespace: namespace
+                    .invalid_err(format!(
+                        "You must provide a namespace of the corresponding extension for the unknown attribute '{tag_name}'"
+                    ))?
+                    .to_owned(),
                 name: tag_name.to_owned(),
             },
         })

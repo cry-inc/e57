@@ -59,17 +59,6 @@ pub fn root_from_document(document: &Document) -> Result<Root> {
     })
 }
 
-pub(crate) fn create_e57_root_element(extensions: &[Extension]) -> String {
-    let mut extensions_string: String = Default::default();
-    for ext in extensions {
-        extensions_string += &format!(" xmlns:{}=\"{}\"", ext.name, ext.url);
-    }
-
-    format!(
-        "<e57Root type=\"Structure\" {extensions_string} xmlns=\"http://www.astm.org/COMMIT/E57/2010-e57-v1.0\">\n"
-    )
-}
-
 pub fn serialize_root(
     root: &Root,
     pointclouds: &[PointCloud],
@@ -78,7 +67,11 @@ pub fn serialize_root(
 ) -> Result<String> {
     let mut xml = String::new();
     xml += "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
-    xml += &create_e57_root_element(extensions);
+    xml += "<e57Root type=\"Structure\" ";
+    for ext in extensions {
+        xml += &format!("xmlns:{}=\"{}\" ", ext.namespace, ext.url);
+    }
+    xml += "xmlns=\"http://www.astm.org/COMMIT/E57/2010-e57-v1.0\">\n";
     xml += "<formatName type=\"String\"><![CDATA[ASTM E57 3D Imaging Data File]]></formatName>\n";
     if root.guid.is_empty() {
         Error::invalid("Empty file GUID is not allowed")?
