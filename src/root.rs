@@ -1,5 +1,6 @@
 use crate::error::Converter;
 use crate::pointcloud::serialize_pointcloud;
+use crate::Extension;
 use crate::{xml, DateTime, Error, Image, PointCloud, Result};
 use roxmltree::Document;
 
@@ -58,10 +59,26 @@ pub fn root_from_document(document: &Document) -> Result<Root> {
     })
 }
 
-pub fn serialize_root(root: &Root, pointclouds: &[PointCloud], images: &[Image]) -> Result<String> {
+pub(crate) fn create_e57_root_element(extensions: &[Extension]) -> String {
+    let mut extensions_string: String = Default::default();
+    for ext in extensions {
+        extensions_string += &format!(" xmlns:{}=\"{}\"", ext.name, ext.url);
+    }
+
+    format!(
+        "<e57Root type=\"Structure\" {extensions_string} xmlns=\"http://www.astm.org/COMMIT/E57/2010-e57-v1.0\">\n"
+    )
+}
+
+pub fn serialize_root(
+    root: &Root,
+    pointclouds: &[PointCloud],
+    images: &[Image],
+    extensions: &[Extension],
+) -> Result<String> {
     let mut xml = String::new();
     xml += "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
-    xml += "<e57Root type=\"Structure\" xmlns=\"http://www.astm.org/COMMIT/E57/2010-e57-v1.0\">\n";
+    xml += &create_e57_root_element(extensions);
     xml += "<formatName type=\"String\"><![CDATA[ASTM E57 3D Imaging Data File]]></formatName>\n";
     if root.guid.is_empty() {
         Error::invalid("Empty file GUID is not allowed")?
