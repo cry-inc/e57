@@ -1,6 +1,6 @@
 use crate::bs_write::ByteStreamWriteBuffer;
 use crate::error::Converter;
-use crate::{Error, Result};
+use crate::{Error, Extension, Result};
 use roxmltree::Node;
 use std::error::Error as StdError;
 use std::fmt::{Debug, Display};
@@ -80,6 +80,12 @@ pub enum RecordName {
     /// Indicates whether the time stamp value is meaningful.
     /// Can have the value 0 (valid) or 1 (invalid).
     IsTimeStampInvalid,
+
+    /// A RecordName not known to the library. This is common for current and future extensions of the standard.
+    Unknown {
+        extension: Extension,
+        name: String,
+    },
 }
 
 /// Represents a raw value of records inside a point cloud.
@@ -103,32 +109,36 @@ impl Record {
 
 impl RecordName {
     pub(crate) fn tag_name(&self) -> String {
-        String::from(match self {
-            RecordName::CartesianX => "cartesianX",
-            RecordName::CartesianY => "cartesianY",
-            RecordName::CartesianZ => "cartesianZ",
-            RecordName::CartesianInvalidState => "cartesianInvalidState",
-            RecordName::SphericalRange => "sphericalRange",
-            RecordName::SphericalAzimuth => "sphericalAzimuth",
-            RecordName::SphericalElevation => "sphericalElevation",
-            RecordName::SphericalInvalidState => "sphericalInvalidState",
-            RecordName::Intensity => "intensity",
-            RecordName::IsIntensityInvalid => "isIntensityInvalid",
-            RecordName::ColorRed => "colorRed",
-            RecordName::ColorGreen => "colorGreen",
-            RecordName::ColorBlue => "colorBlue",
-            RecordName::IsColorInvalid => "isColorInvalid",
-            RecordName::RowIndex => "rowIndex",
-            RecordName::ColumnIndex => "columnIndex",
-            RecordName::ReturnCount => "returnCount",
-            RecordName::ReturnIndex => "returnIndex",
-            RecordName::TimeStamp => "timeStamp",
-            RecordName::IsTimeStampInvalid => "isTimeStampInvalid",
-        })
+        match self {
+            RecordName::CartesianX => "cartesianX".to_owned(),
+            RecordName::CartesianY => "cartesianY".to_owned(),
+            RecordName::CartesianZ => "cartesianZ".to_owned(),
+            RecordName::CartesianInvalidState => "cartesianInvalidState".to_owned(),
+            RecordName::SphericalRange => "sphericalRange".to_owned(),
+            RecordName::SphericalAzimuth => "sphericalAzimuth".to_owned(),
+            RecordName::SphericalElevation => "sphericalElevation".to_owned(),
+            RecordName::SphericalInvalidState => "sphericalInvalidState".to_owned(),
+            RecordName::Intensity => "intensity".to_owned(),
+            RecordName::IsIntensityInvalid => "isIntensityInvalid".to_owned(),
+            RecordName::ColorRed => "colorRed".to_owned(),
+            RecordName::ColorGreen => "colorGreen".to_owned(),
+            RecordName::ColorBlue => "colorBlue".to_owned(),
+            RecordName::IsColorInvalid => "isColorInvalid".to_owned(),
+            RecordName::RowIndex => "rowIndex".to_owned(),
+            RecordName::ColumnIndex => "columnIndex".to_owned(),
+            RecordName::ReturnCount => "returnCount".to_owned(),
+            RecordName::ReturnIndex => "returnIndex".to_owned(),
+            RecordName::TimeStamp => "timeStamp".to_owned(),
+            RecordName::IsTimeStampInvalid => "isTimeStampInvalid".to_owned(),
+            RecordName::Unknown { extension, name } => format!("{}:{}", extension.name, name),
+        }
     }
 
-    pub(crate) fn from_tag_name(value: &str) -> Result<Self> {
-        Ok(match value {
+    pub(crate) fn from_extension_and_tag_name(
+        extension: Option<Extension>,
+        tag_name: &str,
+    ) -> Result<Self> {
+        Ok(match tag_name {
             "cartesianX" => RecordName::CartesianX,
             "cartesianY" => RecordName::CartesianY,
             "cartesianZ" => RecordName::CartesianZ,
@@ -149,7 +159,13 @@ impl RecordName {
             "returnIndex" => RecordName::ReturnIndex,
             "timeStamp" => RecordName::TimeStamp,
             "isTimeStampInvalid" => RecordName::IsTimeStampInvalid,
-            name => Error::not_implemented(format!("Found unknown record name: '{name}'"))?,
+            _ => RecordName::Unknown {
+                extension: extension.ok_or(Error::Invalid{
+                    desc: format!("An appropriate extension should be present with an unknown tag_name {tag_name}"),
+                    source: None,
+                    })?,
+                name: tag_name.to_owned(),
+            },
         })
     }
 }

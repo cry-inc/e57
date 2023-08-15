@@ -2,6 +2,7 @@ use crate::error::Converter;
 use crate::paged_writer::PagedWriter;
 use crate::pc_writer::PointCloudWriter;
 use crate::root::{serialize_root, Root};
+use crate::Extension;
 use crate::{DateTime, Header, Image, ImageWriter, PointCloud, Record, Result};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
@@ -71,7 +72,12 @@ impl<T: Write + Read + Seek> E57Writer<T> {
     /// This will generate and write the XML metadata to finalize and complete the E57 file.
     /// Without calling this method before dropping the E57 file will be incomplete and invalid!
     pub fn finalize(&mut self) -> Result<()> {
-        let xml = serialize_root(&self.root, &self.pointclouds, &self.images)?;
+        let xml = serialize_root(
+            &self.root,
+            &self.pointclouds,
+            &self.images,
+            &self.extract_extensions_from_prototypes(),
+        )?;
         let xml_bytes = xml.as_bytes();
         let xml_length = xml_bytes.len();
         let xml_offset = self.writer.physical_position()?;
@@ -92,6 +98,15 @@ impl<T: Write + Read + Seek> E57Writer<T> {
         self.writer
             .flush()
             .write_err("Failed to flush writer at the end")
+    }
+
+    /// This function will go through all pointclouds, get their prototypes, and get all extensions to be added in the header
+    fn extract_extensions_from_prototypes(&self) -> Vec<Extension> {
+        let mut prototype_combined = Vec::new();
+        for pc in &self.pointclouds {
+            prototype_combined.append(&mut pc.prototype.clone())
+        }
+        Extension::from_prototype(&prototype_combined)
     }
 }
 
@@ -400,6 +415,207 @@ mod tests {
             assert_eq!(bounds.x_max.unwrap(), 1.0);
             assert_eq!(bounds.y_max.unwrap(), 1.0);
             assert_eq!(bounds.z_max.unwrap(), 1.0);
+        }
+
+        remove_file(out_path).unwrap();
+    }
+
+    #[test]
+    fn custom_record_name() {
+        let out_path = Path::new("custom_record_name.e57");
+
+        {
+            let mut writer = E57Writer::from_file(out_path, "custom_record_name_guid").unwrap();
+            const INTEGER_TYPE: RecordDataType = RecordDataType::Integer { min: -10, max: 11 };
+            const SCALED_INT: RecordDataType = RecordDataType::ScaledInteger {
+                min: -1000,
+                max: 1000,
+                scale: 0.001,
+            };
+
+            let extension = Extension {
+                name: "my_extension".to_owned(),
+                url: "my_url".to_owned(),
+            };
+            let extension2 = Extension {
+                name: "my_extension2".to_owned(),
+                url: "my_url2".to_owned(),
+            };
+
+            let prototype = vec![
+                Record {
+                    name: RecordName::Unknown {
+                        extension: extension.clone(),
+                        name: String::from("some_name"),
+                    },
+                    data_type: INTEGER_TYPE,
+                },
+                Record {
+                    name: RecordName::CartesianX,
+                    data_type: SCALED_INT,
+                },
+                Record {
+                    name: RecordName::Unknown {
+                        extension: extension2.clone(),
+                        name: String::from("some_other_name"),
+                    },
+                    data_type: INTEGER_TYPE,
+                },
+                Record {
+                    name: RecordName::CartesianY,
+                    data_type: SCALED_INT,
+                },
+                Record {
+                    name: RecordName::Unknown {
+                        extension,
+                        name: String::from("ai"),
+                    },
+                    data_type: INTEGER_TYPE,
+                },
+                Record {
+                    name: RecordName::CartesianZ,
+                    data_type: SCALED_INT,
+                },
+            ];
+            let mut pc_writer = writer.add_pointcloud("pc_guid", prototype).unwrap();
+            pc_writer
+                .add_point(vec![
+                    RecordValue::Integer(-10),
+                    RecordValue::ScaledInteger(-1000),
+                    RecordValue::Integer(-1),
+                    RecordValue::ScaledInteger(-1000),
+                    RecordValue::Integer(1),
+                    RecordValue::ScaledInteger(-1000),
+                ])
+                .unwrap();
+            pc_writer
+                .add_point(vec![
+                    RecordValue::Integer(2),
+                    RecordValue::ScaledInteger(1000),
+                    RecordValue::Integer(7),
+                    RecordValue::ScaledInteger(1000),
+                    RecordValue::Integer(-8),
+                    RecordValue::ScaledInteger(1000),
+                ])
+                .unwrap();
+            pc_writer.finalize().unwrap();
+            writer.finalize().unwrap();
+        }
+
+        {
+            let mut reader = E57Reader::from_file(out_path).unwrap();
+            let pcs = reader.pointclouds();
+            let pc = pcs.first().unwrap();
+            let iter = reader.pointcloud_simple(pc).unwrap();
+            let read_points = iter.collect::<Result<Vec<Point>>>().unwrap();
+
+            assert_eq!(read_points.len(), 2);
+            assert_eq!(read_points[0].cartesian.x, -1.0);
+            assert_eq!(read_points[0].cartesian.y, -1.0);
+            assert_eq!(read_points[0].cartesian.z, -1.0);
+            assert_eq!(read_points[1].cartesian.x, 1.0);
+            assert_eq!(read_points[1].cartesian.y, 1.0);
+            assert_eq!(read_points[1].cartesian.z, 1.0);
+
+            let bounds = pc.cartesian_bounds.as_ref().unwrap();
+            assert_eq!(bounds.x_min.unwrap(), -1.0);
+            assert_eq!(bounds.y_min.unwrap(), -1.0);
+            assert_eq!(bounds.z_min.unwrap(), -1.0);
+            assert_eq!(bounds.x_max.unwrap(), 1.0);
+            assert_eq!(bounds.y_max.unwrap(), 1.0);
+            assert_eq!(bounds.z_max.unwrap(), 1.0);
+        }
+
+        remove_file(out_path).unwrap();
+    }
+
+    #[test]
+    fn invalid_record_name_fails() {
+        let out_path = Path::new("invalid_record_name.e57");
+
+        {
+            let mut writer = E57Writer::from_file(out_path, "invalid_record_name_guid").unwrap();
+            const INTEGER_TYPE: RecordDataType = RecordDataType::Integer { min: -10, max: 11 };
+            let extension = Extension {
+                name: "my_extension".to_owned(),
+                url: "my_url".to_owned(),
+            };
+            let mut prototype = vec![
+                Record {
+                    name: RecordName::CartesianX,
+                    data_type: INTEGER_TYPE,
+                },
+                Record {
+                    name: RecordName::CartesianY,
+                    data_type: INTEGER_TYPE,
+                },
+                Record {
+                    name: RecordName::CartesianZ,
+                    data_type: INTEGER_TYPE,
+                },
+            ];
+
+            // normal XYZ succeeds
+            assert!(writer.add_pointcloud("pc_guid", prototype.clone()).is_ok());
+
+            // adding whitespace name fails
+            prototype.push(Record {
+                name: RecordName::Unknown {
+                    extension: extension.clone(),
+                    name: "   ".to_string(),
+                },
+                data_type: INTEGER_TYPE,
+            });
+            assert!(writer.add_pointcloud("pc_guid", prototype.clone()).is_err());
+
+            // special character fails
+            prototype.push(Record {
+                name: RecordName::Unknown {
+                    extension,
+                    name: "@e57isgreat".to_string(),
+                },
+                data_type: INTEGER_TYPE,
+            });
+            assert!(writer.add_pointcloud("pc_guid", prototype.clone()).is_err());
+
+            // extension with empty url
+            prototype.push(Record {
+                name: RecordName::Unknown {
+                    extension: Extension {
+                        name: "my_extension".to_owned(),
+                        url: "   ".to_owned(),
+                    },
+                    name: "hi".to_string(),
+                },
+                data_type: INTEGER_TYPE,
+            });
+            assert!(writer.add_pointcloud("pc_guid", prototype.clone()).is_err());
+
+            // extension with empty name
+            prototype.push(Record {
+                name: RecordName::Unknown {
+                    extension: Extension {
+                        name: "   ".to_owned(),
+                        url: "url".to_owned(),
+                    },
+                    name: "hi".to_string(),
+                },
+                data_type: INTEGER_TYPE,
+            });
+            assert!(writer.add_pointcloud("pc_guid", prototype.clone()).is_err());
+
+            // extension with invalid name
+            prototype.push(Record {
+                name: RecordName::Unknown {
+                    extension: Extension {
+                        name: "@invalid_name".to_owned(),
+                        url: "url".to_owned(),
+                    },
+                    name: "hi".to_string(),
+                },
+                data_type: INTEGER_TYPE,
+            });
+            assert!(writer.add_pointcloud("pc_guid", prototype.clone()).is_err());
         }
 
         remove_file(out_path).unwrap();
