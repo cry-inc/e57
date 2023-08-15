@@ -540,7 +540,7 @@ mod tests {
                 name: "my_extension".to_owned(),
                 url: "my_url".to_owned(),
             };
-            let mut prototype = vec![
+            let prototype = vec![
                 Record {
                     name: RecordName::CartesianX,
                     data_type: INTEGER_TYPE,
@@ -557,29 +557,35 @@ mod tests {
 
             // normal XYZ succeeds
             assert!(writer.add_pointcloud("pc_guid", prototype.clone()).is_ok());
-
+            let mut prototype_extended = prototype.clone();
             // adding whitespace name fails
-            prototype.push(Record {
+            prototype_extended.push(Record {
                 name: RecordName::Unknown {
                     extension: extension.clone(),
                     name: "   ".to_string(),
                 },
                 data_type: INTEGER_TYPE,
             });
-            assert!(writer.add_pointcloud("pc_guid", prototype.clone()).is_err());
+            assert!(writer
+                .add_pointcloud("pc_guid", prototype_extended)
+                .is_err());
 
+            let mut prototype_extended = prototype.clone();
             // special character fails
-            prototype.push(Record {
+            prototype_extended.push(Record {
                 name: RecordName::Unknown {
                     extension,
                     name: "@e57isgreat".to_string(),
                 },
                 data_type: INTEGER_TYPE,
             });
-            assert!(writer.add_pointcloud("pc_guid", prototype.clone()).is_err());
+            assert!(writer
+                .add_pointcloud("pc_guid", prototype_extended)
+                .is_err());
 
+            let mut prototype_extended = prototype.clone();
             // extension with empty url
-            prototype.push(Record {
+            prototype_extended.push(Record {
                 name: RecordName::Unknown {
                     extension: Extension {
                         name: "my_extension".to_owned(),
@@ -589,10 +595,11 @@ mod tests {
                 },
                 data_type: INTEGER_TYPE,
             });
-            assert!(writer.add_pointcloud("pc_guid", prototype.clone()).is_err());
+            assert!(writer.add_pointcloud("pc_guid", prototype_extended).is_ok());
 
+            let mut prototype_extended = prototype.clone();
             // extension with empty name
-            prototype.push(Record {
+            prototype_extended.push(Record {
                 name: RecordName::Unknown {
                     extension: Extension {
                         name: "   ".to_owned(),
@@ -602,10 +609,13 @@ mod tests {
                 },
                 data_type: INTEGER_TYPE,
             });
-            assert!(writer.add_pointcloud("pc_guid", prototype.clone()).is_err());
+            assert!(writer
+                .add_pointcloud("pc_guid", prototype_extended)
+                .is_err());
 
+            let mut prototype_extended = prototype.clone();
             // extension with invalid name
-            prototype.push(Record {
+            prototype_extended.push(Record {
                 name: RecordName::Unknown {
                     extension: Extension {
                         name: "@invalid_name".to_owned(),
@@ -615,7 +625,9 @@ mod tests {
                 },
                 data_type: INTEGER_TYPE,
             });
-            assert!(writer.add_pointcloud("pc_guid", prototype.clone()).is_err());
+            assert!(writer
+                .add_pointcloud("pc_guid", prototype_extended)
+                .is_err());
         }
 
         remove_file(out_path).unwrap();
