@@ -24,10 +24,21 @@
             ]
         },
         {
-            "label": "Check",
+            "label": "Clippy",
             "command": "cargo",
             "args": [
                 "clippy",
+                "--all"
+            ],
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+        {
+            "label": "Docs",
+            "command": "cargo",
+            "args": [
+                "doc",
                 "--all"
             ],
             "problemMatcher": [
@@ -50,9 +61,10 @@
             "dependsOrder": "sequence",
             "dependsOn": [
                 "Format",
-                "Check",
-                "Test",
-                "Build"
+                "Clippy",
+                "Docs",
+                "Build",
+                "Test"
             ],
             "problemMatcher": []
         },
