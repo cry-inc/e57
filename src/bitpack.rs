@@ -9,7 +9,10 @@ use std::collections::VecDeque;
 pub struct BitPack;
 
 #[inline]
-fn unpack_fp<T: FromBytes>(stream: &mut ByteStreamReadBuffer) -> Result<Vec<T>> {
+fn unpack_fp<T: FromBytes>(
+    stream: &mut ByteStreamReadBuffer,
+    output: &mut dyn FnMut(T),
+) -> Result<()> {
     let bits = T::bits();
     let av_bits = stream.available();
     if av_bits % bits != 0 {
@@ -18,19 +21,23 @@ fn unpack_fp<T: FromBytes>(stream: &mut ByteStreamReadBuffer) -> Result<Vec<T>> 
         ))?
     }
     let count = av_bits / bits;
-    let mut result = Vec::with_capacity(count as usize);
     for _ in 0..count {
         let e = stream.extract(bits).internal_err(format!(
             "Unexpected error when extracing {} from byte stream",
             std::any::type_name::<T>()
         ))?;
-        result.push(T::from_le_bytes(e.data.as_slice())?);
+        output(T::from_le_bytes(e.data.as_slice())?);
     }
-    Ok(result)
+    Ok(())
 }
 
 #[inline]
-fn unpack_int(stream: &mut ByteStreamReadBuffer, min: i64, max: i64) -> Result<Vec<i64>> {
+fn unpack_int(
+    stream: &mut ByteStreamReadBuffer,
+    min: i64,
+    max: i64,
+    output: &mut dyn FnMut(i64),
+) -> Result<()> {
     let range = max - min;
     let bit_size = f64::ceil(f64::log2(range as f64 + 1.0)) as u64;
     if bit_size > 56 && bit_size != 64 {
@@ -42,7 +49,6 @@ fn unpack_int(stream: &mut ByteStreamReadBuffer, min: i64, max: i64) -> Result<V
     for i in 0..bit_size {
         mask |= 1 << i;
     }
-    let mut result = Vec::with_capacity((stream.available() / bit_size) as usize);
     loop {
         if stream.available() < bit_size {
             break;
@@ -54,9 +60,9 @@ fn unpack_int(stream: &mut ByteStreamReadBuffer, min: i64, max: i64) -> Result<V
         tmp[..e.data.len()].copy_from_slice(&e.data);
         let uint_value = (u64::from_le_bytes(tmp) >> e.offset) & mask;
         let int_value = uint_value as i64 + min;
-        result.push(int_value);
+        output(int_value);
     }
-    Ok(result)
+    Ok(())
 }
 
 impl BitPack {
@@ -64,22 +70,18 @@ impl BitPack {
         stream: &mut ByteStreamReadBuffer,
         output: &mut VecDeque<RecordValue>,
     ) -> Result<()> {
-        let doubles = unpack_fp::<f64>(stream)?;
-        for d in doubles {
-            output.push_back(RecordValue::Double(d));
-        }
-        Ok(())
+        unpack_fp::<f64>(stream, &mut |v: f64| {
+            output.push_back(RecordValue::Double(v))
+        })
     }
 
     pub fn unpack_singles(
         stream: &mut ByteStreamReadBuffer,
         output: &mut VecDeque<RecordValue>,
     ) -> Result<()> {
-        let singles = unpack_fp::<f32>(stream)?;
-        for s in singles {
-            output.push_back(RecordValue::Single(s));
-        }
-        Ok(())
+        unpack_fp::<f32>(stream, &mut |v: f32| {
+            output.push_back(RecordValue::Single(v))
+        })
     }
 
     pub fn unpack_ints(
@@ -88,11 +90,9 @@ impl BitPack {
         max: i64,
         output: &mut VecDeque<RecordValue>,
     ) -> Result<()> {
-        let ints = unpack_int(stream, min, max)?;
-        for i in ints {
-            output.push_back(RecordValue::Integer(i));
-        }
-        Ok(())
+        unpack_int(stream, min, max, &mut |v: i64| {
+            output.push_back(RecordValue::Integer(v))
+        })
     }
 
     pub fn unpack_scaled_ints(
@@ -101,11 +101,9 @@ impl BitPack {
         max: i64,
         output: &mut VecDeque<RecordValue>,
     ) -> Result<()> {
-        let ints = unpack_int(stream, min, max)?;
-        for i in ints {
-            output.push_back(RecordValue::ScaledInteger(i));
-        }
-        Ok(())
+        unpack_int(stream, min, max, &mut |v: i64| {
+            output.push_back(RecordValue::ScaledInteger(v))
+        })
     }
 }
 
