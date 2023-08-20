@@ -11,7 +11,7 @@
  */
 
 use anyhow::{bail, Context, Result};
-use e57::E57Reader;
+use e57::{CartesianCoordinate, E57Reader};
 use std::env::args;
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -38,29 +38,29 @@ fn main() -> Result<()> {
     let pointclouds = file.pointclouds();
     for pointcloud in pointclouds {
         // Iterate over all points in point cloud
-        let mut iter = file
+        let iter = file
             .pointcloud_simple(&pointcloud)
             .context("Unable to get point cloud iterator")?;
-        iter.skip_invalid(true);
         for p in iter {
             let p = p.context("Unable to read next point")?;
 
             // Write XYZ data to output file
-            writer
-                .write_fmt(format_args!(
-                    "{} {} {}",
-                    p.cartesian.x, p.cartesian.y, p.cartesian.z
-                ))
-                .context("Failed to write XYZ coordinates")?;
+            if let CartesianCoordinate::Valid { x, y, z } = p.cartesian {
+                writer
+                    .write_fmt(format_args!("{x} {y} {z}"))
+                    .context("Failed to write XYZ coordinates")?;
+            } else {
+                continue;
+            }
 
             // If available, write RGB color or intensity color values
-            if p.color_invalid == 0 {
+            if let Some(color) = p.color {
                 writer
                     .write_fmt(format_args!(
                         " {} {} {}",
-                        (p.color.red * 255.) as u8,
-                        (p.color.green * 255.) as u8,
-                        (p.color.blue * 255.) as u8
+                        (color.red * 255.) as u8,
+                        (color.green * 255.) as u8,
+                        (color.blue * 255.) as u8
                     ))
                     .context("Failed to write RGB color")?;
             }

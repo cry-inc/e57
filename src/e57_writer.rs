@@ -138,8 +138,8 @@ impl E57Writer<File> {
 mod tests {
     use super::*;
     use crate::{
-        E57Reader, ImageFormat, Point, Quaternion, RawValues, RecordDataType, RecordName,
-        RecordValue, SphericalImageProperties, Transform, Translation,
+        CartesianCoordinate, E57Reader, ImageFormat, Point, Quaternion, RawValues, RecordDataType,
+        RecordName, RecordValue, SphericalImageProperties, Transform, Translation,
         VisualReferenceImageProperties,
     };
     use std::f32::consts::PI;
@@ -412,12 +412,22 @@ mod tests {
             let iter = reader.pointcloud_simple(pc).unwrap();
             let points = iter.collect::<Result<Vec<Point>>>().unwrap();
             assert_eq!(points.len(), 2);
-            assert_eq!(points[0].cartesian.x, -1.0);
-            assert_eq!(points[0].cartesian.y, -1.0);
-            assert_eq!(points[0].cartesian.z, -1.0);
-            assert_eq!(points[1].cartesian.x, 1.0);
-            assert_eq!(points[1].cartesian.y, 1.0);
-            assert_eq!(points[1].cartesian.z, 1.0);
+            assert_eq!(
+                points[0].cartesian,
+                CartesianCoordinate::Valid {
+                    x: -1.0,
+                    y: -1.0,
+                    z: -1.0
+                }
+            );
+            assert_eq!(
+                points[1].cartesian,
+                CartesianCoordinate::Valid {
+                    x: 1.0,
+                    y: 1.0,
+                    z: 1.0
+                }
+            );
             let bounds = pc.cartesian_bounds.as_ref().unwrap();
             assert_eq!(bounds.x_min.unwrap(), -1.0);
             assert_eq!(bounds.y_min.unwrap(), -1.0);

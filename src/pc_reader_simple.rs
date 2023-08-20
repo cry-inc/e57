@@ -22,7 +22,6 @@ struct Indices {
 pub struct PointCloudReaderSimple<'a, T: Read + Seek> {
     pc: PointCloud,
     raw_iter: PointCloudReaderRaw<'a, T>,
-    skip: bool,
     transform: bool,
     s2c: bool,
     i2c: bool,
@@ -39,7 +38,6 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
         Ok(Self {
             pc: pc.clone(),
             raw_iter,
-            skip: false,
             transform: true,
             s2c: true,
             i2c: true,
@@ -50,7 +48,7 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
     }
 
     /// If enabled, the iterator will automatically convert spherical to Cartesian coordinates.
-    /// Will only replace fully invalid cartesian coordinates and do nothing otherwise.
+    /// Will only replace fully invalid Cartesian coordinates and do nothing otherwise.
     /// Default setting is enabled.
     pub fn spherical_to_cartesian(&mut self, enable: bool) {
         self.s2c = enable;
@@ -61,12 +59,6 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
     /// Default setting is enabled.
     pub fn intensity_to_color(&mut self, enable: bool) {
         self.i2c = enable;
-    }
-
-    /// If enabled, the iterator will skip over points without valid Cartesian coordinates.
-    /// Default setting is disabled, meaning the iterator will visit invalid points.
-    pub fn skip_invalid(&mut self, enable: bool) {
-        self.skip = enable;
     }
 
     /// If enabled, the iterator will apply the point cloud pose to the Cartesian coordinates.
@@ -146,35 +138,60 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
     }
 
     fn transform_point(&self, p: &mut Point) {
-        if p.cartesian_invalid == 0 {
-            let c = &mut p.cartesian;
-            let x = self.rotation[0] * c.x + self.rotation[3] * c.y + self.rotation[6] * c.z;
-            let y = self.rotation[1] * c.x + self.rotation[4] * c.y + self.rotation[7] * c.z;
-            let z = self.rotation[2] * c.x + self.rotation[5] * c.y + self.rotation[8] * c.z;
-            c.x = x + self.translation.x;
-            c.y = y + self.translation.y;
-            c.z = z + self.translation.z;
+        if let CartesianCoordinate::Valid { x, y, z } = p.cartesian {
+            let nx = self.rotation[0] * x + self.rotation[3] * y + self.rotation[6] * z;
+            let ny = self.rotation[1] * x + self.rotation[4] * y + self.rotation[7] * z;
+            let nz = self.rotation[2] * x + self.rotation[5] * y + self.rotation[8] * z;
+            p.cartesian = CartesianCoordinate::Valid {
+                x: nx + self.translation.x,
+                y: ny + self.translation.y,
+                z: nz + self.translation.z,
+            };
         }
     }
 
     fn convert_spherical(&self, p: &mut Point) {
-        if p.spherical_invalid == 0 && p.cartesian_invalid != 0 {
-            let cos_ele = f64::cos(p.spherical.elevation);
-            p.cartesian = CartesianCoordinate {
-                x: p.spherical.range * cos_ele * f64::cos(p.spherical.azimuth),
-                y: p.spherical.range * cos_ele * f64::sin(p.spherical.azimuth),
-                z: p.spherical.range * f64::sin(p.spherical.elevation),
+        if let CartesianCoordinate::Valid { .. } = p.cartesian {
+            // Abort if there is already a valid coordinate
+            return;
+        } else if let SphericalCoordinate::Valid {
+            range,
+            azimuth,
+            elevation,
+        } = p.spherical
+        {
+            // Convert valid spherical coordinate to valid Cartesian coordinate
+            let cos_ele = f64::cos(elevation);
+            p.cartesian = CartesianCoordinate::Valid {
+                x: range * cos_ele * f64::cos(azimuth),
+                y: range * cos_ele * f64::sin(azimuth),
+                z: range * f64::sin(elevation),
             };
-            p.cartesian_invalid = 0;
+            return;
+        }
+
+        if let CartesianCoordinate::Direction { .. } = p.cartesian {
+            // Do nothing if there is already a valid direction
+        } else if let SphericalCoordinate::Direction { azimuth, elevation } = p.spherical {
+            // Convert spherical direction coordinate to Cartesian direction
+            let cos_ele = f64::cos(elevation);
+            p.cartesian = CartesianCoordinate::Direction {
+                x: 1.0 * cos_ele * f64::cos(azimuth),
+                y: 1.0 * cos_ele * f64::sin(azimuth),
+                z: 1.0 * f64::sin(elevation),
+            };
         }
     }
 
     fn convert_intensity(&self, p: &mut Point) {
-        if p.intensity_invalid == 0 && p.color_invalid != 0 {
-            p.color.red = p.intensity;
-            p.color.green = p.intensity;
-            p.color.blue = p.intensity;
-            p.color_invalid = 0;
+        if p.color.is_some() {
+            // Do nothing if there is already valid color
+        } else if let Some(intensity) = p.intensity {
+            p.color = Some(Color {
+                red: intensity,
+                green: intensity,
+                blue: intensity,
+            });
         }
     }
 
@@ -182,15 +199,6 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
         let proto = &self.pc.prototype;
 
         // Cartesian coordinates
-        let cartesian = if let Some(ind) = self.indices.cartesian {
-            CartesianCoordinate {
-                x: values[ind.0].to_f64(&proto[ind.0].data_type)?,
-                y: values[ind.1].to_f64(&proto[ind.1].data_type)?,
-                z: values[ind.2].to_f64(&proto[ind.2].data_type)?,
-            }
-        } else {
-            CartesianCoordinate::default()
-        };
         let cartesian_invalid = if let Some(ind) = self.indices.cartesian_invalid {
             values[ind].to_u8(&proto[ind].data_type)?
         } else if self.indices.cartesian.is_some() {
@@ -198,17 +206,27 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
         } else {
             2
         };
-
-        // Spherical coordinates
-        let spherical = if let Some(ind) = self.indices.spherical {
-            SphericalCoordinate {
-                range: values[ind.0].to_f64(&proto[ind.0].data_type)?,
-                azimuth: values[ind.1].to_f64(&proto[ind.1].data_type)?,
-                elevation: values[ind.2].to_f64(&proto[ind.2].data_type)?,
+        let cartesian = if let Some(ind) = self.indices.cartesian {
+            if cartesian_invalid == 0 {
+                CartesianCoordinate::Valid {
+                    x: values[ind.0].to_f64(&proto[ind.0].data_type)?,
+                    y: values[ind.1].to_f64(&proto[ind.1].data_type)?,
+                    z: values[ind.2].to_f64(&proto[ind.2].data_type)?,
+                }
+            } else if cartesian_invalid == 1 {
+                CartesianCoordinate::Direction {
+                    x: values[ind.0].to_f64(&proto[ind.0].data_type)?,
+                    y: values[ind.1].to_f64(&proto[ind.1].data_type)?,
+                    z: values[ind.2].to_f64(&proto[ind.2].data_type)?,
+                }
+            } else {
+                CartesianCoordinate::Invalid
             }
         } else {
-            SphericalCoordinate::default()
+            CartesianCoordinate::Invalid
         };
+
+        // Spherical coordinates
         let spherical_invalid = if let Some(ind) = self.indices.spherical_invalid {
             values[ind].to_u8(&proto[ind].data_type)?
         } else if self.indices.spherical.is_some() {
@@ -216,17 +234,26 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
         } else {
             2
         };
-
-        // RGB colors
-        let color = if let Some(ind) = self.indices.color {
-            Color {
-                red: values[ind.0].to_unit_f32(&proto[ind.0].data_type)?,
-                green: values[ind.1].to_unit_f32(&proto[ind.1].data_type)?,
-                blue: values[ind.2].to_unit_f32(&proto[ind.2].data_type)?,
+        let spherical = if let Some(ind) = self.indices.spherical {
+            if spherical_invalid == 0 {
+                SphericalCoordinate::Valid {
+                    range: values[ind.0].to_f64(&proto[ind.0].data_type)?,
+                    azimuth: values[ind.1].to_f64(&proto[ind.1].data_type)?,
+                    elevation: values[ind.2].to_f64(&proto[ind.2].data_type)?,
+                }
+            } else if spherical_invalid == 1 {
+                SphericalCoordinate::Direction {
+                    azimuth: values[ind.1].to_f64(&proto[ind.1].data_type)?,
+                    elevation: values[ind.2].to_f64(&proto[ind.2].data_type)?,
+                }
+            } else {
+                SphericalCoordinate::Invalid
             }
         } else {
-            Color::default()
+            SphericalCoordinate::Invalid
         };
+
+        // RGB colors
         let color_invalid = if let Some(ind) = self.indices.color_invalid {
             values[ind].to_u8(&proto[ind].data_type)?
         } else if self.indices.color.is_some() {
@@ -234,19 +261,36 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
         } else {
             1
         };
+        let color = if let Some(ind) = self.indices.color {
+            if color_invalid == 0 {
+                Some(Color {
+                    red: values[ind.0].to_unit_f32(&proto[ind.0].data_type)?,
+                    green: values[ind.1].to_unit_f32(&proto[ind.1].data_type)?,
+                    blue: values[ind.2].to_unit_f32(&proto[ind.2].data_type)?,
+                })
+            } else {
+                None
+            }
+        } else {
+            None
+        };
 
         // Intensity values
-        let intensity = if let Some(ind) = self.indices.intensity {
-            values[ind].to_unit_f32(&proto[ind].data_type)?
-        } else {
-            0.0
-        };
         let intensity_invalid = if let Some(ind) = self.indices.intensity_invalid {
             values[ind].to_u8(&proto[ind].data_type)?
         } else if self.indices.intensity.is_some() {
             0
         } else {
             1
+        };
+        let intensity = if let Some(ind) = self.indices.intensity {
+            if intensity_invalid == 0 {
+                Some(values[ind].to_unit_f32(&proto[ind].data_type)?)
+            } else {
+                None
+            }
+        } else {
+            None
         };
 
         // Row index
@@ -265,13 +309,9 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
 
         Ok(Point {
             cartesian,
-            cartesian_invalid,
             spherical,
-            spherical_invalid,
             color,
-            color_invalid,
             intensity,
-            intensity_invalid,
             row,
             column,
         })
@@ -284,24 +324,19 @@ impl<'a, T: Read + Seek> Iterator for PointCloudReaderSimple<'a, T> {
 
     /// Returns the next available point or None if the end was reached.
     fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            let mut p = match self.get_next_point()? {
-                Ok(p) => p,
-                Err(err) => return Some(Err(err)),
-            };
-            if self.s2c {
-                self.convert_spherical(&mut p);
-            }
-            if self.skip && p.cartesian_invalid != 0 {
-                continue;
-            }
-            if self.i2c {
-                self.convert_intensity(&mut p);
-            }
-            if self.transform {
-                self.transform_point(&mut p);
-            }
-            return Some(Ok(p));
+        let mut p = match self.get_next_point()? {
+            Ok(p) => p,
+            Err(err) => return Some(Err(err)),
+        };
+        if self.s2c {
+            self.convert_spherical(&mut p);
         }
+        if self.i2c {
+            self.convert_intensity(&mut p);
+        }
+        if self.transform {
+            self.transform_point(&mut p);
+        }
+        Some(Ok(p))
     }
 }

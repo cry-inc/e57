@@ -222,7 +222,7 @@ impl E57Reader<BufReader<File>> {
 mod tests {
     use super::*;
     use crate::images::Projection;
-    use crate::{RawValues, RecordName, RecordValue};
+    use crate::{CartesianCoordinate, RawValues, RecordName, RecordValue};
     use std::io::{BufWriter, Write};
 
     #[test]
@@ -390,36 +390,18 @@ mod tests {
         let mut writer = BufWriter::new(writer);
         for p in reader.pointcloud_simple(pc).unwrap() {
             let p = p.unwrap();
-            if p.cartesian_invalid == 0 {
-                writer
-                    .write_fmt(format_args!(
-                        "{} {} {}",
-                        p.cartesian.x, p.cartesian.y, p.cartesian.z
-                    ))
-                    .unwrap();
-            } else if p.spherical_invalid == 0 {
-                let cos_ele = f64::cos(p.spherical.elevation);
-                let x = p.spherical.range * cos_ele * f64::cos(p.spherical.azimuth);
-                let y = p.spherical.range * cos_ele * f64::sin(p.spherical.azimuth);
-                let z = p.spherical.range * f64::sin(p.spherical.elevation);
-                writer.write_fmt(format_args!("{x} {y} {z}")).unwrap();
+            if let CartesianCoordinate::Valid { x, y, z } = p.cartesian {
+                writer.write_fmt(format_args!("{x} {y} {z}",)).unwrap();
+            } else {
+                continue;
             }
-            if p.color_invalid == 0 {
+            if let Some(color) = p.color {
                 writer
                     .write_fmt(format_args!(
                         " {} {} {}",
-                        (p.color.red * 255.) as u8,
-                        (p.color.green * 255.) as u8,
-                        (p.color.blue * 255.) as u8
-                    ))
-                    .unwrap();
-            } else if p.intensity_invalid == 0 {
-                writer
-                    .write_fmt(format_args!(
-                        " {} {} {}",
-                        (p.intensity * 255.) as u8,
-                        (p.intensity * 255.) as u8,
-                        (p.intensity * 255.) as u8
+                        (color.red * 255.) as u8,
+                        (color.green * 255.) as u8,
+                        (color.blue * 255.) as u8
                     ))
                     .unwrap();
             }
