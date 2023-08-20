@@ -16,3 +16,14 @@ jobs:
         run: cargo clippy --release --all -- -D warnings
       - name: Check Formatting
         run: cargo fmt --all -- --check
+  Windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Update Rust
+        run: rustup update
+      - name: Release Build
+        run: cargo build --release --all
+      - name: Execute Tests
+        run: cargo test --release --all
