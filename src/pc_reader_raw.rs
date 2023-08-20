@@ -20,6 +20,8 @@ pub struct PointCloudReaderRaw<'a, T: Read + Seek> {
     byte_streams: Vec<ByteStreamReadBuffer>,
     read: u64,
     queues: Vec<VecDeque<RecordValue>>,
+    buffer_sizes: Vec<usize>,
+    buffer: Vec<u8>,
 }
 
 impl<'a, T: Read + Seek> PointCloudReaderRaw<'a, T> {
@@ -31,16 +33,15 @@ impl<'a, T: Read + Seek> PointCloudReaderRaw<'a, T> {
         reader
             .seek_physical(section_header.data_offset)
             .read_err("Cannot seek to packet header")?;
-        let byte_streams = vec![ByteStreamReadBuffer::new(); pc.prototype.len()];
-        let queues = vec![VecDeque::new(); pc.prototype.len()];
-        let pc = pc.clone();
 
         Ok(Self {
-            pc,
+            pc: pc.clone(),
             reader,
             read: 0,
-            byte_streams,
-            queues,
+            byte_streams: vec![ByteStreamReadBuffer::new(); pc.prototype.len()],
+            queues: vec![VecDeque::new(); pc.prototype.len()],
+            buffer_sizes: vec![0; pc.prototype.len()],
+            buffer: Vec::new(),
         })
     }
 
@@ -84,22 +85,21 @@ impl<'a, T: Read + Seek> PointCloudReaderRaw<'a, T> {
                     Error::invalid("Bytestream count does not match prototype size")?
                 }
 
-                let mut buffer_sizes = Vec::with_capacity(self.byte_streams.len());
-                for _ in 0..header.bytestream_count {
+                for i in 0..header.bytestream_count as usize {
                     let mut buf = [0_u8; 2];
                     self.reader
                         .read_exact(&mut buf)
                         .read_err("Failed to read data packet buffer sizes")?;
                     let len = u16::from_le_bytes(buf) as usize;
-                    buffer_sizes.push(len);
+                    self.buffer_sizes[i] = len;
                 }
 
-                for (i, bs) in buffer_sizes.iter().enumerate() {
-                    let mut buffer = vec![0_u8; *bs];
+                for (i, bs) in self.buffer_sizes.iter().enumerate() {
+                    self.buffer.resize(*bs, 0_u8);
                     self.reader
-                        .read_exact(&mut buffer)
+                        .read_exact(&mut self.buffer)
                         .read_err("Failed to read data packet buffers")?;
-                    self.byte_streams[i].append(buffer);
+                    self.byte_streams[i].append(&self.buffer);
                 }
 
                 for (i, r) in self.pc.prototype.iter().enumerate() {
