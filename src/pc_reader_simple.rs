@@ -24,6 +24,7 @@ pub struct PointCloudReaderSimple<'a, T: Read + Seek> {
     raw_iter: PointCloudReaderRaw<'a, T>,
     transform: bool,
     s2c: bool,
+    c2s: bool,
     i2c: bool,
     rotation: [f64; 9],
     translation: Translation,
@@ -40,6 +41,7 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
             raw_iter,
             transform: true,
             s2c: true,
+            c2s: false,
             i2c: true,
             rotation,
             translation,
@@ -52,6 +54,13 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
     /// Default setting is enabled.
     pub fn spherical_to_cartesian(&mut self, enable: bool) {
         self.s2c = enable;
+    }
+
+    /// If enabled, the iterator will automatically convert Cartesian to spherical coordinates.
+    /// Will only replace fully invalid spherical coordinates and do nothing otherwise.
+    /// Default setting is disabled.
+    pub fn cartesian_to_spherical(&mut self, enable: bool) {
+        self.c2s = enable;
     }
 
     /// If enabled, the iterator will automatically convert intensity to grey colors.
@@ -134,64 +143,6 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
         match p {
             Ok(p) => Some(self.create_point(p)),
             Err(err) => Some(Err(err)),
-        }
-    }
-
-    fn transform_point(&self, p: &mut Point) {
-        if let CartesianCoordinate::Valid { x, y, z } = p.cartesian {
-            let nx = self.rotation[0] * x + self.rotation[3] * y + self.rotation[6] * z;
-            let ny = self.rotation[1] * x + self.rotation[4] * y + self.rotation[7] * z;
-            let nz = self.rotation[2] * x + self.rotation[5] * y + self.rotation[8] * z;
-            p.cartesian = CartesianCoordinate::Valid {
-                x: nx + self.translation.x,
-                y: ny + self.translation.y,
-                z: nz + self.translation.z,
-            };
-        }
-    }
-
-    fn convert_spherical(&self, p: &mut Point) {
-        if let CartesianCoordinate::Valid { .. } = p.cartesian {
-            // Abort if there is already a valid coordinate
-            return;
-        } else if let SphericalCoordinate::Valid {
-            range,
-            azimuth,
-            elevation,
-        } = p.spherical
-        {
-            // Convert valid spherical coordinate to valid Cartesian coordinate
-            let cos_ele = f64::cos(elevation);
-            p.cartesian = CartesianCoordinate::Valid {
-                x: range * cos_ele * f64::cos(azimuth),
-                y: range * cos_ele * f64::sin(azimuth),
-                z: range * f64::sin(elevation),
-            };
-            return;
-        }
-
-        if let CartesianCoordinate::Direction { .. } = p.cartesian {
-            // Do nothing if there is already a valid direction
-        } else if let SphericalCoordinate::Direction { azimuth, elevation } = p.spherical {
-            // Convert spherical direction coordinate to Cartesian direction
-            let cos_ele = f64::cos(elevation);
-            p.cartesian = CartesianCoordinate::Direction {
-                x: 1.0 * cos_ele * f64::cos(azimuth),
-                y: 1.0 * cos_ele * f64::sin(azimuth),
-                z: 1.0 * f64::sin(elevation),
-            };
-        }
-    }
-
-    fn convert_intensity(&self, p: &mut Point) {
-        if p.color.is_some() {
-            // Do nothing if there is already valid color
-        } else if let Some(intensity) = p.intensity {
-            p.color = Some(Color {
-                red: intensity,
-                green: intensity,
-                blue: intensity,
-            });
         }
     }
 
@@ -329,14 +280,156 @@ impl<'a, T: Read + Seek> Iterator for PointCloudReaderSimple<'a, T> {
             Err(err) => return Some(Err(err)),
         };
         if self.s2c {
-            self.convert_spherical(&mut p);
+            convert_to_cartesian(&mut p);
+        }
+        if self.c2s {
+            convert_to_spherical(&mut p);
         }
         if self.i2c {
-            self.convert_intensity(&mut p);
+            convert_intensity(&mut p);
         }
         if self.transform {
-            self.transform_point(&mut p);
+            transform_point(&mut p, &self.rotation, &self.translation);
         }
         Some(Ok(p))
+    }
+}
+
+fn transform_point(p: &mut Point, rotation: &[f64; 9], translation: &Translation) {
+    if let CartesianCoordinate::Valid { x, y, z } = p.cartesian {
+        let nx = rotation[0] * x + rotation[3] * y + rotation[6] * z;
+        let ny = rotation[1] * x + rotation[4] * y + rotation[7] * z;
+        let nz = rotation[2] * x + rotation[5] * y + rotation[8] * z;
+        p.cartesian = CartesianCoordinate::Valid {
+            x: nx + translation.x,
+            y: ny + translation.y,
+            z: nz + translation.z,
+        };
+    }
+}
+
+fn convert_to_cartesian(p: &mut Point) {
+    if let CartesianCoordinate::Valid { .. } = p.cartesian {
+        // Abort if there is already a valid coordinate
+        return;
+    } else if let SphericalCoordinate::Valid {
+        range,
+        azimuth,
+        elevation,
+    } = p.spherical
+    {
+        // Convert valid spherical coordinate to valid Cartesian coordinate
+        let cos_ele = f64::cos(elevation);
+        p.cartesian = CartesianCoordinate::Valid {
+            x: range * cos_ele * f64::cos(azimuth),
+            y: range * cos_ele * f64::sin(azimuth),
+            z: range * f64::sin(elevation),
+        };
+        return;
+    }
+
+    if let CartesianCoordinate::Direction { .. } = p.cartesian {
+        // Do nothing if there is already a valid direction
+    } else if let SphericalCoordinate::Direction { azimuth, elevation } = p.spherical {
+        // Convert spherical direction coordinate to Cartesian direction
+        let cos_ele = f64::cos(elevation);
+        p.cartesian = CartesianCoordinate::Direction {
+            x: 1.0 * cos_ele * f64::cos(azimuth),
+            y: 1.0 * cos_ele * f64::sin(azimuth),
+            z: 1.0 * f64::sin(elevation),
+        };
+    }
+}
+
+fn convert_to_spherical(p: &mut Point) {
+    if let SphericalCoordinate::Valid { .. } = p.spherical {
+        // Abort if there is already a valid coordinate
+        return;
+    } else if let CartesianCoordinate::Valid { x, y, z } = p.cartesian {
+        // Convert valid Cartesian coordinate to valid spherical coordinate
+        let r = f64::sqrt(x * x + y * y + z * z);
+        p.spherical = SphericalCoordinate::Valid {
+            range: r,
+            azimuth: f64::atan2(x, y),
+            elevation: f64::asin(z / r),
+        };
+        return;
+    }
+
+    if let SphericalCoordinate::Direction { .. } = p.spherical {
+        // Do nothing if there is already a valid direction
+    } else if let CartesianCoordinate::Direction { x, y, z } = p.cartesian {
+        // Convert Cartesian direction coordinate to spherical direction
+        p.spherical = SphericalCoordinate::Direction {
+            azimuth: f64::atan2(x, y),
+            elevation: f64::asin(z / f64::sqrt(x * x + y * y + z * z)),
+        };
+    }
+}
+
+fn convert_intensity(p: &mut Point) {
+    if p.color.is_some() {
+        // Do nothing if there is already valid color
+    } else if let Some(intensity) = p.intensity {
+        p.color = Some(Color {
+            red: intensity,
+            green: intensity,
+            blue: intensity,
+        });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::f64::consts::PI;
+
+    #[test]
+    fn to_spherical() {
+        let mut p = Point {
+            cartesian: CartesianCoordinate::Valid {
+                x: 1.0,
+                y: 1.0,
+                z: 0.0,
+            },
+            spherical: SphericalCoordinate::Invalid,
+            color: None,
+            intensity: None,
+            row: -1,
+            column: -1,
+        };
+        convert_to_spherical(&mut p);
+        assert_eq!(
+            p.spherical,
+            SphericalCoordinate::Valid {
+                range: f64::sqrt(2.0),
+                azimuth: PI / 4.0,
+                elevation: 0.0
+            }
+        );
+    }
+
+    #[test]
+    fn to_cartesian() {
+        let mut p = Point {
+            cartesian: CartesianCoordinate::Invalid,
+            spherical: SphericalCoordinate::Valid {
+                range: 10.0,
+                azimuth: 0.0,
+                elevation: PI / 2.0,
+            },
+            color: None,
+            intensity: None,
+            row: -1,
+            column: -1,
+        };
+        convert_to_cartesian(&mut p);
+        if let CartesianCoordinate::Valid { x, y, z } = p.cartesian {
+            assert!(x.abs() < 0.000001);
+            assert_eq!(y, 0.0);
+            assert_eq!(z, 10.0);
+        } else {
+            assert!(false)
+        }
     }
 }
