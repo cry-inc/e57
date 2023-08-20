@@ -4,6 +4,7 @@ use crate::error::WRONG_OFFSET;
 use crate::Error;
 use crate::RecordValue;
 use crate::Result;
+use std::collections::VecDeque;
 
 pub struct BitPack;
 
@@ -59,35 +60,52 @@ fn unpack_int(stream: &mut ByteStreamReadBuffer, min: i64, max: i64) -> Result<V
 }
 
 impl BitPack {
-    pub fn unpack_doubles(stream: &mut ByteStreamReadBuffer) -> Result<Vec<RecordValue>> {
+    pub fn unpack_doubles(
+        stream: &mut ByteStreamReadBuffer,
+        output: &mut VecDeque<RecordValue>,
+    ) -> Result<()> {
         let doubles = unpack_fp::<f64>(stream)?;
-        Ok(doubles.iter().map(|d| RecordValue::Double(*d)).collect())
+        for d in doubles {
+            output.push_back(RecordValue::Double(d));
+        }
+        Ok(())
     }
 
-    pub fn unpack_singles(stream: &mut ByteStreamReadBuffer) -> Result<Vec<RecordValue>> {
+    pub fn unpack_singles(
+        stream: &mut ByteStreamReadBuffer,
+        output: &mut VecDeque<RecordValue>,
+    ) -> Result<()> {
         let singles = unpack_fp::<f32>(stream)?;
-        Ok(singles.iter().map(|s| RecordValue::Single(*s)).collect())
+        for s in singles {
+            output.push_back(RecordValue::Single(s));
+        }
+        Ok(())
     }
 
     pub fn unpack_ints(
         stream: &mut ByteStreamReadBuffer,
         min: i64,
         max: i64,
-    ) -> Result<Vec<RecordValue>> {
+        output: &mut VecDeque<RecordValue>,
+    ) -> Result<()> {
         let ints = unpack_int(stream, min, max)?;
-        Ok(ints.iter().map(|i| RecordValue::Integer(*i)).collect())
+        for i in ints {
+            output.push_back(RecordValue::Integer(i));
+        }
+        Ok(())
     }
 
     pub fn unpack_scaled_ints(
         stream: &mut ByteStreamReadBuffer,
         min: i64,
         max: i64,
-    ) -> Result<Vec<RecordValue>> {
+        output: &mut VecDeque<RecordValue>,
+    ) -> Result<()> {
         let ints = unpack_int(stream, min, max)?;
-        Ok(ints
-            .iter()
-            .map(|i| RecordValue::ScaledInteger(*i))
-            .collect())
+        for i in ints {
+            output.push_back(RecordValue::ScaledInteger(i));
+        }
+        Ok(())
     }
 }
 

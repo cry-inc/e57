@@ -103,21 +103,20 @@ impl<'a, T: Read + Seek> PointCloudReaderRaw<'a, T> {
                 }
 
                 for (i, r) in self.pc.prototype.iter().enumerate() {
-                    let values = match r.data_type {
+                    match r.data_type {
                         RecordDataType::Single { .. } => {
-                            BitPack::unpack_singles(&mut self.byte_streams[i])?
+                            BitPack::unpack_singles(&mut self.byte_streams[i], &mut self.queues[i])?
                         }
                         RecordDataType::Double { .. } => {
-                            BitPack::unpack_doubles(&mut self.byte_streams[i])?
+                            BitPack::unpack_doubles(&mut self.byte_streams[i], &mut self.queues[i])?
                         }
                         RecordDataType::ScaledInteger { min, max, .. } => {
-                            BitPack::unpack_scaled_ints(&mut self.byte_streams[i], min, max)?
+                            BitPack::unpack_scaled_ints(&mut self.byte_streams[i], min, max, &mut self.queues[i])?
                         }
                         RecordDataType::Integer { min, max } => {
-                            BitPack::unpack_ints(&mut self.byte_streams[i], min, max)?
+                            BitPack::unpack_ints(&mut self.byte_streams[i], min, max, &mut self.queues[i])?
                         }
                     };
-                    append_vec_to_queue(values, &mut self.queues[i]);
                 }
             }
         };
@@ -161,11 +160,5 @@ impl<'a, T: Read + Seek> Iterator for PointCloudReaderRaw<'a, T> {
             }
             Err(err) => Some(Err(err)),
         }
-    }
-}
-
-fn append_vec_to_queue<T>(mut v: Vec<T>, q: &mut VecDeque<T>) {
-    for e in v.drain(..) {
-        q.push_back(e)
     }
 }
