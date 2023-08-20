@@ -1,5 +1,4 @@
 use crate::error::Converter;
-use crate::pointcloud::serialize_pointcloud;
 use crate::Extension;
 use crate::{xml, DateTime, Error, Image, PointCloud, Result};
 use roxmltree::Document;
@@ -98,7 +97,7 @@ pub fn serialize_root(
     }
     xml += "<data3D type=\"Vector\" allowHeterogeneousChildren=\"1\">\n";
     for pc in pointclouds {
-        xml += &serialize_pointcloud(pc)?;
+        xml += &pc.xml_string()?;
     }
     xml += "</data3D>\n";
     xml += "<images2D type=\"Vector\" allowHeterogeneousChildren=\"1\">\n";

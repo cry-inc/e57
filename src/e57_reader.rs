@@ -1,6 +1,5 @@
 use crate::error::Converter;
 use crate::paged_reader::PagedReader;
-use crate::pointcloud::pointclouds_from_document;
 use crate::root::root_from_document;
 use crate::root::Root;
 use crate::Blob;
@@ -53,7 +52,7 @@ impl<T: Read + Seek> E57Reader<T> {
         let xml = String::from_utf8(xml_raw).read_err("Failed to parse XML as UTF8")?;
         let document = Document::parse(&xml).invalid_err("Failed to parse XML data")?;
         let root = root_from_document(&document)?;
-        let pointclouds = pointclouds_from_document(&document)?;
+        let pointclouds = PointCloud::vec_from_document(&document)?;
         let images = Image::vec_from_document(&document)?;
         let extensions = Extension::vec_from_document(&document);
 
