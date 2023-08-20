@@ -28,7 +28,6 @@ pub enum RecordDataType {
 
 /// Used to describe the prototype records with all attributes that exit in the point cloud.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum RecordName {
     /// Cartesian X coordinate (in meters).
     CartesianX,
