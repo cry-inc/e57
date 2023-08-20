@@ -2,7 +2,7 @@
  * Small example application that can convert all point clouds
  * from any E57 file into a single merged LAZ file.
  *
- * The output file name will be the input file plus ".laz".
+ * The output file name will be the input file name plus ".laz".
  *
  * Spherical coordinates are converted automatically to Cartesian coordinates.
  * Invalid and incomplete coordinates will be skipped.
@@ -52,8 +52,8 @@ fn main() -> Result<()> {
         // Set point iterator options
         iter.spherical_to_cartesian(true);
         iter.cartesian_to_spherical(false);
-        iter.apply_pose(true);
         iter.intensity_to_color(false);
+        iter.apply_pose(true);
 
         // Iterate over all points in point cloud
         for p in iter {

@@ -1,13 +1,14 @@
 /*
- * Small example application that can export all point clouds
- * from any E57 file as single merged XYZ ASCII point cloud.
+ * Small example application that can convert all point clouds
+ * from any E57 file into a single merged XYZ ASCII file.
  *
- * The output file name will be the input file plus ".xyz".
+ * The output file name will be the input file name plus ".xyz".
  * The values in the output file will be separated by a space as separator.
  *
  * Spherical coordinates are converted automatically to Cartesian coordinates.
- * Invalid coordinates will be skipped.
- * If there is no RGB color, it will try to use the intensity as grayscale RGB values.
+ * Invalid and incomplete coordinates will be skipped.
+ * If there is no RGB color, it will use the intensity as grayscale RGB values.
+ * If there is no color and no intensity, it will only write X, Y and Z values.
  */
 
 use anyhow::{bail, Context, Result};
@@ -37,10 +38,17 @@ fn main() -> Result<()> {
     // Loop over all point clouds in the E57 file
     let pointclouds = file.pointclouds();
     for pointcloud in pointclouds {
-        // Iterate over all points in point cloud
-        let iter = file
+        let mut iter = file
             .pointcloud_simple(&pointcloud)
             .context("Unable to get point cloud iterator")?;
+
+        // Set point iterator options
+        iter.spherical_to_cartesian(true);
+        iter.cartesian_to_spherical(false);
+        iter.intensity_to_color(true);
+        iter.apply_pose(true);
+
+        // Iterate over all points in point cloud
         for p in iter {
             let p = p.context("Unable to read next point")?;
 
