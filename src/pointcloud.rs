@@ -178,7 +178,7 @@ impl PointCloud {
         })
     }
 
-    pub fn xml_string(&self) -> Result<String> {
+    pub(crate) fn xml_string(&self) -> Result<String> {
         let mut xml = String::new();
         xml += "<vectorChild type=\"Structure\">\n";
         if self.guid.is_empty() {
@@ -261,5 +261,58 @@ impl PointCloud {
 
         xml += "</vectorChild>\n";
         Ok(xml)
+    }
+
+    fn contains(&self, names: &[RecordName]) -> bool {
+        return names
+            .iter()
+            .all(|searched| self.prototype.iter().any(|actual| &actual.name == searched));
+    }
+
+    /// Returns true if the point prototype contains X, Y and Z records for Cartesian coordinates.
+    pub fn has_cartesian(&self) -> bool {
+        self.contains(&[
+            RecordName::CartesianX,
+            RecordName::CartesianY,
+            RecordName::CartesianZ,
+        ])
+    }
+
+    /// Returns true if the point prototype contains range, azimuth and elevation records for Spherical coordinates.
+    pub fn has_spherical(&self) -> bool {
+        self.contains(&[
+            RecordName::SphericalRange,
+            RecordName::SphericalAzimuth,
+            RecordName::SphericalElevation,
+        ])
+    }
+
+    /// Returns true if the point prototype contains red, green and blue records for colors.
+    pub fn has_color(&self) -> bool {
+        self.contains(&[
+            RecordName::ColorRed,
+            RecordName::ColorGreen,
+            RecordName::ColorBlue,
+        ])
+    }
+
+    /// Returns true if the point prototype contains a intensity record.
+    pub fn has_intensity(&self) -> bool {
+        self.contains(&[RecordName::Intensity])
+    }
+
+    /// Returns true if the point prototype contains row and column index records.
+    pub fn has_row_column(&self) -> bool {
+        self.contains(&[RecordName::RowIndex, RecordName::ColumnIndex])
+    }
+
+    /// Returns true if the point prototype contains return count and return index records.
+    pub fn has_return(&self) -> bool {
+        self.contains(&[RecordName::ReturnCount, RecordName::ReturnIndex])
+    }
+
+    /// Returns true if the point prototype contains a time stamp record.
+    pub fn has_timestamp(&self) -> bool {
+        self.contains(&[RecordName::TimeStamp])
     }
 }
