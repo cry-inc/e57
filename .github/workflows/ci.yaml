@@ -16,6 +16,8 @@ jobs:
         run: cargo clippy --release --all -- -D warnings
       - name: Check Formatting
         run: cargo fmt --all -- --check
+      - name: Check Docs
+        run: RUSTDOCFLAGS="-Dwarnings" cargo doc
   Windows:
     runs-on: windows-latest
     steps:
