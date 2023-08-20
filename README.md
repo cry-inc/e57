@@ -21,6 +21,7 @@ but for that use case the LAS/LAZ file format is more commonly used.
 ## Known Limitations
 * Does not support Point Grouping
 * Does not support Index Packets
+* Does not support point attributes of type String
 * Only very basic support for extensions
 
 ## Please report incompatible files!
