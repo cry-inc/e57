@@ -111,11 +111,19 @@ impl<'a, T: Read + Seek> PointCloudReaderRaw<'a, T> {
                             BitPack::unpack_doubles(&mut self.byte_streams[i], &mut self.queues[i])?
                         }
                         RecordDataType::ScaledInteger { min, max, .. } => {
-                            BitPack::unpack_scaled_ints(&mut self.byte_streams[i], min, max, &mut self.queues[i])?
+                            BitPack::unpack_scaled_ints(
+                                &mut self.byte_streams[i],
+                                min,
+                                max,
+                                &mut self.queues[i],
+                            )?
                         }
-                        RecordDataType::Integer { min, max } => {
-                            BitPack::unpack_ints(&mut self.byte_streams[i], min, max, &mut self.queues[i])?
-                        }
+                        RecordDataType::Integer { min, max } => BitPack::unpack_ints(
+                            &mut self.byte_streams[i],
+                            min,
+                            max,
+                            &mut self.queues[i],
+                        )?,
                     };
                 }
             }
