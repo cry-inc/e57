@@ -26,7 +26,8 @@ fn unpack_fp<T: FromBytes>(
             "Unexpected error when extracing {} from byte stream",
             std::any::type_name::<T>()
         ))?;
-        output(T::from_le_bytes(e.data.as_slice())?);
+        let slice = &e.data[..e.data_len as usize];
+        output(T::from_le_bytes(slice)?);
     }
     Ok(())
 }
@@ -56,9 +57,7 @@ fn unpack_int(
         let e = stream
             .extract(bit_size)
             .internal_err("Unexpected error when extracing integer from byte stream")?;
-        let mut tmp = [0_u8; 8];
-        tmp[..e.data.len()].copy_from_slice(&e.data);
-        let uint_value = (u64::from_le_bytes(tmp) >> e.offset) & mask;
+        let uint_value = (u64::from_le_bytes(e.data) >> e.offset) & mask;
         let int_value = uint_value as i64 + min;
         output(int_value);
     }

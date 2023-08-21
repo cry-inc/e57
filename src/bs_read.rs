@@ -5,9 +5,9 @@ pub struct ByteStreamReadBuffer {
 }
 
 pub struct ByteStreamData {
-    pub data: Vec<u8>,
-    pub bits: u64,
-    pub offset: u64,
+    pub data: [u8; 8],
+    pub data_len: u8,
+    pub offset: u8,
 }
 
 impl ByteStreamReadBuffer {
@@ -32,9 +32,19 @@ impl ByteStreamReadBuffer {
             let start_offset = (self.offset / 8) as usize;
             let end_offset = ((self.offset + bits) as f32 / 8.).ceil() as usize;
             let offset = self.offset % 8;
-            let data = self.buffer[start_offset..end_offset].to_vec();
+            let mut data = [0; 8];
+            let data_len = end_offset - start_offset;
+            let dst = &mut data[..data_len];
+            let src = &self.buffer[start_offset..end_offset];
+            dst.copy_from_slice(src);
             self.offset += bits;
-            Some(ByteStreamData { data, bits, offset })
+            let data_len = data_len as u8;
+            let offset = offset as u8;
+            Some(ByteStreamData {
+                data,
+                data_len,
+                offset,
+            })
         } else {
             None
         }
@@ -54,9 +64,9 @@ mod tests {
         let mut bs = ByteStreamReadBuffer::new();
         assert_eq!(bs.available(), 0);
         let result = bs.extract(0).unwrap();
-        assert_eq!(result.bits, 0);
         assert_eq!(result.offset, 0);
-        assert_eq!(result.data, Vec::new());
+        assert_eq!(result.data_len, 0);
+        assert_eq!(result.data, [0, 0, 0, 0, 0, 0, 0, 0]);
 
         assert_eq!(bs.available(), 0);
         assert!(bs.extract(1).is_none());
@@ -69,15 +79,15 @@ mod tests {
 
         assert_eq!(bs.available(), 8);
         let result = bs.extract(2).unwrap();
-        assert_eq!(result.bits, 2);
         assert_eq!(result.offset, 0);
-        assert_eq!(result.data, vec![255_u8]);
+        assert_eq!(result.data_len, 1);
+        assert_eq!(result.data, [255, 0, 0, 0, 0, 0, 0, 0]);
 
         assert_eq!(bs.available(), 6);
         let result = bs.extract(6).unwrap();
-        assert_eq!(result.bits, 6);
         assert_eq!(result.offset, 2);
-        assert_eq!(result.data, vec![255]);
+        assert_eq!(result.data_len, 1);
+        assert_eq!(result.data, [255, 0, 0, 0, 0, 0, 0, 0]);
 
         assert_eq!(bs.available(), 0);
         assert!(bs.extract(1).is_none());
@@ -91,9 +101,9 @@ mod tests {
 
         assert_eq!(bs.available(), 22);
         let result = bs.extract(22).unwrap();
-        assert_eq!(result.bits, 22);
         assert_eq!(result.offset, 2);
-        assert_eq!(result.data, vec![23, 42, 13]);
+        assert_eq!(result.data_len, 3);
+        assert_eq!(result.data, [23, 42, 13, 0, 0, 0, 0, 0]);
     }
 
     #[test]
@@ -110,8 +120,8 @@ mod tests {
         // Offsets are updated correctly appended
         // data can be extracted as expected.
         let result = bs.extract(14).unwrap();
-        assert_eq!(result.bits, 14);
         assert_eq!(result.offset, 2);
-        assert_eq!(result.data, vec![5, 6]);
+        assert_eq!(result.data_len, 2);
+        assert_eq!(result.data, [5, 6, 0, 0, 0, 0, 0, 0]);
     }
 }
