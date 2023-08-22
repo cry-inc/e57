@@ -41,10 +41,10 @@ Most applications use the original C++ reference implementation (see http://www.
 or the well maintained fork from Andy Maloney (see https://github.com/asmaloney/libE57Format).
 
 I thought it would be nice to have a pure Rust solution without any unsafe code.
-In my oppinion Rust is an excellent choice for parsers of untrusted data,
+In my opinion Rust is an excellent choice for parsers of untrusted data,
 especially if you plan to use the code in something like a cloud backend.
 
-When you want to handle E57 files inside a Rust project this crate will also avoid
+If you want to handle E57 files inside a Rust project this crate will also avoid
 all the issues that come with integrating C++ code.
 
 ## Code Coverage
