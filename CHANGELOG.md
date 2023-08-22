@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.8.0] - 2023-08-22
 
 - Breaking: Reworked simple iterator to make it easier to use
 - Breaking: Removed simple iterator option to skip invalid points
