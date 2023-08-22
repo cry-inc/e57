@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
   to easily check if it has certain point attributes
 - Added simple iterator option to convert Cartesian to spherical coordinates
 - Added new E57-to-LAZ example tool
+- Faster E57-to-XYZ tool (uses now ryu for float-to-string conversion)
 - Added this CHANGELOG.md file
 
 ## [0.7.0] - 2023-08-16

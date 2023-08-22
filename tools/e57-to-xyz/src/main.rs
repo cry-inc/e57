@@ -35,6 +35,10 @@ fn main() -> Result<()> {
     let writer = File::create(out_file).context("Unable to open output file for writing")?;
     let mut writer = BufWriter::new(writer);
 
+    // Prepare fast floating point to ASCII generation.
+    // The std implementation is a bit slower compared to the specialized ryu crate.
+    let mut buffer = ryu::Buffer::new();
+
     // Loop over all point clouds in the E57 file
     let pointclouds = file.pointclouds();
     for pointcloud in pointclouds {
@@ -54,9 +58,19 @@ fn main() -> Result<()> {
 
             // Write XYZ data to output file
             if let CartesianCoordinate::Valid { x, y, z } = p.cartesian {
-                writer
-                    .write_fmt(format_args!("{x} {y} {z}"))
-                    .context("Failed to write XYZ coordinates")?;
+                let space = " ".as_bytes();
+                let xyz_err = "Failed to write XYZ coordinates";
+
+                let str = buffer.format(x);
+                writer.write_all(str.as_bytes()).context(xyz_err)?;
+                writer.write_all(space).context(xyz_err)?;
+
+                let str = buffer.format(y);
+                writer.write_all(str.as_bytes()).context(xyz_err)?;
+                writer.write_all(space).context(xyz_err)?;
+
+                let str = buffer.format(z);
+                writer.write_all(str.as_bytes()).context(xyz_err)?;
             } else {
                 continue;
             }
@@ -75,7 +89,7 @@ fn main() -> Result<()> {
 
             // Write new line before next point
             writer
-                .write_fmt(format_args!("\n"))
+                .write_all("\n".as_bytes())
                 .context("Failed to write newline")?;
         }
     }

@@ -7,3 +7,4 @@ publish = false
 [dependencies]
 e57 = { path = "../../" }
 anyhow = "1"
+ryu = "1"
