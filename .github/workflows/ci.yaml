@@ -19,7 +19,7 @@ jobs:
       - name: Check Formatting
         run: cargo fmt --all -- --check
       - name: Check Docs
-        run: RUSTDOCFLAGS="-Dwarnings" cargo doc
+        run: RUSTDOCFLAGS="-Dwarnings" cargo doc --package e57
   Windows:
     runs-on: windows-latest
     steps:
