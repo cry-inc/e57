@@ -4,12 +4,6 @@ pub struct ByteStreamReadBuffer {
     offset: u64,
 }
 
-pub struct ByteStreamData {
-    pub data: [u8; 8],
-    pub data_len: u8,
-    pub offset: u8,
-}
-
 impl ByteStreamReadBuffer {
     pub fn new() -> Self {
         Self {
@@ -27,27 +21,28 @@ impl ByteStreamReadBuffer {
         self.buffer.extend_from_slice(data);
     }
 
-    pub fn extract(&mut self, bits: u64) -> Option<ByteStreamData> {
-        if self.available() >= bits {
-            let start_offset = (self.offset / 8) as usize;
-            let end_offset = ((self.offset + bits) as f32 / 8.).ceil() as usize;
-            let offset = self.offset % 8;
-            let mut data = [0; 8];
-            let data_len = end_offset - start_offset;
-            let dst = &mut data[..data_len];
-            let src = &self.buffer[start_offset..end_offset];
-            dst.copy_from_slice(src);
-            self.offset += bits;
-            let data_len = data_len as u8;
-            let offset = offset as u8;
-            Some(ByteStreamData {
-                data,
-                data_len,
-                offset,
-            })
-        } else {
-            None
+    /// Extract 64 bits or less from the byte stream and return them as u64.
+    /// The returned u64 might contain more than the requested number of bits.
+    /// Please make sure to ignore/mask the additional bits!
+    /// Returns None if the request cannot be satisfied.
+    pub fn extract(&mut self, bits: u64) -> Option<u64> {
+        if self.available() < bits {
+            return None;
         }
+
+        let start_offset = (self.offset / 8) as usize;
+        let end_offset = ((self.offset + bits) as f32 / 8.).ceil() as usize;
+        let offset = self.offset % 8;
+
+        let mut data = [0; 16];
+        let data_len = end_offset - start_offset;
+        let dst = &mut data[..data_len];
+        let src = &self.buffer[start_offset..end_offset];
+        dst.copy_from_slice(src);
+
+        self.offset += bits;
+        let data = u128::from_le_bytes(data) >> offset;
+        Some(data as u64)
     }
 
     pub fn available(&self) -> u64 {
@@ -64,10 +59,7 @@ mod tests {
         let mut bs = ByteStreamReadBuffer::new();
         assert_eq!(bs.available(), 0);
         let result = bs.extract(0).unwrap();
-        assert_eq!(result.offset, 0);
-        assert_eq!(result.data_len, 0);
-        assert_eq!(result.data, [0, 0, 0, 0, 0, 0, 0, 0]);
-
+        assert_eq!(result, 0);
         assert_eq!(bs.available(), 0);
         assert!(bs.extract(1).is_none());
     }
@@ -79,15 +71,11 @@ mod tests {
 
         assert_eq!(bs.available(), 8);
         let result = bs.extract(2).unwrap();
-        assert_eq!(result.offset, 0);
-        assert_eq!(result.data_len, 1);
-        assert_eq!(result.data, [255, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(result, 255);
 
         assert_eq!(bs.available(), 6);
         let result = bs.extract(6).unwrap();
-        assert_eq!(result.offset, 2);
-        assert_eq!(result.data_len, 1);
-        assert_eq!(result.data, [255, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(result, 63);
 
         assert_eq!(bs.available(), 0);
         assert!(bs.extract(1).is_none());
@@ -101,9 +89,7 @@ mod tests {
 
         assert_eq!(bs.available(), 22);
         let result = bs.extract(22).unwrap();
-        assert_eq!(result.offset, 2);
-        assert_eq!(result.data_len, 3);
-        assert_eq!(result.data, [23, 42, 13, 0, 0, 0, 0, 0]);
+        assert_eq!(result, 215685);
     }
 
     #[test]
@@ -120,8 +106,6 @@ mod tests {
         // Offsets are updated correctly appended
         // data can be extracted as expected.
         let result = bs.extract(14).unwrap();
-        assert_eq!(result.offset, 2);
-        assert_eq!(result.data_len, 2);
-        assert_eq!(result.data, [5, 6, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(result, 385);
     }
 }

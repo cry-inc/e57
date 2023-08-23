@@ -13,21 +13,22 @@ fn unpack_fp<T: FromBytes>(
     stream: &mut ByteStreamReadBuffer,
     output: &mut dyn FnMut(T),
 ) -> Result<()> {
-    let bits = T::bits();
     let av_bits = stream.available();
+    let bits = T::bits();
     if av_bits % bits != 0 {
         Error::invalid(format!(
             "Available bits {av_bits} do not match expected type size of {bits} bits"
         ))?
     }
-    let count = av_bits / bits;
-    for _ in 0..count {
-        let e = stream.extract(bits).internal_err(format!(
-            "Unexpected error when extracing {} from byte stream",
-            std::any::type_name::<T>()
-        ))?;
-        let slice = &e.data[..e.data_len as usize];
-        output(T::from_le_bytes(slice)?);
+    loop {
+        let extracted = stream.extract(bits);
+        if let Some(data) = extracted {
+            let bytes = (bits / 8) as usize;
+            let slice = &data.to_le_bytes()[..bytes];
+            output(T::from_le_bytes(slice)?);
+        } else {
+            break;
+        }
     }
     Ok(())
 }
@@ -41,25 +42,15 @@ fn unpack_int(
 ) -> Result<()> {
     let range = max - min;
     let bit_size = f64::ceil(f64::log2(range as f64 + 1.0)) as u64;
-    if bit_size > 56 && bit_size != 64 {
-        // These values can require 9 bytes before alignment
-        // which would not fit into the u64 used for decoding!
-        Error::not_implemented(format!("Integers with {bit_size} bits are not supported"))?
-    }
-    let mut mask = 0_u64;
-    for i in 0..bit_size {
-        mask |= 1 << i;
-    }
+    let mask = (1_u64 << bit_size) - 1;
     loop {
-        if stream.available() < bit_size {
+        let extracted = stream.extract(bit_size);
+        if let Some(uint_value) = extracted {
+            let int_value = (uint_value & mask) as i64 + min;
+            output(int_value);
+        } else {
             break;
         }
-        let e = stream
-            .extract(bit_size)
-            .internal_err("Unexpected error when extracing integer from byte stream")?;
-        let uint_value = (u64::from_le_bytes(e.data) >> e.offset) & mask;
-        let int_value = uint_value as i64 + min;
-        output(int_value);
     }
     Ok(())
 }
