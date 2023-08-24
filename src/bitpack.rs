@@ -23,7 +23,7 @@ fn unpack_fp<T: FromBytes>(
     loop {
         let extracted = stream.extract(bits);
         if let Some(data) = extracted {
-            let bytes = (bits / 8) as usize;
+            let bytes = bits / 8;
             let slice = &data.to_le_bytes()[..bytes];
             output(T::from_le_bytes(slice)?);
         } else {
@@ -41,7 +41,7 @@ fn unpack_int(
     output: &mut dyn FnMut(i64),
 ) -> Result<()> {
     let range = max - min;
-    let bit_size = f64::ceil(f64::log2(range as f64 + 1.0)) as u64;
+    let bit_size = f64::ceil(f64::log2(range as f64 + 1.0)) as usize;
     let mask = (1_u64 << bit_size) - 1;
     loop {
         let extracted = stream.extract(bit_size);
@@ -99,8 +99,8 @@ impl BitPack {
 
 trait FromBytes: Sized {
     fn from_le_bytes(bytes: &[u8]) -> Result<Self>;
-    fn bits() -> u64 {
-        std::mem::size_of::<Self>() as u64 * 8
+    fn bits() -> usize {
+        std::mem::size_of::<Self>() * 8
     }
 }
 

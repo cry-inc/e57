@@ -1,36 +1,40 @@
 #[derive(Clone)]
 pub struct ByteStreamReadBuffer {
     buffer: Vec<u8>,
-    offset: u64,
+    tmp: Vec<u8>,
+    offset: usize,
 }
 
 impl ByteStreamReadBuffer {
     pub fn new() -> Self {
         Self {
             buffer: Vec::new(),
+            tmp: Vec::new(),
             offset: 0,
         }
     }
 
     pub fn append(&mut self, data: &[u8]) {
-        let bytes_to_remove = (self.offset / 8) as usize;
-        if bytes_to_remove > 0 {
-            self.buffer = self.buffer[bytes_to_remove..].to_vec();
-            self.offset -= bytes_to_remove as u64 * 8;
-        }
-        self.buffer.extend_from_slice(data);
+        let consumed_bytes = self.offset / 8;
+        let remaining_bytes = self.buffer.len() - consumed_bytes;
+        self.offset -= consumed_bytes * 8;
+        self.tmp.reserve(remaining_bytes + data.len());
+        self.tmp.extend_from_slice(&self.buffer[consumed_bytes..]);
+        self.tmp.extend_from_slice(data);
+        self.buffer.clear();
+        std::mem::swap(&mut self.buffer, &mut self.tmp);
     }
 
     /// Extract 64 bits or less from the byte stream and return them as u64.
     /// The returned u64 might contain more than the requested number of bits.
     /// Please make sure to ignore/mask the additional bits!
     /// Returns None if the request cannot be satisfied.
-    pub fn extract(&mut self, bits: u64) -> Option<u64> {
+    pub fn extract(&mut self, bits: usize) -> Option<u64> {
         if self.available() < bits {
             return None;
         }
 
-        let start_offset = (self.offset / 8) as usize;
+        let start_offset = self.offset / 8;
         let end_offset = ((self.offset + bits) as f32 / 8.).ceil() as usize;
         let offset = self.offset % 8;
 
@@ -45,8 +49,8 @@ impl ByteStreamReadBuffer {
         Some(data as u64)
     }
 
-    pub fn available(&self) -> u64 {
-        (self.buffer.len() as u64 * 8) - self.offset
+    pub fn available(&self) -> usize {
+        (self.buffer.len() * 8) - self.offset
     }
 }
 
