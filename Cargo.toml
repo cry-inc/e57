@@ -24,7 +24,7 @@ members = [
     "tools/e57-to-laz",
     "tools/xyz-to-e57",
     "tools/crc-validator",
-    "tools/extract-images",
+    "tools/e57-unpack",
 ]
 
 [dependencies]
