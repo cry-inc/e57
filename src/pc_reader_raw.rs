@@ -169,4 +169,10 @@ impl<'a, T: Read + Seek> Iterator for PointCloudReaderRaw<'a, T> {
             Err(err) => Some(Err(err)),
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let overall = self.pc.records;
+        let remaining = overall - self.read;
+        (remaining as usize, Some(remaining as usize))
+    }
 }

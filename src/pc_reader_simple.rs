@@ -293,6 +293,10 @@ impl<'a, T: Read + Seek> Iterator for PointCloudReaderSimple<'a, T> {
         }
         Some(Ok(p))
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.raw_iter.size_hint()
+    }
 }
 
 fn transform_point(p: &mut Point, rotation: &[f64; 9], translation: &Translation) {
