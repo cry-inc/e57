@@ -6,6 +6,9 @@
  * The first three values in each line must be X, Y and Z (as floating point values)
  * and last three values must be integers between 0 and 255 for red, green and blue.
  * Any additional columns will be ignored.
+ *
+ * X, Y and Z will be stored as Cartesian coordinates with 32 floarting points bits for each component.
+ * RGB colors will be stored with 8 integer bits for each component.
  */
 
 use anyhow::{bail, Context, Result};
@@ -33,9 +36,9 @@ fn main() -> Result<()> {
 
     let pc_guid = Uuid::new_v4().to_string();
     let prototype = vec![
-        Record::CARTESIAN_X_F64,
-        Record::CARTESIAN_Y_F64,
-        Record::CARTESIAN_Z_F64,
+        Record::CARTESIAN_X_F32,
+        Record::CARTESIAN_Y_F32,
+        Record::CARTESIAN_Z_F32,
         Record::COLOR_RED_U8,
         Record::COLOR_GREEN_U8,
         Record::COLOR_BLUE_U8,
@@ -53,18 +56,18 @@ fn main() -> Result<()> {
         let parts: Vec<&str> = line.trim().split(' ').collect();
         if parts.len() >= 6 {
             // Parse XYZ ASCII data
-            let x: f64 = parts[0].parse().context("Failed to parse X value")?;
-            let y: f64 = parts[1].parse().context("Failed to parse X value")?;
-            let z: f64 = parts[2].parse().context("Failed to parse X value")?;
+            let x: f32 = parts[0].parse().context("Failed to parse X value")?;
+            let y: f32 = parts[1].parse().context("Failed to parse Y value")?;
+            let z: f32 = parts[2].parse().context("Failed to parse Z value")?;
             let r: u8 = parts[3].parse().context("Failed to parse red value")?;
-            let g: u8 = parts[4].parse().context("Failed to parse red value")?;
-            let b: u8 = parts[5].parse().context("Failed to parse red value")?;
+            let g: u8 = parts[4].parse().context("Failed to parse green value")?;
+            let b: u8 = parts[5].parse().context("Failed to parse blue value")?;
 
             // Create E57 point for inserting
             let point = vec![
-                RecordValue::Double(x),
-                RecordValue::Double(y),
-                RecordValue::Double(z),
+                RecordValue::Single(x),
+                RecordValue::Single(y),
+                RecordValue::Single(z),
                 RecordValue::Integer(r as i64),
                 RecordValue::Integer(g as i64),
                 RecordValue::Integer(b as i64),
