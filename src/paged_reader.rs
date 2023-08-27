@@ -1,5 +1,7 @@
-use crate::crc32::Crc32;
 use std::io::{Error, ErrorKind, Read, Result, Seek, SeekFrom};
+
+#[cfg(not(feature = "crc32c"))]
+use crate::crc32::Crc32;
 
 const CHECKSUM_SIZE: u64 = 4;
 const ALIGNMENT_SIZE: u64 = 4;
@@ -12,9 +14,11 @@ pub struct PagedReader<T: Read + Seek> {
     pages: u64,
     reader: T,
     offset: u64,
-    crc: Crc32,
     page_num: Option<u64>,
     page_buffer: Vec<u8>,
+
+    #[cfg(not(feature = "crc32c"))]
+    crc: Crc32,
 }
 
 impl<T: Read + Seek> PagedReader<T> {
@@ -53,10 +57,12 @@ impl<T: Read + Seek> PagedReader<T> {
             pages,
             phy_file_size,
             log_file_size: pages * (page_size - CHECKSUM_SIZE),
-            crc: Crc32::new(),
             page_buffer: vec![0_u8; page_size as usize],
             page_num: None,
             offset: 0,
+
+            #[cfg(not(feature = "crc32c"))]
+            crc: Crc32::new(),
         })
     }
 
@@ -89,14 +95,19 @@ impl<T: Read + Seek> PagedReader<T> {
         let data_size = self.page_size - CHECKSUM_SIZE;
         let expected_checksum = &self.page_buffer[data_size as usize..];
 
+        // Simple & slower default included SW implementation
+        #[cfg(not(feature = "crc32c"))]
+        let crc = self.crc.calculate(&self.page_buffer[0..data_size as usize]);
+
+        // Optional faster external crate with HW support
+        #[cfg(feature = "crc32c")]
+        let crc = crc32c::crc32c(&self.page_buffer[0..data_size as usize]);
+
         // The standard says all binary values are stored as little endian,
         // but for some reason E57 files contain the checksum in big endian order.
         // Probably the reference implementation used a weird CRC library and
         // now everybody has to swap bytes as well because it was not noticed back then :)
-        let calculated_checksum = self
-            .crc
-            .calculate(&self.page_buffer[0..data_size as usize])
-            .to_be_bytes();
+        let calculated_checksum = crc.to_be_bytes();
 
         if expected_checksum != calculated_checksum {
             self.page_num = None;

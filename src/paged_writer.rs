@@ -1,7 +1,9 @@
-use crate::crc32::Crc32;
 use crate::error::Converter;
 use crate::{Error, Result};
 use std::io::{Read, Seek, SeekFrom, Write};
+
+#[cfg(not(feature = "crc32c"))]
+use crate::crc32::Crc32;
 
 const PAGE_SIZE: u64 = 1024;
 const CRC_SIZE: u64 = 4;
@@ -10,8 +12,10 @@ const PAGE_PAYLOAD_SIZE: usize = (PAGE_SIZE - CRC_SIZE) as usize;
 pub struct PagedWriter<T: Write + Read + Seek> {
     writer: T,
     offset: usize,
-    crc: Crc32,
     page_buffer: Vec<u8>,
+
+    #[cfg(not(feature = "crc32c"))]
+    crc: Crc32,
 }
 
 impl<T: Write + Read + Seek> PagedWriter<T> {
@@ -26,13 +30,14 @@ impl<T: Write + Read + Seek> PagedWriter<T> {
                 source: None,
             })?
         }
-        let crc = Crc32::new();
         let page_buffer = vec![0_u8; (PAGE_SIZE - CRC_SIZE) as usize];
         Ok(Self {
             writer,
             offset: 0,
-            crc,
             page_buffer,
+
+            #[cfg(not(feature = "crc32c"))]
+            crc: Crc32::new(),
         })
     }
 
@@ -120,7 +125,14 @@ impl<T: Write + Read + Seek> Write for PagedWriter<T> {
             .copy_from_slice(&buf[..writeable_bytes]);
         self.offset += writeable_bytes;
         if self.offset >= PAGE_PAYLOAD_SIZE {
+            // Simple & slower default included SW implementation
+            #[cfg(not(feature = "crc32c"))]
             let crc = self.crc.calculate(&self.page_buffer);
+
+            // Optional faster external crate with HW support
+            #[cfg(feature = "crc32c")]
+            let crc = crc32c::crc32c(&self.page_buffer);
+
             self.page_buffer.extend_from_slice(&crc.to_be_bytes());
             self.writer.write_all(&self.page_buffer)?;
             self.page_buffer.resize(PAGE_PAYLOAD_SIZE, 0_u8);
@@ -136,8 +148,15 @@ impl<T: Write + Read + Seek> Write for PagedWriter<T> {
             // Store start posotion of current page
             let pos = self.writer.stream_position()?;
 
-            // Write current page
+            // Simple & slower default included SW implementation
+            #[cfg(not(feature = "crc32c"))]
             let crc = self.crc.calculate(&self.page_buffer);
+
+            // Optional faster external crate with HW support
+            #[cfg(feature = "crc32c")]
+            let crc = crc32c::crc32c(&self.page_buffer);
+
+            // Write current page
             self.page_buffer.extend_from_slice(&crc.to_be_bytes());
             self.writer.write_all(&self.page_buffer)?;
             self.page_buffer.truncate(PAGE_PAYLOAD_SIZE);

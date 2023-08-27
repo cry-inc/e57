@@ -1,6 +1,13 @@
 //! A pure Rust library for reading E57 files without unsafe code.
 //!
 //! Some example code can be found [here](https://github.com/cry-inc/e57/tree/master/tools) in the GitHub repository.
+//!
+//! ### Optional Crate Features
+//! There is an optional feature called `crc32c`.
+//! If enabled, it will include an [external crate](https://crates.io/crates/crc32c) as additional dependency.
+//! This crate provides a faster CRC implementation with HW support.
+//! It can speed up reading and writing of larger E57 files.
+//! The feature is **disabled by default** to keep the number dependencies as small as possible.
 
 #![forbid(unsafe_code)]
 #![deny(
@@ -16,7 +23,6 @@ mod blob;
 mod bounds;
 mod bs_read;
 mod bs_write;
-mod crc32;
 mod cv_section;
 mod date_time;
 mod e57_reader;
@@ -39,6 +45,9 @@ mod record;
 mod root;
 mod transform;
 mod xml;
+
+#[cfg(not(feature = "crc32c"))]
+mod crc32;
 
 // Public types
 pub use self::blob::Blob;

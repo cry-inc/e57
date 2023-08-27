@@ -17,6 +17,13 @@ include = [
     "/CHANGELOG.md",
 ]
 
+[features]
+crc32c = ["dep:crc32c"]
+
+[dependencies]
+roxmltree = "0.18"
+crc32c = { version = "0.6", optional = true }
+
 [workspace]
 members = [
     "tools/extract-xml",
@@ -26,6 +33,3 @@ members = [
     "tools/crc-validator",
     "tools/e57-unpack",
 ]
-
-[dependencies]
-roxmltree = "0.18"

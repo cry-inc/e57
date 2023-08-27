@@ -5,6 +5,6 @@ edition = "2021"
 publish = false
 
 [dependencies]
-e57 = { path = "../../" }
+e57 = { path = "../../", features = ["crc32c"] }
 anyhow = "1"
 ryu = "1"
