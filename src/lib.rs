@@ -92,5 +92,5 @@ pub use self::transform::Quaternion;
 pub use self::transform::Transform;
 pub use self::transform::Translation;
 
-/// Storage container for a low level point data.
+/// Storage container for low level point data.
 pub type RawValues = Vec<RecordValue>;

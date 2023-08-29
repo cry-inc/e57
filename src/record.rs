@@ -13,7 +13,7 @@ pub struct Record {
     pub data_type: RecordDataType,
 }
 
-/// Basic primtive E57 data types that are used for the different point attributes.
+/// Basic primitive E57 data types that are used for the different point attributes.
 #[derive(Clone, Debug)]
 pub enum RecordDataType {
     /// 32-bit IEEE 754-2008 floating point value.
@@ -31,7 +31,7 @@ pub enum RecordDataType {
     Integer { min: i64, max: i64 },
 }
 
-/// Used to describe the prototype records with all attributes that exit in the point cloud.
+/// Used to describe the prototype records with all attributes that exist in the point cloud.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum RecordName {
     /// Cartesian X coordinate (in meters).
