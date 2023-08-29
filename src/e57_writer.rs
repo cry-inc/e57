@@ -371,6 +371,7 @@ mod tests {
                 min: -1000,
                 max: 1000,
                 scale: 0.001,
+                offset: 0.0,
             };
             let prototype = vec![
                 Record {
@@ -462,6 +463,7 @@ mod tests {
                 min: -1000,
                 max: 1000,
                 scale: 0.001,
+                offset: 0.0,
             };
 
             let prototype = vec![

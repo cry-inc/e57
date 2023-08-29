@@ -21,7 +21,12 @@ pub enum RecordDataType {
     /// 64-bit IEEE 754-2008 floating point value.
     Double { min: Option<f64>, max: Option<f64> },
     /// Signed 64-bit integer scaled with a fixed 64-bit floating point value.
-    ScaledInteger { min: i64, max: i64, scale: f64 },
+    ScaledInteger {
+        min: i64,
+        max: i64,
+        scale: f64,
+        offset: f64,
+    },
     /// Signed 64-bit integer value.
     Integer { min: i64, max: i64 },
 }
@@ -228,8 +233,15 @@ impl RecordDataType {
                         "Maximum value '{max}' and minimum value '{min}' of type '{type_name}' in XML tag '{tag_name}' are inconsistent"
                     ))?
                 }
-                let scale = required_attribute(node, "scale", tag_name, type_name)?;
-                RecordDataType::ScaledInteger { min, max, scale }
+                let scale = optional_attribute(node, "scale", tag_name, type_name)?.unwrap_or(1.0);
+                let offset =
+                    optional_attribute(node, "offset", tag_name, type_name)?.unwrap_or(0.0);
+                RecordDataType::ScaledInteger {
+                    min,
+                    max,
+                    scale,
+                    offset,
+                }
             }
             _ => Error::not_implemented(format!(
                 "Unsupported type '{type_name}' in XML tag '{tag_name}' detected"
@@ -312,8 +324,8 @@ impl RecordValue {
             RecordValue::Single(s) => Ok(*s as f64),
             RecordValue::Double(d) => Ok(*d),
             RecordValue::ScaledInteger(i) => {
-                if let RecordDataType::ScaledInteger { scale, .. } = dt {
-                    Ok(*i as f64 * *scale)
+                if let RecordDataType::ScaledInteger { scale, offset, .. } = dt {
+                    Ok(*i as f64 * *scale + offset)
                 } else {
                     Error::internal("Tried to convert scaled integer value with wrong data type")
                 }
@@ -468,9 +480,9 @@ fn serialize_record_type(rt: &RecordDataType) -> (String, String) {
             let value = min.unwrap_or(0.0).to_string();
             (str, value)
         }
-        RecordDataType::ScaledInteger { min, max, scale } => (
+        RecordDataType::ScaledInteger { min, max, scale, offset } => (
             format!(
-                "type=\"ScaledInteger\" minimum=\"{min}\" maximum=\"{max}\"  scale=\"{scale}\""
+                "type=\"ScaledInteger\" minimum=\"{min}\" maximum=\"{max}\" scale=\"{scale}\" offset=\"{offset}\""
             ),
             min.to_string(),
         ),
