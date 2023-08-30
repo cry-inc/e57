@@ -38,8 +38,8 @@ impl Extension {
     pub(crate) fn validate_prototype(prototype: &[Record], extensions: &[Extension]) -> Result<()> {
         for record in prototype {
             if let RecordName::Unknown { namespace, name } = &record.name {
-                Self::validate_name(&namespace)?;
-                Self::validate_name(&name)?;
+                Self::validate_name(namespace)?;
+                Self::validate_name(name)?;
                 if !extensions.iter().any(|e| &e.namespace == namespace) {
                     Error::invalid(format!(
                         "Cannot find extension namespace {namespace} used by attribute {name}, please register extension first"
@@ -56,13 +56,10 @@ impl Extension {
                 "Strings used as XML namespaces or attributes must not start with 'XML': {name}"
             ))?
         }
-        let valid = name.chars().all(|c| {
-            let lower = c >= 'a' && c <= 'z';
-            let upper = c >= 'A' && c <= 'Z';
-            let numeric = c >= '0' && c <= '9';
-            lower || upper || numeric || (c == '_') || (c == '-')
-        });
-        if !valid {
+        let valid_chars = name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || (c == '_') || (c == '-'));
+        if !valid_chars {
             Error::invalid(
                 format!("Strings used as XML namespaces or attributes should consist only of a-z, A-Z, 0-9, dashes and underscores: '{name}'"),
             )?

@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] - 2023-08-30
+
+- Breaking Fix: Added missing implementation for offset in scaled integers.
+  This required changes in the basic enum for record data types.
+- Additional perfomance improvements when reading E57 files.
+- Added validation for XML namespaces and attributes when writing E57 files with extensions.
+- Added support for optional faster external CRC32 crate.
+- Implemented optional size_hint() for reading point cloud iterators.
+- Reworked image extraction tool to become a generic E57 unpack tool.
+- Very minor improvements to the XYZ-to-E57 tool.
+
 ## [0.8.0] - 2023-08-22
 
 - Breaking: Reworked simple iterator to make it easier to use
