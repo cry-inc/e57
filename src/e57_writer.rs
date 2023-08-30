@@ -60,7 +60,7 @@ impl<T: Write + Read + Seek> E57Writer<T> {
         guid: &str,
         prototype: Vec<Record>,
     ) -> Result<PointCloudWriter<T>> {
-        Extension::validate(&prototype, &self.extensions)?;
+        Extension::validate_prototype(&prototype, &self.extensions)?;
         PointCloudWriter::new(&mut self.writer, &mut self.pointclouds, guid, prototype)
     }
 

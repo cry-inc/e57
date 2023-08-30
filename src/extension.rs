@@ -35,9 +35,11 @@ impl Extension {
         extensions
     }
 
-    pub(crate) fn validate(prototype: &[Record], extensions: &[Extension]) -> Result<()> {
+    pub(crate) fn validate_prototype(prototype: &[Record], extensions: &[Extension]) -> Result<()> {
         for record in prototype {
             if let RecordName::Unknown { namespace, name } = &record.name {
+                Self::validate_name(&namespace)?;
+                Self::validate_name(&name)?;
                 if !extensions.iter().any(|e| &e.namespace == namespace) {
                     Error::invalid(format!(
                         "Cannot find extension namespace {namespace} used by attribute {name}, please register extension first"
@@ -46,5 +48,46 @@ impl Extension {
             }
         }
         Ok(())
+    }
+
+    pub(crate) fn validate_name(name: &str) -> Result<()> {
+        if name.to_lowercase().starts_with("xml") {
+            Error::invalid(format!(
+                "Strings used as XML namespaces or attributes must not start with 'XML': {name}"
+            ))?
+        }
+        let valid = name.chars().all(|c| {
+            let lower = c >= 'a' && c <= 'z';
+            let upper = c >= 'A' && c <= 'Z';
+            let numeric = c >= '0' && c <= '9';
+            lower || upper || numeric || (c == '_') || (c == '-')
+        });
+        if !valid {
+            Error::invalid(
+                format!("Strings used as XML namespaces or attributes should consist only of a-z, A-Z, 0-9, dashes and underscores: '{name}'"),
+            )?
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validate_name() {
+        assert!(Extension::validate_name("abcz").is_ok());
+        assert!(Extension::validate_name("ABCZ").is_ok());
+        assert!(Extension::validate_name("0129").is_ok());
+        assert!(Extension::validate_name("-_-").is_ok());
+        assert!(Extension::validate_name("aBC-DEf-Z_09").is_ok());
+
+        assert!(Extension::validate_name("xmlabc").is_err());
+        assert!(Extension::validate_name("XMLabc").is_err());
+        assert!(Extension::validate_name("axml").is_ok());
+
+        assert!(Extension::validate_name("abc.").is_err());
+        assert!(Extension::validate_name("äüöß").is_err());
     }
 }
