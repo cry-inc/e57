@@ -1,12 +1,11 @@
-use e57::{CartesianCoordinate, E57Reader, Projection, RawValues, RecordName, RecordValue};
+use e57::{E57Reader, RawValues, RecordName, RecordValue};
 use std::fs::File;
-use std::io::{BufWriter, Write};
 
 #[test]
 fn header() {
     let reader = E57Reader::from_file("testdata/bunnyDouble.e57").unwrap();
-
     let header = reader.header();
+
     assert_eq!(header.major, 1);
     assert_eq!(header.minor, 0);
     assert_eq!(header.page_size, 1024);
@@ -153,66 +152,4 @@ fn iterator() {
         counter += 1;
     }
     assert_eq!(counter, pc.records);
-}
-
-#[test]
-#[ignore]
-fn debug_pointclouds() {
-    let mut reader = E57Reader::from_file("testdata/bunnyInt19.e57").unwrap();
-    std::fs::write("dump.xml", reader.xml()).unwrap();
-
-    let pcs = reader.pointclouds();
-    let pc = pcs.first().unwrap();
-    let writer = File::create("dump.xyz").unwrap();
-    let mut writer = BufWriter::new(writer);
-    for p in reader.pointcloud_simple(pc).unwrap() {
-        let p = p.unwrap();
-        if let CartesianCoordinate::Valid { x, y, z } = p.cartesian {
-            writer.write_fmt(format_args!("{x} {y} {z}",)).unwrap();
-        } else {
-            continue;
-        }
-        if let Some(color) = p.color {
-            writer
-                .write_fmt(format_args!(
-                    " {} {} {}",
-                    (color.red * 255.) as u8,
-                    (color.green * 255.) as u8,
-                    (color.blue * 255.) as u8
-                ))
-                .unwrap();
-        }
-        writer.write_fmt(format_args!("\n")).unwrap();
-    }
-}
-
-#[test]
-#[ignore]
-fn debug_images() {
-    let file = "./testdata/pumpA_visual_image.e57";
-    let mut reader = E57Reader::from_file(file).unwrap();
-    std::fs::write("dump.xml", reader.xml()).unwrap();
-    let images = reader.images();
-    for (index, img) in images.iter().enumerate() {
-        println!("Image {index}: {img:#?}");
-        if let Some(preview) = &img.visual_reference {
-            let ext = format!("{:?}", preview.blob.format).to_lowercase();
-            let filename = format!("preview_{index}.{ext}");
-            let mut file = File::create(filename).unwrap();
-            let size = reader.blob(&preview.blob.data, &mut file).unwrap();
-            println!("Exported preview image with {size} bytes");
-        }
-        if let Some(rep) = &img.projection {
-            let (blob, type_name) = match rep {
-                Projection::Pinhole(rep) => (&rep.blob, "pinhole"),
-                Projection::Spherical(rep) => (&rep.blob, "spherical"),
-                Projection::Cylindrical(rep) => (&rep.blob, "cylindrical"),
-            };
-            let ext = format!("{:?}", blob.format).to_lowercase();
-            let filename = format!("{type_name}_{index}.{ext}");
-            let mut file = File::create(filename).unwrap();
-            let size = reader.blob(&blob.data, &mut file).unwrap();
-            println!("Exported image image with {size} bytes");
-        }
-    }
 }
