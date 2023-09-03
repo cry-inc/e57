@@ -1,4 +1,4 @@
-use e57::{CartesianCoordinate, E57Reader, RawValues, RecordName, RecordValue};
+use e57::{CartesianCoordinate, E57Reader, Point, RawValues, RecordName, RecordValue, Result};
 use std::fs::File;
 
 #[test]
@@ -210,4 +210,26 @@ fn simple_iterator() {
         counter += 1;
     }
     assert_eq!(counter, pc.records);
+}
+
+#[test]
+fn iterator_size_hint() {
+    let file = "testdata/tinyCartesianFloatRgb.e57";
+    let mut reader = E57Reader::from_file(file).unwrap();
+    let pcs = reader.pointclouds();
+    let pc = pcs.first().unwrap();
+    let mut iter = reader.pointcloud_simple(pc).unwrap();
+
+    // Hint at the beginning returns all points
+    let hint = iter.size_hint();
+    assert_eq!(hint, (2090, Some(2090)));
+
+    // Hint is correctly updated after we consumed one point
+    iter.next().unwrap().unwrap();
+    let hint = iter.size_hint();
+    assert_eq!(hint, (2089, Some(2089)));
+
+    // Reading everything returns the predicted point count
+    let points: Result<Vec<Point>> = iter.collect();
+    assert_eq!(points.unwrap().len(), 2089);
 }
