@@ -215,7 +215,6 @@ impl ImageBlob {
 
 /// Properties of an visual reference image.
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub struct VisualReferenceImageProperties {
     /// Width of the image in pixels.
     pub width: u32,
@@ -270,7 +269,6 @@ impl VisualReferenceImage {
 
 /// Properties of a pinhole image.
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub struct PinholeImageProperties {
     /// Width of the image in pixels.
     pub width: u32,
@@ -343,7 +341,6 @@ impl PinholeImage {
 
 /// Properties of a spherical image.
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub struct SphericalImageProperties {
     /// Width of the image in pixels.
     pub width: u32,
@@ -404,7 +401,6 @@ impl SphericalImage {
 
 /// Properties of a cylindrical image.
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub struct CylindricalImageProperties {
     /// Width of the image in pixels.
     pub width: u32,
