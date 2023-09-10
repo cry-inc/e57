@@ -27,7 +27,7 @@ All notable changes to this project will be documented in this file.
 
 ## [0.7.0] - 2023-08-16
 
-- Breaking: Extended RecordName enum and made in non_exhaustive
+- Breaking: Extended RecordName enum and made it non_exhaustive
 - Added missing support for point attribute extensions
 - Optimized simple iterator to be ~30% faster
 
