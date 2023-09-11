@@ -248,3 +248,52 @@ fn empty_e57_file() {
     let images = reader.images();
     assert_eq!(images.len(), 0);
 }
+
+#[test]
+fn with_extension() {
+    let file = "testdata/tiny_pc_with_extension.e57";
+    let mut reader = E57Reader::from_file(file).unwrap();
+
+    let extensions = reader.extensions();
+    assert_eq!(extensions.len(), 1);
+    let ext = &extensions[0];
+    assert_eq!(ext.namespace, "nor");
+    assert_eq!(ext.url, "http://www.libe57.org/E57_EXT_surface_normals.txt");
+
+    let pointclouds = reader.pointclouds();
+    assert_eq!(pointclouds.len(), 1);
+
+    let pointcloud = &pointclouds[0];
+    assert_eq!(pointcloud.prototype.len(), 6);
+    assert_eq!(
+        pointcloud.prototype[3].name,
+        RecordName::Unknown {
+            namespace: String::from("nor"),
+            name: String::from("normalX")
+        }
+    );
+    assert_eq!(
+        pointcloud.prototype[4].name,
+        RecordName::Unknown {
+            namespace: String::from("nor"),
+            name: String::from("normalY")
+        }
+    );
+    assert_eq!(
+        pointcloud.prototype[5].name,
+        RecordName::Unknown {
+            namespace: String::from("nor"),
+            name: String::from("normalZ")
+        }
+    );
+
+    assert_eq!(pointcloud.records, 1);
+    let iter = reader.pointcloud_raw(pointcloud).unwrap();
+    for res in iter {
+        let values = res.unwrap();
+        assert_eq!(values.len(), 6);
+        assert_eq!(values[3], RecordValue::Single(1.0));
+        assert_eq!(values[4], RecordValue::Single(0.0));
+        assert_eq!(values[5], RecordValue::Single(0.0));
+    }
+}
