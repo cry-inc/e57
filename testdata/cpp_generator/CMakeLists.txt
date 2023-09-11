@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.27)
+project(e57-testdata-generator)
+find_package(E57Format CONFIG REQUIRED)
+add_executable(main main.cpp)
+target_link_libraries(main PRIVATE E57Format)
