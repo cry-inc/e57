@@ -1,4 +1,4 @@
-use e57::{CartesianCoordinate, E57Reader, Point, RawValues, RecordName, RecordValue, Result};
+use e57::{CartesianCoordinate, E57Reader, Point, RecordName, RecordValue, Result};
 use std::fs::File;
 
 #[test]
@@ -134,12 +134,8 @@ fn bunny_point_count() {
         let pcs = reader.pointclouds();
         let pc = pcs.first().unwrap();
         assert_eq!(pc.records, 30571);
-        let points: Vec<RawValues> = reader
-            .pointcloud_raw(pc)
-            .unwrap()
-            .map(|p| p.unwrap())
-            .collect();
-        assert_eq!(points.len(), 30571);
+        let points: Result<Vec<Point>> = reader.pointcloud_simple(pc).unwrap().collect();
+        assert_eq!(points.unwrap().len(), 30571);
     }
 }
 
@@ -232,4 +228,23 @@ fn iterator_size_hint() {
     // Reading everything returns the predicted point count
     let points: Result<Vec<Point>> = iter.collect();
     assert_eq!(points.unwrap().len(), 2089);
+}
+
+#[test]
+fn empty_e57_file() {
+    let file = "testdata/empty.e57";
+    let reader = E57Reader::from_file(file).unwrap();
+
+    assert_eq!(reader.guid(), "{976E9187-A110-48D1-D58E-5DBF07B1630E}");
+    assert!(reader.coordinate_metadata().is_none());
+    assert!(reader.creation().is_none());
+
+    let extensions = reader.extensions();
+    assert_eq!(extensions.len(), 0);
+
+    let pointclouds = reader.pointclouds();
+    assert_eq!(pointclouds.len(), 0);
+
+    let images = reader.images();
+    assert_eq!(images.len(), 0);
 }
