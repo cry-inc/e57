@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.1] - 2023-09-11
+
+- Fixed major bug that prevented adding images to E57 files.
+  Some required property structs were accidentally private.
+- Added some C++ utility code to generate test example files using the libE57format library.
+- Restructured and extended integration tests to cover more cases.
+
 ## [0.9.0] - 2023-08-30
 
 - Breaking Fix: Added missing implementation for offset in scaled integers.
