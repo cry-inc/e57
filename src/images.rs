@@ -8,7 +8,8 @@ use roxmltree::{Document, Node};
 #[non_exhaustive]
 pub struct Image {
     /// Globally unique identifier for the image.
-    pub guid: String,
+    /// Required by spec, but the reference C++ implementation does allow to omit this field, so we do too.
+    pub guid: Option<String>,
     /// Preview/illustration image without a projection model.
     pub visual_reference: Option<VisualReferenceImage>,
     /// Image with one of the supported projection models.
@@ -33,7 +34,7 @@ pub struct Image {
 
 impl Image {
     fn from_node(node: &Node) -> Result<Self> {
-        let guid = xml::req_string(node, "guid")?;
+        let guid = xml::opt_string(node, "guid")?;
         let pointcloud_guid = xml::opt_string(node, "associatedData3DGuid")?;
         let transform = xml::opt_transform(node, "pose")?;
         let name = xml::opt_string(node, "name")?;
@@ -87,7 +88,9 @@ impl Image {
     pub(crate) fn xml_string(&self) -> String {
         let mut xml = String::new();
         xml += "<vectorChild type=\"Structure\">\n";
-        xml += &xml::gen_string("guid", &self.guid);
+        if let Some(guid) = &self.guid {
+            xml += &xml::gen_string("guid", &guid);
+        }
         if let Some(vis_ref) = &self.visual_reference {
             xml += &vis_ref.xml_string();
         }

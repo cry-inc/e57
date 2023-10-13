@@ -597,7 +597,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
 
         // prepare point cloud metadata
         let pc = PointCloud {
-            guid: self.guid.clone(),
+            guid: Some(self.guid.clone()),
             records: self.point_count,
             file_offset: self.section_offset,
             prototype: self.prototype.clone(),

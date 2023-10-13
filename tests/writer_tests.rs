@@ -63,7 +63,7 @@ fn write_read_cycle_points() {
     let pointclouds = e57.pointclouds();
     assert_eq!(pointclouds.len(), 1);
     for pc in pointclouds {
-        assert_eq!(pc.guid, "guid_pointcloud");
+        assert_eq!(pc.guid.as_deref(), Some("guid_pointcloud"));
         assert_eq!(pc.prototype.len(), 6);
         assert_eq!(pc.records, 2);
         //println!("PC: {pc:#?}");
@@ -140,7 +140,7 @@ fn write_read_cycle_image() {
     assert_eq!(images.len(), 1);
     let img = images.remove(0);
 
-    assert_eq!(img.guid, "guid_image");
+    assert_eq!(img.guid.as_deref(), Some("guid_image"));
     assert_eq!(img.acquisition.unwrap().gps_time, 1.1);
     assert_eq!(img.name.unwrap(), "name");
     assert_eq!(img.description.unwrap(), "desc");

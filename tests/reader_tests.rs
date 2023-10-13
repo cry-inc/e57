@@ -89,7 +89,10 @@ fn pointclouds() {
     let pcs = reader.pointclouds();
     assert_eq!(pcs.len(), 1);
     let pc = pcs.first().unwrap();
-    assert_eq!(pc.guid, "{9CA24C38-C93E-40E8-A366-F49977C7E3EB}");
+    assert_eq!(
+        pc.guid.as_deref(),
+        Some("{9CA24C38-C93E-40E8-A366-F49977C7E3EB}")
+    );
     assert_eq!(pc.name.as_deref(), Some("bunny"));
     assert_eq!(pc.file_offset, 48);
     assert_eq!(pc.records, 30571);
@@ -106,7 +109,10 @@ fn pointclouds() {
     let pcs = reader.pointclouds();
     assert_eq!(pcs.len(), 1);
     let pc = pcs.first().unwrap();
-    assert_eq!(pc.guid, "{49aa8f8b-618f-423e-a632-f9a58ad79e40}");
+    assert_eq!(
+        pc.guid.as_deref(),
+        Some("{49aa8f8b-618f-423e-a632-f9a58ad79e40}")
+    );
     assert_eq!(pc.name.as_deref(), Some("exp2.fls.subsampled"));
     assert_eq!(pc.file_offset, 48);
     assert_eq!(pc.records, 2090);

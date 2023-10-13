@@ -35,7 +35,7 @@ impl<'a, T: Read + Write + Seek> ImageWriter<'a, T> {
             writer,
             images,
             image: Image {
-                guid: guid.to_owned(),
+                guid: Some(guid.to_owned()),
                 visual_reference: None,
                 projection: None,
                 transform: None,

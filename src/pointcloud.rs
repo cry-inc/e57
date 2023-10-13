@@ -1,8 +1,8 @@
 use crate::error::Converter;
 use crate::xml;
 use crate::{
-    CartesianBounds, ColorLimits, DateTime, Error, IndexBounds, IntensityLimits, Record,
-    RecordDataType, RecordName, Result, SphericalBounds, Transform,
+    CartesianBounds, ColorLimits, DateTime, IndexBounds, IntensityLimits, Record, RecordDataType,
+    RecordName, Result, SphericalBounds, Transform,
 };
 use roxmltree::{Document, Node};
 
@@ -14,7 +14,8 @@ use roxmltree::{Document, Node};
 #[non_exhaustive]
 pub struct PointCloud {
     /// Globally unique identifier for the point cloud.
-    pub guid: String,
+    /// Required by spec, but the reference C++ implementation does allow to omit this field, so we do too.
+    pub guid: Option<String>,
     /// Physical file offset of the start of the associated binary section.
     pub file_offset: u64,
     /// Number of points in the point cloud.
@@ -80,7 +81,7 @@ impl PointCloud {
     }
 
     pub(crate) fn from_node(node: &Node) -> Result<Self> {
-        let guid = xml::req_string(node, "guid")?;
+        let guid = xml::opt_string(node, "guid")?;
         let name = xml::opt_string(node, "name")?;
         let description = xml::opt_string(node, "description")?;
         let sensor_model = xml::opt_string(node, "sensorModel")?;
@@ -181,11 +182,9 @@ impl PointCloud {
     pub(crate) fn xml_string(&self) -> Result<String> {
         let mut xml = String::new();
         xml += "<vectorChild type=\"Structure\">\n";
-        if self.guid.is_empty() {
-            Error::invalid("Empty point cloud GUID is not allowed")?
+        if let Some(guid) = &self.guid {
+            xml += &xml::gen_string("guid", &guid);
         }
-        xml += &xml::gen_string("guid", &self.guid);
-
         if let Some(bounds) = &self.cartesian_bounds {
             xml += &bounds.xml_string();
         }
