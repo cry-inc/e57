@@ -553,6 +553,7 @@ fn invalid_points() {
 #[test]
 fn write_read_meta_data() {
     let out_path = Path::new("metadata.e57");
+    let guids = vec![String::from("guid1"), String::from("guid2")];
 
     {
         let mut e57_writer = E57Writer::from_file(out_path, "file_guid").unwrap();
@@ -573,6 +574,7 @@ fn write_read_meta_data() {
                 RecordValue::Single(1.0),
             ])
             .unwrap();
+        pc_writer.set_original_guids(Some(guids.clone()));
         pc_writer.set_name(Some(String::from("name")));
         pc_writer.set_description(Some(String::from("desc")));
         pc_writer.set_sensor_vendor(Some(String::from("vendor")));
@@ -625,6 +627,7 @@ fn write_read_meta_data() {
         assert_eq!(pc.sensor_hw_version, Some(String::from("hw")));
         assert_eq!(pc.sensor_fw_version, Some(String::from("fw")));
         assert_eq!(pc.sensor_sw_version, Some(String::from("sw")));
+        assert_eq!(pc.original_guids, Some(guids));
         let start = pc.acquisition_start.unwrap();
         assert_eq!(start.gps_time, 0.0);
         assert_eq!(start.atomic_reference, false);

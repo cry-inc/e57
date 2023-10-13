@@ -189,6 +189,23 @@ void tiny_spherical() {
 	if (!writer.Close()) throw std::string("Failed to close tiny_spherical.e57");
 }
 
+void original_guids() {
+	e57::Writer writer("original_guids.e57");
+	e57::Data3D header;
+	header.pointCount = 1;
+	header.pointFields.cartesianXField = true;
+	header.pointFields.cartesianYField = true;
+	header.pointFields.cartesianZField = true;
+	header.originalGuids.push_back("guid1");
+	header.originalGuids.push_back("guid2");
+	header.originalGuids.push_back("guid3");
+	e57::Data3DPointsFloat buffers(header);
+	buffers.cartesianX[0] = 1;
+	buffers.cartesianY[0] = 2;
+	buffers.cartesianZ[0] = 3;
+	writer.WriteData3DData(header, buffers);
+}
+
 int main() {
 	empty();
 	tiny_pc();
@@ -196,6 +213,7 @@ int main() {
 	empty_pc();
 	tiny_pc_and_images();
 	tiny_spherical();
+	original_guids();
 
 	std::cout << "Finished!\n";
 }

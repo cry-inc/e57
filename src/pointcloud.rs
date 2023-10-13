@@ -104,6 +104,25 @@ impl PointCloud {
         let intensity_limits = node.children().find(|n| n.has_tag_name("colorLimits"));
         let color_limits = node.children().find(|n| n.has_tag_name("colorLimits"));
 
+        // Read optional vector of original GUIDs
+        let original_guids = if let Some(original_guids_node) =
+            node.children().find(|n| n.has_tag_name("originalGuids"))
+        {
+            let mut guids = Vec::new();
+            for n in original_guids_node.children() {
+                if !n.is_element()
+                    || !n.has_tag_name("vectorChild")
+                    || n.attribute("type") != Some("String")
+                {
+                    continue;
+                }
+                guids.push(n.text().unwrap_or("").to_owned())
+            }
+            Some(guids)
+        } else {
+            None
+        };
+
         let points_tag = node
             .children()
             .find(|n| n.has_tag_name("points") && n.attribute("type") == Some("CompressedVector"))
@@ -122,6 +141,8 @@ impl PointCloud {
             .children()
             .find(|n| n.has_tag_name("prototype") && n.attribute("type") == Some("Structure"))
             .invalid_err("Cannot find 'prototype' child in 'points' tag")?;
+
+        // Parse point prototype records
         let mut prototype = Vec::new();
         for n in prototype_tag.children() {
             if !n.is_element() {
@@ -138,7 +159,7 @@ impl PointCloud {
             guid,
             name,
             file_offset,
-            original_guids: None,
+            original_guids,
             records,
             prototype,
             cartesian_bounds: if let Some(node) = cartesian_bounds {
@@ -188,6 +209,14 @@ impl PointCloud {
         if let Some(guid) = &self.guid {
             xml += &xml::gen_string("guid", &guid);
         }
+        if let Some(original_guids) = &self.original_guids {
+            xml += "<originalGuids type=\"Vector\" allowHeterogeneousChildren=\"0\">\n";
+            for guid in original_guids {
+                xml += &xml::gen_string("vectorChild", &guid);
+            }
+            xml += "</originalGuids>\n";
+        }
+
         if let Some(bounds) = &self.cartesian_bounds {
             xml += &bounds.xml_string();
         }

@@ -171,6 +171,12 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         self.description = value;
     }
 
+    /// Set optional original GUIDs to indicate the source point clouds used to create this one.
+    /// This is useful to keep track which different point clouds were combined.
+    pub fn set_original_guids(&mut self, value: Option<Vec<String>>) {
+        self.original_guids = value;
+    }
+
     /// Set optional transformation to convert data from the local
     /// point cloud coordinates to the file-level coordinate system.
     /// By default this is empty, meaning the point cloud has no transformation.

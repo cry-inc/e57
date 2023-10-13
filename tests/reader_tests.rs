@@ -303,3 +303,16 @@ fn with_extension() {
         assert_eq!(values[5], RecordValue::Single(0.0));
     }
 }
+
+#[test]
+fn original_guids() {
+    let file = "testdata/original_guids.e57";
+    let reader = E57Reader::from_file(file).unwrap();
+    let pointclouds = reader.pointclouds();
+    let pc = pointclouds.first().unwrap();
+    let guids = pc.original_guids.as_ref().unwrap();
+    assert_eq!(guids.len(), 3);
+    assert_eq!(guids[0], "guid1");
+    assert_eq!(guids[1], "guid2");
+    assert_eq!(guids[2], "guid3");
+}

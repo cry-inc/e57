@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [UNRELEASED]
+
+- Added missing support for original GUIDs member of point clouds.
+  The breaking API changes for this feature were already part of the last release.
+
 ## [0.10.0] - 2023-10-13
 
 - Breaking Change: Made GUIDs for point clouds and images optional.
