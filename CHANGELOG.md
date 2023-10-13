@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [UNRELEASED]
+## [0.10.0] - 2023-10-13
 
 - Breaking Change: Made GUIDs for point clouds and images optional.
   This required changes in the corresponding public structs.
