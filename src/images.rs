@@ -2,6 +2,7 @@ use crate::error::Converter;
 use crate::xml;
 use crate::{Blob, DateTime, Error, Result, Transform};
 use roxmltree::{Document, Node};
+use uuid::Uuid;
 
 /// Descriptor with metadata for a single image.
 #[derive(Clone, Debug)]
@@ -33,7 +34,9 @@ pub struct Image {
 
 impl Image {
     fn from_node(node: &Node) -> Result<Self> {
-        let guid = xml::req_string(node, "guid")?;
+        // Although GUID is required by the spec, some files may omit the GUID for image when
+        // it is not referenced by any other node. In this case we generate a new guid.
+        let guid = xml::opt_string(node, "guid")?.unwrap_or(Uuid::new_v4().to_string());
         let pointcloud_guid = xml::opt_string(node, "associatedData3DGuid")?;
         let transform = xml::opt_transform(node, "pose")?;
         let name = xml::opt_string(node, "name")?;
