@@ -4,12 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [UNRELEASED]
 
-- Breaking Fix: Made GUIDs for point clouds and images optional.
+- Breaking Change: Made GUIDs for point clouds and images optional.
   This required changes in the corresponding public structs.
   The spec says the GUID for both is required, but the C++ implementation allows to omit it.
   Some software (e.g. Matterport) is generating files without them,
   so we need to make it optional to stay compatible and read these files.
   When creating E57 files, the library still enforces setting the GUIDs.
+- Breaking Change: Prepared structs for missing original GUIDs.
+  This feature was missing and was prepared now to avoid more breaking changes later.
+  Its not yet implemented and can be added later as non-breaking change.
 
 ## [0.9.1] - 2023-09-11
 

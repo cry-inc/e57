@@ -22,7 +22,9 @@ pub struct PointCloud {
     pub records: u64,
     /// List of point attributes that exist for this point cloud.
     pub prototype: Vec<Record>,
-
+    /// Optional list of GUIDs that identify the data sets from which the points in this point cloud originated.
+    /// Currently not used and always none. Included to avoid future breaking API changes.
+    pub original_guids: Option<Vec<String>>,
     /// Optional user-defined name for the point cloud.
     pub name: Option<String>,
     /// Optional user-defined description of the point cloud.
@@ -136,6 +138,7 @@ impl PointCloud {
             guid,
             name,
             file_offset,
+            original_guids: None,
             records,
             prototype,
             cartesian_bounds: if let Some(node) = cartesian_bounds {
