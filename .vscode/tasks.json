@@ -69,6 +69,25 @@
             "problemMatcher": []
         },
         {
+            "label": "Clean Coverage Data",
+            "type": "shell",
+            "command": "rm",
+            "args": [
+                "*.profraw"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Clean Coverage Report",
+            "type": "shell",
+            "command": "rm",
+            "args": [
+                "target/coverage_*",
+                "-R"
+            ],
+            "problemMatcher": []
+        },
+        {
             "label": "Measure Coverage",
             "command": "cargo",
             "args": [
@@ -79,7 +98,7 @@
                 "env": {
                     "CARGO_INCREMENTAL": "0",
                     "RUSTFLAGS": "-Cinstrument-coverage",
-                    "LLVM_PROFILE_FILE": "coverage.profraw"
+                    "LLVM_PROFILE_FILE": "%m.profraw"
                 }
             },
             "problemMatcher": [
@@ -90,17 +109,15 @@
             "label": "Export Coverage",
             "command": "grcov",
             "args": [
-                "coverage.profraw",
-                "--binary-path",
-                "target/debug/deps/",
-                "--source-dir",
                 ".",
+                "--binary-path",
+                "target/debug",
+                "--source-dir",
+                "src",
                 "--output-type",
                 "html",
                 "--output-path",
-                "target/coverage_html",
-                "--keep-only",
-                "src/**/*"
+                "target/coverage_html"
             ],
             "problemMatcher": []
         },
@@ -114,6 +131,8 @@
             "label": "Code Coverage",
             "dependsOrder": "sequence",
             "dependsOn": [
+                "Clean Coverage Data",
+                "Clean Coverage Report",
                 "Measure Coverage",
                 "Export Coverage",
                 "Show Coverage"
