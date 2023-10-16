@@ -557,6 +557,7 @@ fn write_read_meta_data() {
 
     {
         let mut e57_writer = E57Writer::from_file(out_path, "file_guid").unwrap();
+        e57_writer.set_coordinate_metadata(Some("coord meta".to_owned()));
         e57_writer.set_creation(Some(DateTime {
             gps_time: 12.34,
             atomic_reference: true,
@@ -616,6 +617,7 @@ fn write_read_meta_data() {
         let creation = e57_reader.creation().unwrap();
         assert_eq!(creation.gps_time, 12.34);
         assert_eq!(creation.atomic_reference, true);
+        assert_eq!(e57_reader.coordinate_metadata(), Some("coord meta"));
 
         let pcs = e57_reader.pointclouds();
         let pc = pcs[0].clone();
