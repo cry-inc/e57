@@ -1,4 +1,7 @@
-use e57::{CartesianCoordinate, E57Reader, Point, RecordName, RecordValue, Result};
+use e57::{
+    CartesianCoordinate, E57Reader, Point, Record, RecordName, RecordValue, Result,
+    SphericalCoordinate,
+};
 use std::fs::File;
 
 #[test]
@@ -315,4 +318,72 @@ fn original_guids() {
     assert_eq!(guids[0], "guid1");
     assert_eq!(guids[1], "guid2");
     assert_eq!(guids[2], "guid3");
+}
+
+#[test]
+fn spherical_coordinates() {
+    let file = "testdata/tiny_spherical.e57";
+    let mut reader = E57Reader::from_file(file).unwrap();
+    let pointclouds = reader.pointclouds();
+    let pc = pointclouds.first().unwrap();
+    let proto = &pc.prototype;
+    assert!(matches!(
+        proto[0],
+        Record {
+            name: RecordName::SphericalRange,
+            ..
+        }
+    ));
+    assert!(matches!(
+        proto[1],
+        Record {
+            name: RecordName::SphericalAzimuth,
+            ..
+        }
+    ));
+    assert!(matches!(
+        proto[2],
+        Record {
+            name: RecordName::SphericalElevation,
+            ..
+        }
+    ));
+    assert!(matches!(
+        pc.prototype[3],
+        Record {
+            name: RecordName::SphericalInvalidState,
+            ..
+        }
+    ));
+    let iter = reader.pointcloud_simple(pc).unwrap();
+    let mut points = Vec::new();
+    for (i, p) in iter.enumerate() {
+        let p = p.unwrap();
+
+        // Odd points are direction only
+        if i % 2 == 0 {
+            assert!(matches!(p.spherical, SphericalCoordinate::Valid { .. }));
+        } else {
+            assert!(matches!(p.spherical, SphericalCoordinate::Direction { .. }));
+        }
+        points.push(p);
+    }
+    assert_eq!(points.len(), 360);
+    assert_eq!(points.len(), pc.records as usize);
+    assert_eq!(
+        points[0].spherical,
+        SphericalCoordinate::Valid {
+            range: 1.0,
+            azimuth: 0.0,
+            elevation: 0.0
+        }
+    );
+    let angle = 359.0 * (3.14 / 360.0);
+    assert_eq!(
+        points[359].spherical,
+        SphericalCoordinate::Direction {
+            azimuth: angle,
+            elevation: angle
+        }
+    );
 }
