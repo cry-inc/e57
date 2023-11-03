@@ -618,6 +618,9 @@ fn write_read_meta_data() {
         assert_eq!(creation.gps_time, 12.34);
         assert_eq!(creation.atomic_reference, true);
         assert_eq!(e57_reader.coordinate_metadata(), Some("coord meta"));
+        let library_version = e57_reader.library_version().unwrap();
+        assert!(library_version.contains("Rust E57 Library"));
+        assert!(library_version.contains("github.com/cry-inc/e57"));
 
         let pcs = e57_reader.pointclouds();
         let pc = pcs[0].clone();

@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 - Added missing support for original GUIDs member of point clouds.
   The breaking API changes for this feature were already part of the last release.
+- Allow access to the E57 library version field when reading E57 files.
 
 ## [0.10.0] - 2023-10-13
 

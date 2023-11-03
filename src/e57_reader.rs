@@ -87,6 +87,11 @@ impl<T: Read + Seek> E57Reader<T> {
         &self.root.guid
     }
 
+    /// Returns the library version string of the root XML section.
+    pub fn library_version(&self) -> Option<&str> {
+        self.root.library_version.as_deref()
+    }
+
     /// Returns a list of all extensions defined in this file.
     pub fn extensions(&self) -> Vec<Extension> {
         self.extensions.clone()
