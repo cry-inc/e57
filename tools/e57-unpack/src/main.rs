@@ -13,7 +13,7 @@
  * in the same folder as the original file.
  */
 
-use anyhow::{bail, Context, Result};
+use anyhow::{ensure, Context, Result};
 use e57::{DateTime, E57Reader, Extension, Header, Projection, RecordValue};
 use std::fs::{create_dir_all, write, File};
 use std::io::{BufWriter, Write};
@@ -31,9 +31,7 @@ pub struct E57Metadata {
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
-    if args.len() < 2 {
-        bail!("Usage: extract-images <path/to/my.e57>");
-    }
+    ensure!(args.len() >= 2, "Usage: extract-images <path/to/my.e57>");
 
     // Prepare input file and output folder
     let input_file = &args[1];

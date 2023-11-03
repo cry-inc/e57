@@ -2,16 +2,14 @@
  * Small example application that will dump the XML section of any E57 to stdout.
  */
 
-use anyhow::{bail, Context, Result};
+use anyhow::{ensure, Context, Result};
 use e57::E57Reader;
 use std::fs::File;
 use std::io::{stdout, BufReader, Write};
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
-    if args.len() < 2 {
-        bail!("Usage: extract-xml <path/to/my.e57>");
-    }
+    ensure!(args.len() >= 2, "Usage: extract-xml <path/to/my.e57>");
 
     let file = File::open(&args[1]).context("Failed to open E57 file")?;
     let reader = BufReader::new(file);

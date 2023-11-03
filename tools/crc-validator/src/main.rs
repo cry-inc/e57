@@ -4,7 +4,7 @@
  * If the argument is a directory, will check recurisvely all E57 files in that directory.
  */
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, ensure, Context, Result};
 use e57::E57Reader;
 use std::fs::File;
 use std::io::BufReader;
@@ -12,18 +12,17 @@ use std::path::Path;
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
-    if args.len() < 2 {
-        bail!("Usage:\n  crc-validator <path/to/my.e57>\n  crc-validator <path/to/folder/>");
-    }
+    ensure!(
+        args.len() >= 2,
+        "Usage:\n  crc-validator <path/to/my.e57>\n  crc-validator <path/to/folder/>"
+    );
 
     let path_str = &args[1];
     let path = Path::new(path_str);
-    if !path.exists() {
-        bail!("The path '{path_str}' does not exist");
-    }
+    ensure!(path.exists(), "The path '{path_str}' does not exist");
 
     let all_ok = if path.is_dir() {
-        let files = list_files(path).context("Failed to list E57 files")?;
+        let files = list_e57_files(path).context("Failed to list E57 files")?;
         println!("Found {} files, starting validation...", files.len());
         check_files(&files)
     } else if path.is_file() {
@@ -32,25 +31,24 @@ fn main() -> Result<()> {
         bail!("The path '{path_str}' does not point to a directory or a file");
     };
 
-    if all_ok {
-        println!("All files are okay!");
-        Ok(())
-    } else {
-        Err(anyhow!("Some of the checked files are not okay"))
+    if !all_ok {
+        bail!("Some of the checked files are not okay")
     }
+
+    println!("All files are okay!");
+    Ok(())
 }
 
-fn list_files(path: &Path) -> Result<Vec<String>> {
+fn list_e57_files(path: &Path) -> Result<Vec<String>> {
     let mut res = Vec::new();
     for entry in path.read_dir().expect("Failed to read directory").flatten() {
         let path = entry.path();
         if path.is_file() {
-            let ext = path.extension();
-            if let Some(ext) = ext {
+            if let Some(ext) = path.extension() {
                 let ext = ext
                     .to_str()
-                    .context("Failed to extract file extension as string")?;
-                let ext = ext.to_ascii_lowercase();
+                    .context("Failed to extract file extension as string")?
+                    .to_ascii_lowercase();
                 if ext == "e57" {
                     res.push(
                         path.to_str()
@@ -60,7 +58,7 @@ fn list_files(path: &Path) -> Result<Vec<String>> {
                 }
             }
         } else if path.is_dir() {
-            let mut files = list_files(&path)?;
+            let mut files = list_e57_files(&path)?;
             res.append(&mut files);
         }
     }
@@ -68,13 +66,7 @@ fn list_files(path: &Path) -> Result<Vec<String>> {
 }
 
 fn check_files(files: &[String]) -> bool {
-    let mut all_ok = true;
-    for f in files {
-        if !check_file(f) {
-            all_ok = false;
-        }
-    }
-    all_ok
+    files.iter().all(|f| check_file(f))
 }
 
 fn check_file(file_str: &str) -> bool {

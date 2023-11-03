@@ -11,7 +11,7 @@
  * If there is no color and no intensity, it will only write X, Y and Z values.
  */
 
-use anyhow::{bail, Context, Result};
+use anyhow::{ensure, Context, Result};
 use e57::{CartesianCoordinate, E57Reader};
 use std::env::args;
 use std::fs::File;
@@ -20,9 +20,7 @@ use std::io::{BufWriter, Write};
 fn main() -> Result<()> {
     // Check command line arguments and show usage
     let args: Vec<String> = args().collect();
-    if args.len() < 2 {
-        bail!("Usage: e57-to-xyz <path/to/my.e57>");
-    }
+    ensure!(args.len() >= 2, "Usage: e57-to-xyz <path/to/my.e57>");
 
     // Prepare input and output file paths
     let in_file = args[1].clone();

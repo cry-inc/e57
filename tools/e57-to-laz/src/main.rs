@@ -8,7 +8,7 @@
  * Invalid and incomplete coordinates will be skipped.
  */
 
-use anyhow::{bail, Context, Result};
+use anyhow::{ensure, Context, Result};
 use e57::{CartesianCoordinate, E57Reader};
 use las::{Builder, Color, Point, Version, Write, Writer};
 use std::env::args;
@@ -16,9 +16,7 @@ use std::env::args;
 fn main() -> Result<()> {
     // Check command line arguments and show usage
     let args: Vec<String> = args().collect();
-    if args.len() < 2 {
-        bail!("Usage: e57-to-laz <path/to/my.e57>");
-    }
+    ensure!(args.len() >= 2, "Usage: e57-to-laz <path/to/my.e57>");
 
     // Prepare input and output file paths
     let in_file = args[1].clone();
@@ -40,7 +38,7 @@ fn main() -> Result<()> {
 
     // Prepare writing to output file
     let mut writer =
-        Writer::from_path(out_file, header).context("Failed to open LAZ file for writing")?;
+        Writer::from_path(out_file, header).context("Failed to open new LAZ file for writing")?;
 
     // Loop over all point clouds in the E57 file
     let pointclouds = file.pointclouds();
