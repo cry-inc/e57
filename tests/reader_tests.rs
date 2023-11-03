@@ -248,14 +248,9 @@ fn empty_e57_file() {
     assert!(reader.coordinate_metadata().is_none());
     assert!(reader.creation().is_none());
 
-    let extensions = reader.extensions();
-    assert_eq!(extensions.len(), 0);
-
-    let pointclouds = reader.pointclouds();
-    assert_eq!(pointclouds.len(), 0);
-
-    let images = reader.images();
-    assert_eq!(images.len(), 0);
+    assert_eq!(reader.extensions().len(), 0);
+    assert_eq!(reader.pointclouds().len(), 0);
+    assert_eq!(reader.images().len(), 0);
 }
 
 #[test]

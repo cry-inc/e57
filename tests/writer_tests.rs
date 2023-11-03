@@ -651,3 +651,22 @@ fn write_read_meta_data() {
 
     remove_file(out_path).unwrap();
 }
+
+#[test]
+fn create_empty_e57_file() {
+    let out_path = Path::new("empty_e57_file.e57");
+
+    {
+        let mut writer = E57Writer::from_file(out_path, "file_guid").unwrap();
+        writer.finalize().unwrap();
+    }
+
+    {
+        let reader = E57Reader::from_file(out_path).unwrap();
+        assert_eq!(reader.extensions().len(), 0);
+        assert_eq!(reader.pointclouds().len(), 0);
+        assert_eq!(reader.images().len(), 0);
+    }
+
+    remove_file(out_path).unwrap();
+}
