@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [UNRELEASED]
+## [0.10.1] - 2023-11-03
 
 - Added missing support for original GUIDs member of point clouds.
   The breaking API changes for this feature were already part of the last release.
