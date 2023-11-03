@@ -29,9 +29,12 @@ impl<T: Write + Read + Seek> E57Writer<T> {
         header.write(&mut writer)?;
 
         let version = env!("CARGO_PKG_VERSION");
+        let library_version = Some(format!(
+            "Rust E57 Library v{version} github.com/cry-inc/e57"
+        ));
         let root = Root {
             guid: guid.to_owned(),
-            library_version: Some(format!("Rust E57 Library v{version}")),
+            library_version,
             ..Default::default()
         };
 
