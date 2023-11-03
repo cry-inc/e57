@@ -1,6 +1,6 @@
 use e57::{
-    CartesianCoordinate, E57Reader, Point, Record, RecordName, RecordValue, Result,
-    SphericalCoordinate,
+    CartesianCoordinate, E57Reader, ImageFormat, Point, Projection, Record, RecordName,
+    RecordValue, Result, SphericalCoordinate,
 };
 use std::fs::File;
 
@@ -381,4 +381,143 @@ fn spherical_coordinates() {
             elevation: angle
         }
     );
+}
+
+#[test]
+fn read_images() {
+    let file = "testdata/tiny_pc_and_images.e57";
+    let mut reader = E57Reader::from_file(file).unwrap();
+
+    let pcs = reader.pointclouds();
+    let pc = pcs.first().unwrap();
+    let pc_guid = pc.guid.as_deref().unwrap();
+
+    let images = reader.images();
+    assert_eq!(images.len(), 4);
+
+    {
+        let img = &images[0];
+        assert_eq!(
+            img.guid.as_deref(),
+            Some("{5E36E0E0-D577-478D-8A45-3CA5D4809B0F}")
+        );
+        assert_eq!(img.name.as_deref(), Some("visual"));
+        assert!(img.projection.is_none());
+        let vis_ref = img.visual_reference.as_ref().unwrap();
+        assert_eq!(vis_ref.blob.data.offset, 116);
+        assert_eq!(vis_ref.blob.data.length, 7722);
+        assert!(matches!(vis_ref.blob.format, ImageFormat::Jpeg));
+        assert_eq!(vis_ref.properties.width, 100);
+        assert_eq!(vis_ref.properties.height, 100);
+        let mut blob_dump = Vec::new();
+        let size = reader.blob(&vis_ref.blob.data, &mut blob_dump).unwrap();
+        assert_eq!(size, vis_ref.blob.data.length);
+        assert_eq!(blob_dump.len(), size as usize);
+    }
+
+    {
+        let img = &images[1];
+        assert_eq!(
+            img.guid.as_deref(),
+            Some("{D868A2FD-16AD-40FD-7CE4-AFC4F4CB05AB}")
+        );
+        assert_eq!(img.name.as_deref(), Some("spherical"));
+        assert_eq!(img.description.as_deref(), Some("desc"));
+        assert_eq!(img.sensor_vendor.as_deref(), Some("vendor"));
+        assert_eq!(img.sensor_model.as_deref(), Some("sensor"));
+        assert_eq!(img.sensor_serial.as_deref(), Some("serial"));
+        assert_eq!(img.pointcloud_guid.as_deref(), Some(pc_guid));
+        let transform = img.transform.as_ref().unwrap();
+        assert_eq!(transform.rotation.w, 0.5);
+        assert_eq!(transform.rotation.x, 1.0);
+        assert_eq!(transform.rotation.y, 0.0);
+        assert_eq!(transform.rotation.z, 0.0);
+        assert_eq!(transform.translation.x, 1.0);
+        assert_eq!(transform.translation.y, 2.0);
+        assert_eq!(transform.translation.z, 3.0);
+        assert!(img.visual_reference.is_none());
+        let projection = img.projection.as_ref().unwrap();
+        assert!(matches!(projection, Projection::Spherical(..)));
+        let si = if let Projection::Spherical(value) = projection {
+            value
+        } else {
+            panic!("Unexpected projection")
+        };
+        assert_eq!(si.properties.height, 100);
+        assert_eq!(si.properties.width, 100);
+        assert_eq!(si.properties.pixel_width, 0.0314);
+        assert_eq!(si.properties.pixel_height, 0.0314);
+        assert_eq!(si.blob.data.offset, 7884);
+        assert_eq!(si.blob.data.length, 1073);
+        assert!(matches!(si.blob.format, ImageFormat::Png));
+        assert_eq!(si.properties.width, 100);
+        assert_eq!(si.properties.height, 100);
+        let mut blob_dump = Vec::new();
+        let size = reader.blob(&si.blob.data, &mut blob_dump).unwrap();
+        assert_eq!(size, si.blob.data.length);
+        assert_eq!(blob_dump.len(), size as usize);
+    }
+
+    {
+        let img = &images[2];
+        assert_eq!(
+            img.guid.as_deref(),
+            Some("{3CEABB5C-E41A-49A7-05A5-83BB039D4F14}")
+        );
+        assert_eq!(img.name.as_deref(), Some("pinhole"));
+        let projection = img.projection.as_ref().unwrap();
+        assert!(matches!(projection, Projection::Pinhole(..)));
+        let pi = if let Projection::Pinhole(value) = projection {
+            value
+        } else {
+            panic!("Unexpected projection")
+        };
+        assert_eq!(pi.properties.height, 100);
+        assert_eq!(pi.properties.width, 100);
+        assert_eq!(pi.properties.pixel_width, 0.044);
+        assert_eq!(pi.properties.pixel_height, 0.033);
+        assert_eq!(pi.properties.focal_length, 123.0);
+        assert_eq!(pi.properties.principal_x, 23.0);
+        assert_eq!(pi.properties.principal_y, 42.0);
+        assert_eq!(pi.blob.data.offset, 8980);
+        assert_eq!(pi.blob.data.length, 1073);
+        assert!(matches!(pi.blob.format, ImageFormat::Png));
+        assert_eq!(pi.properties.width, 100);
+        assert_eq!(pi.properties.height, 100);
+        let mut blob_dump = Vec::new();
+        let size = reader.blob(&pi.blob.data, &mut blob_dump).unwrap();
+        assert_eq!(size, pi.blob.data.length);
+        assert_eq!(blob_dump.len(), size as usize);
+    }
+
+    {
+        let img = &images[3];
+        assert_eq!(
+            img.guid.as_deref(),
+            Some("{0711C6FD-1363-4F2E-CCBD-089F45CA2288}")
+        );
+        assert_eq!(img.name.as_deref(), Some("cylindrical"));
+        let projection = img.projection.as_ref().unwrap();
+        assert!(matches!(projection, Projection::Cylindrical(..)));
+        let ci = if let Projection::Cylindrical(value) = projection {
+            value
+        } else {
+            panic!("Unexpected projection")
+        };
+        assert_eq!(ci.properties.height, 100);
+        assert_eq!(ci.properties.width, 100);
+        assert_eq!(ci.properties.pixel_width, 0.044);
+        assert_eq!(ci.properties.pixel_height, 0.033);
+        assert_eq!(ci.properties.principal_y, 42.0);
+        assert_eq!(ci.properties.radius, 666.0);
+        assert_eq!(ci.blob.data.offset, 10076);
+        assert_eq!(ci.blob.data.length, 1073);
+        assert!(matches!(ci.blob.format, ImageFormat::Png));
+        assert_eq!(ci.properties.width, 100);
+        assert_eq!(ci.properties.height, 100);
+        let mut blob_dump = Vec::new();
+        let size = reader.blob(&ci.blob.data, &mut blob_dump).unwrap();
+        assert_eq!(size, ci.blob.data.length);
+        assert_eq!(blob_dump.len(), size as usize);
+    }
 }
