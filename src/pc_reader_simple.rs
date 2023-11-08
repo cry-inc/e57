@@ -354,7 +354,7 @@ fn convert_to_spherical(p: &mut Point) {
         let r = f64::sqrt(x * x + y * y + z * z);
         p.spherical = SphericalCoordinate::Valid {
             range: r,
-            azimuth: f64::atan2(x, y),
+            azimuth: f64::atan2(y, x),
             elevation: f64::asin(z / r),
         };
         return;
@@ -365,7 +365,7 @@ fn convert_to_spherical(p: &mut Point) {
     } else if let CartesianCoordinate::Direction { x, y, z } = p.cartesian {
         // Convert Cartesian direction coordinate to spherical direction
         p.spherical = SphericalCoordinate::Direction {
-            azimuth: f64::atan2(x, y),
+            azimuth: f64::atan2(y, x),
             elevation: f64::asin(z / f64::sqrt(x * x + y * y + z * z)),
         };
     }
@@ -434,6 +434,33 @@ mod tests {
             assert_eq!(z, 10.0);
         } else {
             assert!(false)
+        }
+    }
+
+    #[test]
+    fn roundtrip_conversion() {
+        let cartesian = [1.0, 2.0, 3.0];
+        let mut point = Point {
+            cartesian: CartesianCoordinate::Valid {
+                x: cartesian[0],
+                y: cartesian[1],
+                z: cartesian[2],
+            },
+            spherical: SphericalCoordinate::Invalid,
+            color: None,
+            intensity: None,
+            row: -1,
+            column: -1,
+        };
+        convert_to_spherical(&mut point);
+        point.cartesian = CartesianCoordinate::Invalid;
+        convert_to_cartesian(&mut point);
+        if let CartesianCoordinate::Valid { x, y, z } = point.cartesian {
+            assert!((x - cartesian[0]).abs() < 0.00001);
+            assert!((y - cartesian[1]).abs() < 0.00001);
+            assert!((z - cartesian[2]).abs() < 0.00001);
+        } else {
+            assert!(false);
         }
     }
 }
