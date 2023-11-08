@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.2] - 2023-11-08
+
+- Fixed bug when converting Cartesian to spherical coordinates.
+  The code used `atan2(x, y)` instead of `atan2(y, x)` which flipped the data horizontally.
+  This problem was not detected since the unit tests were too simple.
+  They have now been extended to capture this issue.
+
 ## [0.10.1] - 2023-11-03
 
 - Added missing support for original GUIDs member of point clouds.
