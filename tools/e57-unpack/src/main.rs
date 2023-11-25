@@ -59,7 +59,7 @@ fn main() -> Result<()> {
     };
     let metadata_file = output_folder.join("metadata.txt");
     let desc = format!("{metadata:#?}");
-    write(metadata_file, &desc).context("Failed to write parsed metadata of E57")?;
+    write(metadata_file, desc).context("Failed to write parsed metadata of E57")?;
     println!("Finished writing parsed metadata");
 
     // Extract images
