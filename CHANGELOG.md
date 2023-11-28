@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## UNRELEASED
+
+- Updated `roxmltree` dependency to 0.19, which removes the indirect dependency to `xmlparser`.
+
 ## [0.10.2] - 2023-11-08
 
 - Fixed bug when converting Cartesian to spherical coordinates.
