@@ -1,5 +1,5 @@
 use e57::{
-    CartesianCoordinate, E57Reader, ImageFormat, Point, Projection, Record, RecordName,
+    CartesianCoordinate, E57Reader, ImageFormat, Point, Projection, RawValues, Record, RecordName,
     RecordValue, Result, SphericalCoordinate,
 };
 use std::fs::File;
@@ -519,5 +519,26 @@ fn read_images() {
         let size = reader.blob(&ci.blob.data, &mut blob_dump).unwrap();
         assert_eq!(size, ci.blob.data.length);
         assert_eq!(blob_dump.len(), size as usize);
+    }
+}
+
+#[test]
+fn read_empty_pc() {
+    let path = "testdata/empty_pc.e57";
+    let mut e57 = E57Reader::from_file(path).unwrap();
+    assert_eq!(e57.guid(), "{3DA87555-C99B-42CF-FAB5-F994D4F98235}");
+    let pointclouds = e57.pointclouds();
+    assert_eq!(pointclouds.len(), 1);
+    for pc in pointclouds {
+        assert_eq!(
+            pc.guid.as_deref(),
+            Some("{509F3BEA-9555-4667-5608-266CC699CA43}")
+        );
+        assert_eq!(pc.prototype.len(), 3);
+        assert_eq!(pc.records, 0);
+        let iter = e57.pointcloud_raw(&pc).unwrap();
+        let points: Result<Vec<RawValues>> = iter.collect();
+        let points = points.unwrap();
+        assert_eq!(points.len(), 0);
     }
 }

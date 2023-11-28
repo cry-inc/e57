@@ -11,8 +11,8 @@ use std::path::Path;
 #[test]
 fn write_read_cycle_points() {
     let path = Path::new("write_read_cycle_points.e57");
-    let mut e57_writer = E57Writer::from_file(path, "guid_file").unwrap();
 
+    let mut e57 = E57Writer::from_file(path, "guid_file").unwrap();
     let prototype = vec![
         Record::CARTESIAN_X_F64,
         Record::CARTESIAN_Y_F64,
@@ -21,7 +21,6 @@ fn write_read_cycle_points() {
         Record::COLOR_GREEN_U8,
         Record::COLOR_BLUE_U8,
     ];
-
     let points = vec![
         vec![
             RecordValue::Double(1.1),
@@ -40,23 +39,13 @@ fn write_read_cycle_points() {
             RecordValue::Integer(255),
         ],
     ];
-
-    let mut pc_writer = e57_writer
-        .add_pointcloud("guid_pointcloud", prototype)
-        .unwrap();
+    let mut pc_writer = e57.add_pointcloud("guid_pointcloud", prototype).unwrap();
     for p in points {
         pc_writer.add_point(p).unwrap();
     }
     pc_writer.finalize().unwrap();
-    e57_writer.finalize().unwrap();
-    drop(e57_writer);
-
-    {
-        let file = File::open(path).unwrap();
-        let xml = E57Reader::raw_xml(file).unwrap();
-        assert!(xml.len() > 0);
-        //std::fs::write("test.xml", xml).unwrap();
-    }
+    e57.finalize().unwrap();
+    drop(e57);
 
     let mut e57 = E57Reader::from_file(path).unwrap();
     assert_eq!(e57.guid(), "guid_file");
@@ -66,13 +55,10 @@ fn write_read_cycle_points() {
         assert_eq!(pc.guid.as_deref(), Some("guid_pointcloud"));
         assert_eq!(pc.prototype.len(), 6);
         assert_eq!(pc.records, 2);
-        //println!("PC: {pc:#?}");
-
         let iter = e57.pointcloud_raw(&pc).unwrap();
         let points: Result<Vec<RawValues>> = iter.collect();
         let points = points.unwrap();
         assert_eq!(points.len(), 2);
-        //println!("Points: {points:#?}");
     }
 
     remove_file(path).unwrap();
@@ -672,4 +658,41 @@ fn create_empty_e57_file() {
     }
 
     remove_file(out_path).unwrap();
+}
+
+#[test]
+fn write_read_empty_point_cloud() {
+    let path = Path::new("write_read_empty_point_cloud.e57");
+
+    {
+        let mut e57_writer = E57Writer::from_file(path, "guid_file").unwrap();
+        let prototype = vec![
+            Record::CARTESIAN_X_F64,
+            Record::CARTESIAN_Y_F64,
+            Record::CARTESIAN_Z_F64,
+        ];
+        let mut pc_writer = e57_writer
+            .add_pointcloud("guid_pointcloud", prototype)
+            .unwrap();
+        pc_writer.finalize().unwrap();
+        e57_writer.finalize().unwrap();
+    }
+
+    {
+        let mut e57 = E57Reader::from_file(path).unwrap();
+        assert_eq!(e57.guid(), "guid_file");
+        let pointclouds = e57.pointclouds();
+        assert_eq!(pointclouds.len(), 1);
+        for pc in pointclouds {
+            assert_eq!(pc.guid.as_deref(), Some("guid_pointcloud"));
+            assert_eq!(pc.prototype.len(), 3);
+            assert_eq!(pc.records, 0);
+            let iter = e57.pointcloud_raw(&pc).unwrap();
+            let points: Result<Vec<RawValues>> = iter.collect();
+            let points = points.unwrap();
+            assert_eq!(points.len(), 0);
+        }
+    }
+
+    remove_file(path).unwrap();
 }
