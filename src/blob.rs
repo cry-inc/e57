@@ -96,7 +96,6 @@ impl Blob {
     }
 }
 
-#[derive(Debug)]
 struct BlobSectionHeader {
     section_length: u64,
 }
