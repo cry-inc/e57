@@ -1,7 +1,7 @@
 use crate::paged_reader::PagedReader;
 use crate::{
-    CartesianCoordinate, Color, Point, PointCloud, PointCloudReaderRaw, RawValues, RecordName,
-    Result, SphericalCoordinate, Transform, Translation,
+    CartesianCoordinate, Color, Error, Point, PointCloud, PointCloudReaderRaw, RawValues,
+    RecordName, Result, SphericalCoordinate, Transform, Translation,
 };
 use std::io::{Read, Seek};
 
@@ -151,7 +151,7 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
 
         // Cartesian coordinates
         let cartesian_invalid = if let Some(ind) = self.indices.cartesian_invalid {
-            values[ind].to_u8(&proto[ind].data_type)?
+            values[ind].to_i64(&proto[ind].data_type)?
         } else if self.indices.cartesian.is_some() {
             0
         } else {
@@ -170,8 +170,12 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
                     y: values[ind.1].to_f64(&proto[ind.1].data_type)?,
                     z: values[ind.2].to_f64(&proto[ind.2].data_type)?,
                 }
-            } else {
+            } else if cartesian_invalid == 2 {
                 CartesianCoordinate::Invalid
+            } else {
+                Error::invalid(format!(
+                    "Cartesian invalid state contains invalid value: {cartesian_invalid}"
+                ))?
             }
         } else {
             CartesianCoordinate::Invalid
@@ -179,7 +183,7 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
 
         // Spherical coordinates
         let spherical_invalid = if let Some(ind) = self.indices.spherical_invalid {
-            values[ind].to_u8(&proto[ind].data_type)?
+            values[ind].to_i64(&proto[ind].data_type)?
         } else if self.indices.spherical.is_some() {
             0
         } else {
@@ -197,8 +201,12 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
                     azimuth: values[ind.1].to_f64(&proto[ind.1].data_type)?,
                     elevation: values[ind.2].to_f64(&proto[ind.2].data_type)?,
                 }
-            } else {
+            } else if spherical_invalid == 2 {
                 SphericalCoordinate::Invalid
+            } else {
+                Error::invalid(format!(
+                    "Spherical invalid state contains invalid value: {spherical_invalid}"
+                ))?
             }
         } else {
             SphericalCoordinate::Invalid
@@ -206,7 +214,7 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
 
         // RGB colors
         let color_invalid = if let Some(ind) = self.indices.color_invalid {
-            values[ind].to_u8(&proto[ind].data_type)?
+            values[ind].to_i64(&proto[ind].data_type)?
         } else if self.indices.color.is_some() {
             0
         } else {
@@ -219,8 +227,12 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
                     green: values[ind.1].to_unit_f32(&proto[ind.1].data_type)?,
                     blue: values[ind.2].to_unit_f32(&proto[ind.2].data_type)?,
                 })
-            } else {
+            } else if color_invalid == 1 {
                 None
+            } else {
+                Error::invalid(format!(
+                    "Color invalid state contains invalid value: {color_invalid}"
+                ))?
             }
         } else {
             None
@@ -228,7 +240,7 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
 
         // Intensity values
         let intensity_invalid = if let Some(ind) = self.indices.intensity_invalid {
-            values[ind].to_u8(&proto[ind].data_type)?
+            values[ind].to_i64(&proto[ind].data_type)?
         } else if self.indices.intensity.is_some() {
             0
         } else {
@@ -237,8 +249,12 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
         let intensity = if let Some(ind) = self.indices.intensity {
             if intensity_invalid == 0 {
                 Some(values[ind].to_unit_f32(&proto[ind].data_type)?)
-            } else {
+            } else if intensity_invalid == 1 {
                 None
+            } else {
+                Error::invalid(format!(
+                    "Intensity invalid state contains invalid value: {intensity_invalid}"
+                ))?
             }
         } else {
             None
