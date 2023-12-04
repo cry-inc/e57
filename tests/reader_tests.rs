@@ -542,3 +542,91 @@ fn read_empty_pc() {
         assert_eq!(points.len(), 0);
     }
 }
+
+#[test]
+fn integer_intensity() {
+    let path = "testdata/integer_intensity.e57";
+    let mut e57 = E57Reader::from_file(path).unwrap();
+    assert_eq!(e57.guid(), "{7B6300FA-DFC7-4023-EBCC-048E36EF7E47}");
+    let pointclouds = e57.pointclouds();
+    assert_eq!(pointclouds.len(), 1);
+    for pc in pointclouds {
+        assert_eq!(
+            pc.guid.as_deref(),
+            Some("{B774562C-6E97-421B-F5FD-F9BFF4DC0DED}")
+        );
+        assert_eq!(pc.prototype.len(), 5);
+        assert_eq!(pc.records, 2);
+
+        let iter = e57.pointcloud_simple(&pc).unwrap();
+        let p: Result<Vec<Point>> = iter.collect();
+        let p = p.unwrap();
+        assert_eq!(p.len(), 2);
+        assert_eq!(p[0].intensity.unwrap(), 0.0);
+        assert_eq!(p[1].intensity.unwrap(), 1.0);
+
+        // Order of raw values: X, Y, Z, I, CIS
+        let iter = e57.pointcloud_raw(&pc).unwrap();
+        let points: Result<Vec<RawValues>> = iter.collect();
+        let points = points.unwrap();
+        let proto = &pc.prototype;
+        assert_eq!(points.len(), 2);
+        assert_eq!(points[0][0].to_f64(&proto[0].data_type).unwrap(), 1.1);
+        assert_eq!(points[0][1].to_f64(&proto[1].data_type).unwrap(), 2.2);
+        assert_eq!(points[0][2].to_f64(&proto[2].data_type).unwrap(), 3.3);
+        assert_eq!(points[0][3].to_i64(&proto[3].data_type).unwrap(), -66);
+        assert_eq!(points[0][4].to_i64(&proto[4].data_type).unwrap(), 0);
+        assert_eq!(points[1][0].to_f64(&proto[0].data_type).unwrap(), 4.4);
+        assert_eq!(points[1][1].to_f64(&proto[1].data_type).unwrap(), 5.5);
+        assert_eq!(points[1][2].to_f64(&proto[2].data_type).unwrap(), 6.6);
+        assert_eq!(points[1][3].to_i64(&proto[3].data_type).unwrap(), 66);
+        assert_eq!(points[1][4].to_i64(&proto[4].data_type).unwrap(), 0);
+    }
+}
+
+#[test]
+fn scaled_integer_intensity() {
+    let path = "testdata/scaled_integer_intensity.e57";
+    let mut e57 = E57Reader::from_file(path).unwrap();
+    assert_eq!(e57.guid(), "{551290DB-3BC5-4471-AD68-11105F07AC03}");
+    let pointclouds = e57.pointclouds();
+    assert_eq!(pointclouds.len(), 1);
+    for pc in pointclouds {
+        assert_eq!(
+            pc.guid.as_deref(),
+            Some("{1B49982E-3706-4A88-FCF2-06DB38E7A155}")
+        );
+        assert_eq!(pc.prototype.len(), 5);
+        assert_eq!(pc.records, 2);
+
+        let iter = e57.pointcloud_simple(&pc).unwrap();
+        let points: Result<Vec<Point>> = iter.collect();
+        let points = points.unwrap();
+        assert_eq!(points.len(), 2);
+        assert_eq!(points[0].intensity.unwrap(), 0.0);
+        assert_eq!(points[1].intensity.unwrap(), 1.0);
+
+        // Order of raw values: X, Y, Z, I, CIS
+        let iter = e57.pointcloud_raw(&pc).unwrap();
+        let p: Result<Vec<RawValues>> = iter.collect();
+        let p = p.unwrap();
+        let proto = &pc.prototype;
+        assert_eq!(p.len(), 2);
+        assert_eq!(p[0][0].to_f64(&proto[0].data_type).unwrap(), 1.1);
+        assert_eq!(p[0][1].to_f64(&proto[1].data_type).unwrap(), 2.2);
+        assert_eq!(p[0][2].to_f64(&proto[2].data_type).unwrap(), 3.3);
+        assert_eq!(
+            p[0][3].to_f64(&proto[3].data_type).unwrap(),
+            -66.60000000000001
+        );
+        assert_eq!(p[0][4].to_i64(&proto[4].data_type).unwrap(), 0);
+        assert_eq!(p[1][0].to_f64(&proto[0].data_type).unwrap(), 4.4);
+        assert_eq!(p[1][1].to_f64(&proto[1].data_type).unwrap(), 5.5);
+        assert_eq!(p[1][2].to_f64(&proto[2].data_type).unwrap(), 6.6);
+        assert_eq!(
+            p[1][3].to_f64(&proto[3].data_type).unwrap(),
+            66.60000000000001
+        );
+        assert_eq!(p[1][4].to_i64(&proto[4].data_type).unwrap(), 0);
+    }
+}
