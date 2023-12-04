@@ -36,7 +36,7 @@ impl BitPack {
         max: i64,
         output: &mut VecDeque<RecordValue>,
     ) -> Result<()> {
-        let range = max - min;
+        let range = max as i128 - min as i128;
         let bits = range.ilog2() as usize + 1;
         let mask = (1_u64 << bits) - 1;
         while let Some(uint_value) = stream.extract(bits) {
@@ -52,7 +52,7 @@ impl BitPack {
         max: i64,
         output: &mut VecDeque<RecordValue>,
     ) -> Result<()> {
-        let range = max - min;
+        let range = max as i128 - min as i128;
         let bits = range.ilog2() as usize + 1;
         let mask = (1_u64 << bits) - 1;
         while let Some(uint_value) = stream.extract(bits) {

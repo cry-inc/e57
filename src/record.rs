@@ -216,8 +216,10 @@ impl RecordDataType {
                 }
             }
             "Integer" => {
-                let min = required_attribute(node, "minimum", tag_name, type_name)?;
-                let max = required_attribute(node, "maximum", tag_name, type_name)?;
+                let min =
+                    optional_attribute(node, "minimum", tag_name, type_name)?.unwrap_or(i64::MIN);
+                let max =
+                    optional_attribute(node, "maximum", tag_name, type_name)?.unwrap_or(i64::MAX);
                 if max <= min {
                     Error::invalid(format!(
                         "Maximum value '{max}' and minimum value '{min}' of type '{type_name}' in XML tag '{tag_name}' are inconsistent"
@@ -226,8 +228,10 @@ impl RecordDataType {
                 RecordDataType::Integer { min, max }
             }
             "ScaledInteger" => {
-                let min = required_attribute(node, "minimum", tag_name, type_name)?;
-                let max = required_attribute(node, "maximum", tag_name, type_name)?;
+                let min =
+                    optional_attribute(node, "minimum", tag_name, type_name)?.unwrap_or(i64::MIN);
+                let max =
+                    optional_attribute(node, "maximum", tag_name, type_name)?.unwrap_or(i64::MAX);
                 if max <= min {
                     Error::invalid(format!(
                         "Maximum value '{max}' and minimum value '{min}' of type '{type_name}' in XML tag '{tag_name}' are inconsistent"
@@ -421,8 +425,8 @@ fn serialize_integer(value: i64, min: i64, max: i64, buffer: &mut ByteStreamWrit
 
 #[inline]
 fn integer_bits(min: i64, max: i64) -> usize {
-    let range = max - min;
-    f64::ceil(f64::log2(range as f64 + 1.0)) as usize
+    let range = max as i128 - min as i128;
+    range.ilog2() as usize + 1
 }
 
 fn optional_attribute<T>(
@@ -443,17 +447,6 @@ where
     } else {
         None
     })
-}
-
-fn required_attribute<T>(node: &Node, attribute: &str, tag_name: &str, type_name: &str) -> Result<T>
-where
-    T: FromStr,
-    T::Err: StdError + Send + Sync + 'static,
-{
-    let value = optional_attribute(node, attribute, tag_name, type_name)?;
-    value.invalid_err(format!(
-        "Cannot find '{attribute}' for type '{type_name}' in XML tag '{tag_name}'"
-    ))
 }
 
 fn serialize_record_type(rt: &RecordDataType) -> (String, String) {
