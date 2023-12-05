@@ -206,6 +206,57 @@ void original_guids() {
 	writer.WriteData3DData(header, buffers);
 }
 
+void integer_intensity() {
+	e57::Writer writer("integer_intensity.e57");
+	e57::Data3D header;
+	header.pointCount = 2;
+	header.pointFields.cartesianInvalidStateField = true;
+	header.pointFields.cartesianXField = true;
+	header.pointFields.cartesianYField = true;
+	header.pointFields.cartesianZField = true;
+	header.pointFields.intensityField = true;
+	header.pointFields.intensityNodeType = e57::NumericalNodeType::Integer;
+	e57::Data3DPointsDouble buffers(header);
+	buffers.cartesianInvalidState[0] = 0;
+	buffers.cartesianX[0] = 1.1;
+	buffers.cartesianY[0] = 2.2;
+	buffers.cartesianZ[0] = 3.3;
+	buffers.intensity[0] = -66;
+	buffers.cartesianInvalidState[1] = 0;
+	buffers.cartesianX[1] = 4.4;
+	buffers.cartesianY[1] = 5.5;
+	buffers.cartesianZ[1] = 6.6;
+	buffers.intensity[1] = 66;
+	writer.WriteData3DData(header, buffers);
+	if (!writer.Close()) throw std::string("Failed to close integer_intensity.e57");
+}
+
+void scaled_integer_intensity() {
+	e57::Writer writer("scaled_integer_intensity.e57");
+	e57::Data3D header;
+	header.pointCount = 2;
+	header.pointFields.cartesianInvalidStateField = true;
+	header.pointFields.cartesianXField = true;
+	header.pointFields.cartesianYField = true;
+	header.pointFields.cartesianZField = true;
+	header.pointFields.intensityField = true;
+	header.pointFields.intensityNodeType = e57::NumericalNodeType::ScaledInteger;
+	header.pointFields.intensityScale = 0.1;
+	e57::Data3DPointsDouble buffers(header);
+	buffers.cartesianInvalidState[0] = 0;
+	buffers.cartesianX[0] = 1.1;
+	buffers.cartesianY[0] = 2.2;
+	buffers.cartesianZ[0] = 3.3;
+	buffers.intensity[0] = -66.6;
+	buffers.cartesianInvalidState[1] = 0;
+	buffers.cartesianX[1] = 4.4;
+	buffers.cartesianY[1] = 5.5;
+	buffers.cartesianZ[1] = 6.6;
+	buffers.intensity[1] = 66.6;
+	writer.WriteData3DData(header, buffers);
+	if (!writer.Close()) throw std::string("Failed to close scaled_integer_intensity.e57");
+}
+
 int main() {
 	empty();
 	tiny_pc();
@@ -214,6 +265,8 @@ int main() {
 	tiny_pc_and_images();
 	tiny_spherical();
 	original_guids();
+	integer_intensity();
+	scaled_integer_intensity();
 
 	std::cout << "Finished!\n";
 }
