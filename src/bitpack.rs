@@ -38,10 +38,10 @@ impl BitPack {
     ) -> Result<()> {
         let range = max as i128 - min as i128;
         let bits = range.ilog2() as usize + 1;
-        let mask = (1_u64 << bits) - 1;
-        while let Some(uint_value) = stream.extract(bits) {
-            let int_value = (uint_value & mask) as i64 + min;
-            output.push_back(RecordValue::Integer(int_value));
+        let mask = ((1_u128 << bits) - 1) as u64;
+        while let Some(uint) = stream.extract(bits) {
+            let int = (uint & mask) as i128 + min as i128;
+            output.push_back(RecordValue::Integer(int as i64));
         }
         Ok(())
     }
@@ -54,10 +54,10 @@ impl BitPack {
     ) -> Result<()> {
         let range = max as i128 - min as i128;
         let bits = range.ilog2() as usize + 1;
-        let mask = (1_u64 << bits) - 1;
-        while let Some(uint_value) = stream.extract(bits) {
-            let int_value = (uint_value & mask) as i64 + min;
-            output.push_back(RecordValue::ScaledInteger(int_value));
+        let mask = ((1_u128 << bits) - 1) as u64;
+        while let Some(uint) = stream.extract(bits) {
+            let int = (uint & mask) as i128 + min as i128;
+            output.push_back(RecordValue::ScaledInteger(int as i64));
         }
         Ok(())
     }
