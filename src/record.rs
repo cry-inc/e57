@@ -368,14 +368,14 @@ impl RecordValue {
             }
             RecordValue::ScaledInteger(si) => {
                 if let RecordDataType::ScaledInteger { min, max, .. } = dt {
-                    Ok((si - min) as f32 / (max - min) as f32)
+                    Ok((*si as i128 - *min as i128) as f32 / (*max as i128 - *min as i128) as f32)
                 } else {
                     Error::internal("Tried to convert scaled integer value with wrong data type")
                 }
             }
             RecordValue::Integer(i) => {
                 if let RecordDataType::Integer { min, max } = dt {
-                    Ok((i - min) as f32 / (max - min) as f32)
+                    Ok((*i as i128 - *min as i128) as f32 / (*max as i128 - *min as i128) as f32)
                 } else {
                     Error::internal("Tried to convert integer value with wrong data type")
                 }
