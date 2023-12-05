@@ -223,9 +223,18 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
         let color = if let Some(ind) = self.indices.color {
             if color_invalid == 0 {
                 Some(Color {
-                    red: values[ind.0].to_unit_f32(&proto[ind.0].data_type)?,
-                    green: values[ind.1].to_unit_f32(&proto[ind.1].data_type)?,
-                    blue: values[ind.2].to_unit_f32(&proto[ind.2].data_type)?,
+                    // Use unwrap_or() to make the simple iterator
+                    // more robust against weird files that forgot
+                    // to add proper min/max values.
+                    red: values[ind.0]
+                        .to_unit_f32(&proto[ind.0].data_type)
+                        .unwrap_or(0.0),
+                    green: values[ind.1]
+                        .to_unit_f32(&proto[ind.1].data_type)
+                        .unwrap_or(0.0),
+                    blue: values[ind.2]
+                        .to_unit_f32(&proto[ind.2].data_type)
+                        .unwrap_or(0.0),
                 })
             } else if color_invalid == 1 {
                 None
@@ -248,7 +257,14 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
         };
         let intensity = if let Some(ind) = self.indices.intensity {
             if intensity_invalid == 0 {
-                Some(values[ind].to_unit_f32(&proto[ind].data_type)?)
+                Some(
+                    // Use unwrap_or() to make the simple iterator
+                    // more robust against weird files that forgot
+                    // to add proper min/max values.
+                    values[ind]
+                        .to_unit_f32(&proto[ind].data_type)
+                        .unwrap_or(0.0),
+                )
             } else if intensity_invalid == 1 {
                 None
             } else {
