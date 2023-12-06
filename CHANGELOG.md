@@ -2,9 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-## UNRELEASED
+## [0.10.3] - 2023-12-06
 
 - Updated `roxmltree` dependency to 0.19, which removes the indirect dependency to `xmlparser`.
+- Fixed handling of integers and scaled integer values without explicit min and max values.
+- Fixed handling of big integer and scaled integer values (avoid i64 overflows).
+- Allow bigger integer ranges in the simpler iterator for invalid state values.
+- Make simple iterator more robust against weird color and intensity values.
+  It will now use zero values as fall back in case a value cannot be mapped to a unit float.
 
 ## [0.10.2] - 2023-11-08
 
