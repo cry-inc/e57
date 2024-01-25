@@ -6,6 +6,7 @@ use crate::packet::PacketHeader;
 use crate::paged_reader::PagedReader;
 use crate::Error;
 use crate::PointCloud;
+use crate::RawValues;
 use crate::RecordDataType;
 use crate::RecordValue;
 use crate::Result;
@@ -13,14 +14,13 @@ use std::collections::VecDeque;
 use std::io::{Read, Seek};
 
 /// Read compressed vector sections into queues of raw values.
-/// There will be once queue for each record defined by the prototype.
 pub struct QueueReader<'a, T: Read + Seek> {
     pc: PointCloud,
     reader: &'a mut PagedReader<T>,
     buffer: Vec<u8>,
     buffer_sizes: Vec<usize>,
     byte_streams: Vec<ByteStreamReadBuffer>,
-    pub queues: Vec<VecDeque<RecordValue>>,
+    queues: Vec<VecDeque<RecordValue>>,
 }
 
 impl<'a, T: Read + Seek> QueueReader<'a, T> {
@@ -57,6 +57,19 @@ impl<'a, T: Read + Seek> QueueReader<'a, T> {
             }
         }
         av
+    }
+
+    /// Return values for the next point by popping one value from each queue.
+    /// Use an existing vector with enough capacity to avoid frequent reallocations!
+    pub fn pop_point(&mut self, output: &mut RawValues) -> Result<()> {
+        output.clear();
+        for i in 0..self.pc.prototype.len() {
+            let value = self.queues[i]
+                .pop_front()
+                .internal_err("Failed to pop value for next point")?;
+            output.push(value);
+        }
+        Ok(())
     }
 
     /// Reads the next packet from the compressed vector and decodes it into the queues.

@@ -1,4 +1,3 @@
-use crate::error::Converter;
 use crate::paged_reader::PagedReader;
 use crate::queue_reader::QueueReader;
 use crate::PointCloud;
@@ -26,17 +25,6 @@ impl<'a, T: Read + Seek> PointCloudReaderRaw<'a, T> {
             read: 0,
         })
     }
-
-    fn pop_point(&mut self) -> Result<RawValues> {
-        let mut point = RawValues::with_capacity(self.prototype_len);
-        for i in 0..self.prototype_len {
-            let value = self.queue_reader.queues[i]
-                .pop_front()
-                .internal_err("Failed to pop value for next point")?;
-            point.push(value);
-        }
-        Ok(point)
-    }
 }
 
 impl<'a, T: Read + Seek> Iterator for PointCloudReaderRaw<'a, T> {
@@ -58,8 +46,9 @@ impl<'a, T: Read + Seek> Iterator for PointCloudReaderRaw<'a, T> {
         }
 
         // Extract next point
-        match self.pop_point() {
-            Ok(point) => {
+        let mut point = RawValues::with_capacity(self.prototype_len);
+        match self.queue_reader.pop_point(&mut point) {
+            Ok(()) => {
                 self.read += 1;
                 Some(Ok(point))
             }
