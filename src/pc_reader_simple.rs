@@ -1,7 +1,9 @@
+use crate::error::Converter;
 use crate::paged_reader::PagedReader;
+use crate::queue_reader::QueueReader;
 use crate::{
-    CartesianCoordinate, Color, Error, Point, PointCloud, PointCloudReaderRaw, RawValues,
-    RecordName, Result, SphericalCoordinate, Transform, Translation,
+    CartesianCoordinate, Color, Error, Point, PointCloud, RecordName, RecordValue, Result,
+    SphericalCoordinate, Transform, Translation,
 };
 use std::io::{Read, Seek};
 
@@ -21,7 +23,7 @@ struct Indices {
 /// Iterate over all normalized points of a point cloud for reading.
 pub struct PointCloudReaderSimple<'a, T: Read + Seek> {
     pc: PointCloud,
-    raw_iter: PointCloudReaderRaw<'a, T>,
+    queue_reader: QueueReader<'a, T>,
     transform: bool,
     s2c: bool,
     c2s: bool,
@@ -29,23 +31,25 @@ pub struct PointCloudReaderSimple<'a, T: Read + Seek> {
     rotation: [f64; 9],
     translation: Translation,
     indices: Indices,
+    read: u64,
+    values: Vec<RecordValue>,
 }
 
 impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
     pub(crate) fn new(pc: &PointCloud, reader: &'a mut PagedReader<T>) -> Result<Self> {
         let (rotation, translation) = Self::prepare_transform(pc);
-        let indices = Self::prepare_indices(pc);
-        let raw_iter = PointCloudReaderRaw::new(pc, reader)?;
         Ok(Self {
+            rotation,
+            translation,
             pc: pc.clone(),
-            raw_iter,
+            indices: Self::prepare_indices(pc),
+            queue_reader: QueueReader::new(pc, reader)?,
             transform: true,
             s2c: true,
             c2s: false,
             i2c: true,
-            rotation,
-            translation,
-            indices,
+            read: 0,
+            values: Vec::with_capacity(pc.prototype.len()),
         })
     }
 
@@ -138,26 +142,30 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
         }
     }
 
-    fn get_next_point(&mut self) -> Option<Result<Point>> {
-        let p = self.raw_iter.next()?;
-        match p {
-            Ok(p) => Some(self.create_point(p)),
-            Err(err) => Some(Err(err)),
+    fn pop_point(&mut self) -> Result<Point> {
+        // Read raw values of the point from queue
+        self.values.clear();
+        for i in 0..self.pc.prototype.len() {
+            let value = self.queue_reader.queues[i]
+                .pop_front()
+                .internal_err("Failed to pop value for next point")?;
+            self.values.push(value);
         }
-    }
 
-    fn create_point(&self, values: RawValues) -> Result<Point> {
+        // Some shortcuts for better readability
         let proto = &self.pc.prototype;
+        let values = &self.values;
+        let indices = &self.indices;
 
         // Cartesian coordinates
-        let cartesian_invalid = if let Some(ind) = self.indices.cartesian_invalid {
+        let cartesian_invalid = if let Some(ind) = indices.cartesian_invalid {
             values[ind].to_i64(&proto[ind].data_type)?
-        } else if self.indices.cartesian.is_some() {
+        } else if indices.cartesian.is_some() {
             0
         } else {
             2
         };
-        let cartesian = if let Some(ind) = self.indices.cartesian {
+        let cartesian = if let Some(ind) = indices.cartesian {
             if cartesian_invalid == 0 {
                 CartesianCoordinate::Valid {
                     x: values[ind.0].to_f64(&proto[ind.0].data_type)?,
@@ -182,14 +190,14 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
         };
 
         // Spherical coordinates
-        let spherical_invalid = if let Some(ind) = self.indices.spherical_invalid {
+        let spherical_invalid = if let Some(ind) = indices.spherical_invalid {
             values[ind].to_i64(&proto[ind].data_type)?
-        } else if self.indices.spherical.is_some() {
+        } else if indices.spherical.is_some() {
             0
         } else {
             2
         };
-        let spherical = if let Some(ind) = self.indices.spherical {
+        let spherical = if let Some(ind) = indices.spherical {
             if spherical_invalid == 0 {
                 SphericalCoordinate::Valid {
                     range: values[ind.0].to_f64(&proto[ind.0].data_type)?,
@@ -213,14 +221,14 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
         };
 
         // RGB colors
-        let color_invalid = if let Some(ind) = self.indices.color_invalid {
+        let color_invalid = if let Some(ind) = indices.color_invalid {
             values[ind].to_i64(&proto[ind].data_type)?
-        } else if self.indices.color.is_some() {
+        } else if indices.color.is_some() {
             0
         } else {
             1
         };
-        let color = if let Some(ind) = self.indices.color {
+        let color = if let Some(ind) = indices.color {
             if color_invalid == 0 {
                 Some(Color {
                     // Use unwrap_or() to make the simple iterator
@@ -248,14 +256,14 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
         };
 
         // Intensity values
-        let intensity_invalid = if let Some(ind) = self.indices.intensity_invalid {
+        let intensity_invalid = if let Some(ind) = indices.intensity_invalid {
             values[ind].to_i64(&proto[ind].data_type)?
-        } else if self.indices.intensity.is_some() {
+        } else if indices.intensity.is_some() {
             0
         } else {
             1
         };
-        let intensity = if let Some(ind) = self.indices.intensity {
+        let intensity = if let Some(ind) = indices.intensity {
             if intensity_invalid == 0 {
                 Some(
                     // Use unwrap_or() to make the simple iterator
@@ -277,18 +285,20 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
         };
 
         // Row index
-        let row = if let Some(ind) = self.indices.row {
+        let row = if let Some(ind) = indices.row {
             values[ind].to_i64(&proto[ind].data_type)?
         } else {
             -1
         };
 
         // Column index
-        let column = if let Some(ind) = self.indices.column {
+        let column = if let Some(ind) = indices.column {
             values[ind].to_i64(&proto[ind].data_type)?
         } else {
             -1
         };
+
+        self.read += 1;
 
         Ok(Point {
             cartesian,
@@ -307,7 +317,20 @@ impl<'a, T: Read + Seek> Iterator for PointCloudReaderSimple<'a, T> {
 
     /// Returns the next available point or None if the end was reached.
     fn next(&mut self) -> Option<Self::Item> {
-        let mut p = match self.get_next_point()? {
+        // Already read all points?
+        if self.read >= self.pc.records {
+            return None;
+        }
+
+        // Refill property queues if required
+        if self.queue_reader.available() < 1 {
+            if let Err(err) = self.queue_reader.advance() {
+                return Some(Err(err));
+            }
+        }
+
+        // Build next point from queues
+        let mut p = match self.pop_point() {
             Ok(p) => p,
             Err(err) => return Some(Err(err)),
         };
@@ -327,7 +350,9 @@ impl<'a, T: Read + Seek> Iterator for PointCloudReaderSimple<'a, T> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.raw_iter.size_hint()
+        let overall = self.pc.records;
+        let remaining = overall - self.read;
+        (remaining as usize, Some(remaining as usize))
     }
 }
 
