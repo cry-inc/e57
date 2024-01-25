@@ -41,6 +41,7 @@ mod pc_reader_simple;
 mod pc_writer;
 mod point;
 mod pointcloud;
+mod queue_reader;
 mod record;
 mod root;
 mod transform;
