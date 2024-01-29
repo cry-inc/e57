@@ -4,6 +4,7 @@ use crate::{
     CartesianCoordinate, Color, Error, Point, PointCloud, RecordName, RecordValue, Result,
     SphericalCoordinate, Transform, Translation,
 };
+use std::collections::VecDeque;
 use std::io::{Read, Seek};
 
 struct Indices {
@@ -27,11 +28,13 @@ pub struct PointCloudReaderSimple<'a, T: Read + Seek> {
     s2c: bool,
     c2s: bool,
     i2c: bool,
-    rotation: [f64; 9],
-    translation: Translation,
-    indices: Indices,
-    read: u64,
-    values: Vec<RecordValue>,
+    rotation: [f64; 9], // Rotation to be applied to all points in post-processing
+    translation: Translation, // Translation to be applied to all points in post-processing
+    indices: Indices,   // Lookup table for point attriutes to index in raw values
+    read: u64,          // Number of points that were already consumed by the client
+    values: Vec<RecordValue>, // Reusable buffer for a set of raw values for a single point
+    points: VecDeque<Point>, // Queue with finished points ready for reading
+    buffer: Vec<Point>, // Reusable buffer for extracting new points and transforming them
 }
 
 impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
@@ -49,6 +52,8 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
             i2c: true,
             read: 0,
             values: Vec::with_capacity(pc.prototype.len()),
+            points: VecDeque::new(),
+            buffer: Vec::new(),
         })
     }
 
@@ -291,8 +296,6 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
             -1
         };
 
-        self.read += 1;
-
         Ok(Point {
             cartesian,
             spherical,
@@ -315,31 +318,65 @@ impl<'a, T: Read + Seek> Iterator for PointCloudReaderSimple<'a, T> {
             return None;
         }
 
-        // Refill property queues if required
-        if self.queue_reader.available() < 1 {
-            if let Err(err) = self.queue_reader.advance() {
-                return Some(Err(err));
+        // Is there a point available in the output queue?
+        if let Some(point) = self.points.pop_front() {
+            self.read += 1;
+            return Some(Ok(point));
+        }
+
+        // Refill queues with raw point values
+        if let Err(err) = self.queue_reader.advance() {
+            return Some(Err(err));
+        }
+
+        // Read raw point values as simple point, add to buffer
+        let available = self.queue_reader.available();
+        self.buffer.reserve(available);
+        for _ in 0..available {
+            let p = match self.pop_point() {
+                Ok(p) => p,
+                Err(err) => return Some(Err(err)),
+            };
+            self.buffer.push(p);
+        }
+
+        // Post-processing of the points in the buffer
+        if self.s2c {
+            for p in self.buffer.iter_mut() {
+                convert_to_cartesian(p);
+            }
+        }
+        if self.c2s {
+            for p in self.buffer.iter_mut() {
+                convert_to_spherical(p);
+            }
+        }
+        if self.i2c {
+            for p in self.buffer.iter_mut() {
+                convert_intensity(p);
+            }
+        }
+        if self.transform {
+            for p in self.buffer.iter_mut() {
+                transform_point(p, &self.rotation, &self.translation);
             }
         }
 
-        // Build next point from queues
-        let mut p = match self.pop_point() {
-            Ok(p) => p,
-            Err(err) => return Some(Err(err)),
-        };
-        if self.s2c {
-            convert_to_cartesian(&mut p);
+        // Move points from buffer to output queue
+        self.points.reserve(available);
+        for p in self.buffer.drain(..) {
+            self.points.push_back(p);
         }
-        if self.c2s {
-            convert_to_spherical(&mut p);
+
+        // Get and return one of the new points
+        if let Some(point) = self.points.pop_front() {
+            self.read += 1;
+            Some(Ok(point))
+        } else {
+            Some(Error::internal(
+                "Cannot read next point because of logic error",
+            ))
         }
-        if self.i2c {
-            convert_intensity(&mut p);
-        }
-        if self.transform {
-            transform_point(&mut p, &self.rotation, &self.translation);
-        }
-        Some(Ok(p))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
