@@ -1,3 +1,4 @@
+use crate::error::Converter;
 use crate::paged_writer::PagedWriter;
 use crate::Blob;
 use crate::CylindricalImage;
@@ -241,6 +242,10 @@ impl<'a, T: Read + Write + Seek> ImageWriter<'a, T> {
 
         // Add metadata for XML generation later, when the file is completed.
         self.images.push(self.image.clone());
+
+        self.writer
+            .align()
+            .write_err("Failed to align writer on next 4-byte offset after writing data packet")?;
 
         Ok(())
     }
