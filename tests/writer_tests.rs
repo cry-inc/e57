@@ -93,13 +93,13 @@ fn write_read_cycle_image() {
             z: 8.8,
         },
     });
-    let mut reader = File::open("testdata/square.png").unwrap();
+    let mut reader = File::open("testdata/castle.jpg").unwrap();
     let props = VisualReferenceImageProperties {
         width: 100,
         height: 100,
     };
     img_writer
-        .add_visual_reference(ImageFormat::Png, &mut reader, props, None)
+        .add_visual_reference(ImageFormat::Jpeg, &mut reader, props, None)
         .unwrap();
 
     reader.rewind().unwrap();
@@ -110,7 +110,7 @@ fn write_read_cycle_image() {
         pixel_height: 1.8,
     };
     img_writer
-        .add_spherical(ImageFormat::Png, &mut reader, props, None)
+        .add_spherical(ImageFormat::Jpeg, &mut reader, props, None)
         .unwrap();
     img_writer.finalize().unwrap();
     e57_writer.finalize().unwrap();
@@ -138,9 +138,9 @@ fn write_read_cycle_image() {
     let vis_ref = img.visual_reference.unwrap();
     assert_eq!(vis_ref.properties.width, 100);
     assert_eq!(vis_ref.properties.height, 100);
-    assert!(matches!(vis_ref.blob.format, ImageFormat::Png));
+    assert!(matches!(vis_ref.blob.format, ImageFormat::Jpeg));
     assert_eq!(vis_ref.blob.data.offset, 48);
-    assert_eq!(vis_ref.blob.data.length, 1073);
+    assert_eq!(vis_ref.blob.data.length, 7722);
     assert!(vis_ref.mask.is_none());
 
     let rep = match img.projection.unwrap() {
@@ -153,15 +153,19 @@ fn write_read_cycle_image() {
     assert_eq!(rep.properties.height, 100);
     assert_eq!(rep.properties.pixel_height, 1.8);
     assert_eq!(rep.properties.pixel_width, 3.6);
-    assert!(matches!(rep.blob.format, ImageFormat::Png));
-    assert_eq!(rep.blob.data.offset, 1144);
-    assert_eq!(rep.blob.data.length, 1073);
+    assert!(matches!(rep.blob.format, ImageFormat::Jpeg));
+    assert_eq!(rep.blob.data.offset, 7816);
+    assert_eq!(rep.blob.data.length, 7722);
     assert!(rep.mask.is_none());
 
     let mut img_bytes = Vec::new();
     let img_length = e57.blob(&rep.blob.data, &mut img_bytes).unwrap();
     assert_eq!(img_length, img_bytes.len() as u64);
-    assert_eq!(img_length, 1073);
+    assert_eq!(img_length, 7722);
+
+    let org_image_data = std::fs::read("testdata/castle.jpg").unwrap();
+    assert_eq!(org_image_data.len(), img_bytes.len());
+    assert_eq!(org_image_data, img_bytes);
 
     remove_file(path).unwrap();
 }
