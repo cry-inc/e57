@@ -197,19 +197,20 @@ impl<T: Write + Read + Seek> Drop for PagedWriter<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::{remove_file, OpenOptions};
+    use std::fs::{remove_file, File, OpenOptions};
     use std::path::Path;
 
-    fn open_options() -> OpenOptions {
+    // Open file to read, write, seek and truncate
+    fn open_file(path: &Path) -> File {
         let mut options = OpenOptions::new();
         options.read(true).write(true).create(true).truncate(true);
-        options
+        options.open(path).unwrap()
     }
 
     #[test]
     fn empty() {
         let path = Path::new("empty.bin");
-        let file = open_options().open(path).unwrap();
+        let file = open_file(path);
         let writer = PagedWriter::new(file).unwrap();
         drop(writer);
         assert_eq!(path.metadata().unwrap().len(), 0);
@@ -219,7 +220,7 @@ mod tests {
     #[test]
     fn partial_page() {
         let path = Path::new("partial.bin");
-        let file = open_options().open(path).unwrap();
+        let file = open_file(path);
 
         // Write only three bytes
         let mut writer = PagedWriter::new(file).unwrap();
@@ -243,7 +244,7 @@ mod tests {
     #[test]
     fn single_page() {
         let path = Path::new("single.bin");
-        let file = open_options().open(path).unwrap();
+        let file = open_file(path);
         let mut writer = PagedWriter::new(file).unwrap();
 
         // Write exactly one page
@@ -265,7 +266,7 @@ mod tests {
     #[test]
     fn multi_page() {
         let path = Path::new("multi.bin");
-        let file = open_options().open(path).unwrap();
+        let file = open_file(path);
         let mut writer = PagedWriter::new(file).unwrap();
 
         // Write a little bit more than one page
@@ -305,7 +306,7 @@ mod tests {
     #[test]
     fn flush_in_page() {
         let path = Path::new("flush.bin");
-        let file = open_options().open(path).unwrap();
+        let file = open_file(path);
         let mut writer = PagedWriter::new(file).unwrap();
 
         // Partial page
@@ -337,7 +338,7 @@ mod tests {
     #[test]
     fn seek_existing_page() {
         let path = Path::new("seek_existing.bin");
-        let file = open_options().open(path).unwrap();
+        let file = open_file(path);
         let mut writer = PagedWriter::new(file).unwrap();
 
         // Write two pages with ones
@@ -351,12 +352,12 @@ mod tests {
 
         // Check file content
         let content = std::fs::read(path).unwrap();
-        assert_eq!(content[0], 1_u8);
-        assert_eq!(content[1], 1_u8);
-        assert_eq!(content[2], 2_u8);
-        assert_eq!(content[3], 2_u8);
-        assert_eq!(content[4], 1_u8);
-        assert_eq!(content[5], 1_u8);
+        assert_eq!(content[0], 1);
+        assert_eq!(content[1], 1);
+        assert_eq!(content[2], 2);
+        assert_eq!(content[3], 2);
+        assert_eq!(content[4], 1);
+        assert_eq!(content[5], 1);
 
         remove_file(path).unwrap();
     }
@@ -364,14 +365,43 @@ mod tests {
     #[test]
     fn seek_after_end() {
         let path = Path::new("seek_after_end.bin");
-        let file = open_options().open(path).unwrap();
+        let file = open_file(path);
         let mut writer = PagedWriter::new(file).unwrap();
 
         // Seek to start should work
         writer.physical_seek(0).unwrap();
 
-        // Seeking further fails
-        assert!(writer.physical_seek(2).is_err());
+        // Seeking behind end of empty file fails
+        assert!(writer.physical_seek(1).is_err());
+
+        // Write some data
+        let data = vec![1_u8; 128];
+        writer.write_all(&data).unwrap();
+
+        // Since there is some data in the buffer and seeking will flush,
+        // we can seek into the zeros that were filled into the rest of the page.
+        assert!(writer.physical_seek(129).is_ok());
+
+        // But seeking behind the frist page must fail
+        assert!(writer.physical_seek(PAGE_SIZE + 1).is_err());
+
+        remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn seek_into_checksum_fails() {
+        let path = Path::new("seek_into_checksum_fails.bin");
+        let file = open_file(path);
+        let mut writer = PagedWriter::new(file).unwrap();
+
+        // Write some data
+        let data = vec![1_u8];
+        writer.write_all(&data).unwrap();
+        writer.flush().unwrap();
+
+        // The four bytes at the end of a page are the checksum and should not be seeked into!
+        assert!(writer.physical_seek(PAGE_PAYLOAD_SIZE as u64 + 0).is_err());
+        assert!(writer.physical_seek(PAGE_PAYLOAD_SIZE as u64 + 3).is_err());
 
         remove_file(path).unwrap();
     }
@@ -379,7 +409,7 @@ mod tests {
     #[test]
     fn phys_position_size() {
         let path = Path::new("phys_position_size.bin");
-        let file = open_options().open(path).unwrap();
+        let file = open_file(path);
         let mut writer = PagedWriter::new(file).unwrap();
 
         // Write a page and some bytes
@@ -400,35 +430,56 @@ mod tests {
     #[test]
     fn align() {
         let path = Path::new("align.bin");
-        let file = open_options().open(path).unwrap();
+        let file = open_file(path);
         let mut writer = PagedWriter::new(file).unwrap();
 
+        // Already aligned on pos 0, nothing should happen
         writer.align().unwrap();
         assert_eq!(writer.physical_position().unwrap(), 0);
 
-        let data = vec![1_u8; 2];
+        // Fill up next 3 bytes to align
+        let data = [1_u8];
         writer.write_all(&data).unwrap();
         writer.align().unwrap();
         assert_eq!(writer.physical_position().unwrap(), 4);
 
+        // Already aligned on pos 4, nothing should happen
+        writer.align().unwrap();
+        assert_eq!(writer.physical_position().unwrap(), 4);
+
+        // Fill up last byte to align
+        let data = [2_u8; 3];
+        writer.write_all(&data).unwrap();
+        writer.align().unwrap();
+        assert_eq!(writer.physical_position().unwrap(), 8);
+
         // Check file content
         drop(writer);
         let content = std::fs::read(path).unwrap();
-        assert_eq!(content[0], 1_u8);
-        assert_eq!(content[1], 1_u8);
-        assert_eq!(content[2], 0_u8);
-        assert_eq!(content[3], 0_u8);
+        assert_eq!(content.len(), 1024);
+        assert_eq!(content[0], 1);
+        assert_eq!(content[1], 0);
+        assert_eq!(content[2], 0);
+        assert_eq!(content[3], 0);
+        assert_eq!(content[4], 2);
+        assert_eq!(content[5], 2);
+        assert_eq!(content[6], 2);
+        assert_eq!(content[7], 0);
+        for i in 8..PAGE_PAYLOAD_SIZE {
+            assert_eq!(content[i], 0);
+        }
 
         remove_file(path).unwrap();
     }
 
     #[test]
-    fn short_seek_back() {
-        let path = Path::new("short_seek_back.bin");
-        let file = open_options().open(path).unwrap();
+    fn seek_back_in_current_page() {
+        let path = Path::new("seek_back_in_current_page.bin");
+        let file = open_file(path);
         let mut writer = PagedWriter::new(file).unwrap();
 
         writer.write_all(&[4, 1, 2, 3]).unwrap();
+
         // This seek places the cursor within an incomplete page.
         writer.physical_seek(0).unwrap();
         writer.write_all(&[0]).unwrap();
@@ -437,45 +488,38 @@ mod tests {
         // Check file content
         drop(writer);
         let content = std::fs::read(path).unwrap();
-        assert_eq!(content[0], 0_u8);
-        assert_eq!(content[1], 1_u8);
-        assert_eq!(content[2], 2_u8);
-        assert_eq!(content[3], 3_u8);
+        assert_eq!(content[0], 0);
+        assert_eq!(content[1], 1);
+        assert_eq!(content[2], 2);
+        assert_eq!(content[3], 3);
 
         remove_file(path).unwrap();
     }
 
     #[test]
-    fn write_into_page() {
-        let path = Path::new("write_into_page.bin");
-        let file = open_options().open(path).unwrap();
+    fn write_over_page_boundary() {
+        let path = Path::new("write_over_page_boundary.bin");
+        let file = open_file(path);
         let mut writer = PagedWriter::new(file).unwrap();
 
         writer.write_all(&[1; PAGE_PAYLOAD_SIZE]).unwrap();
         writer.write_all(&[2; PAGE_PAYLOAD_SIZE]).unwrap();
         writer.physical_seek(PAGE_PAYLOAD_SIZE as u64 - 1).unwrap();
-        // These two bytes span a page boundary.
-        writer.write_all(&[3; 2]).unwrap();
+
+        // These two bytes are distributed over two pages and have the checksum inbetween
+        writer.write_all(&[3, 3]).unwrap();
         writer.flush().unwrap();
 
         // Check file content
         drop(writer);
         let content = std::fs::read(path).unwrap();
         for i in 0..PAGE_PAYLOAD_SIZE - 1 {
-            assert_eq!(
-                content[i], 1_u8,
-                "Expected 1 at {} but got {}",
-                i, content[i],
-            );
+            assert_eq!(content[i], 1);
         }
         assert_eq!(3, content[PAGE_PAYLOAD_SIZE - 1]);
         assert_eq!(3, content[PAGE_SIZE as usize]);
         for i in PAGE_SIZE as usize + 1..(PAGE_SIZE as usize + PAGE_PAYLOAD_SIZE) {
-            assert_eq!(
-                content[i], 2_u8,
-                "Expected 2 at {} but got {}",
-                i, content[i],
-            );
+            assert_eq!(content[i], 2,);
         }
 
         remove_file(path).unwrap();
