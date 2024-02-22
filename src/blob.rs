@@ -89,6 +89,10 @@ impl Blob {
         section_header.to_writer(writer)?;
         writer.physical_seek(end_offset)?;
 
+        writer
+            .align()
+            .write_err("Failed to align writer on next 4-byte offset after writing blob section")?;
+
         Ok(Self {
             offset: start_offset,
             length,

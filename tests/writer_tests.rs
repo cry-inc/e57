@@ -154,7 +154,7 @@ fn write_read_cycle_image() {
     assert_eq!(rep.properties.pixel_height, 1.8);
     assert_eq!(rep.properties.pixel_width, 3.6);
     assert!(matches!(rep.blob.format, ImageFormat::Png));
-    assert_eq!(rep.blob.data.offset, 1141);
+    assert_eq!(rep.blob.data.offset, 1144);
     assert_eq!(rep.blob.data.length, 1073);
     assert!(rep.mask.is_none());
 
