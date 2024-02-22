@@ -25,10 +25,7 @@ impl<T: Write + Read + Seek> PagedWriter<T> {
             .seek(SeekFrom::End(0))
             .read_err("Unable to seek length of writer")?;
         if end != 0 {
-            Err(Error::Write {
-                desc: String::from("Supplied writer is not empty"),
-                source: None,
-            })?
+            Error::invalid("Supplied writer is not empty")?
         }
         Ok(Self {
             writer,
@@ -51,46 +48,41 @@ impl<T: Write + Read + Seek> PagedWriter<T> {
 
     /// Seek to a specific physical offset in the file.
     pub fn physical_seek(&mut self, pos: u64) -> Result<()> {
-        // Make sure we wrote the current (partial) page before seeking
+        // Make sure we wrote any current (partial) page before seeking
         self.flush().write_err("Failed to flush before seeking")?;
 
         let end = self
             .writer
             .seek(SeekFrom::End(0))
             .write_err("Failed to seek to file end")?;
-        let page = pos / PAGE_SIZE;
-        self.offset = (pos % PAGE_SIZE) as usize;
-
         if pos > end {
-            Err(Error::Write {
-                desc: String::from("Cannot seek after end of file"),
-                source: None,
-            })?
+            Error::invalid("Cannot seek after end of file")?
         }
-        if self.offset >= PAGE_PAYLOAD_SIZE {
-            Err(Error::Write {
-                desc: String::from("Cannot seek into checksum"),
-                source: None,
-            })?
+
+        let page = pos / PAGE_SIZE;
+        let offset = (pos % PAGE_SIZE) as usize;
+        if offset >= PAGE_PAYLOAD_SIZE {
+            Error::invalid("Cannot seek into checksum")?
         }
 
         let page_phys_offset = page * PAGE_SIZE;
         self.writer
             .seek(SeekFrom::Start(page_phys_offset))
             .write_err("Failed to seek to specified position")?;
-
-        self.populate_existing_data()
+        self.read_current_page()
             .write_err("Failed to read existing page data")?;
-
         self.writer
             .seek(SeekFrom::Start(page_phys_offset))
             .write_err("Failed to seek back to page start after reading existing data")?;
 
+        self.offset = offset;
+
         Ok(())
     }
 
-    fn populate_existing_data(&mut self) -> std::io::Result<()> {
-        // If available, read existing page data
+    // Read existing page data for the current page.
+    // Will fill up page buffer with zeros if required.
+    fn read_current_page(&mut self) -> std::io::Result<()> {
         let mut unread = &mut self.page_buffer[..];
         while !unread.is_empty() {
             let read = self.writer.read(unread)?;
@@ -153,7 +145,7 @@ impl<T: Write + Read + Seek> Write for PagedWriter<T> {
 
             let page_phys_offset = self.writer.stream_position()?;
             self.offset = 0;
-            self.populate_existing_data()?;
+            self.read_current_page()?;
             self.writer.seek(SeekFrom::Start(page_phys_offset))?;
         }
         Ok(writeable_bytes)
