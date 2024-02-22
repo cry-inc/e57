@@ -602,7 +602,7 @@ fn write_read_meta_data() {
         let e57_reader = E57Reader::from_file(out_path).unwrap();
         let creation = e57_reader.creation().unwrap();
         assert_eq!(creation.gps_time, 12.34);
-        assert!(creation.atomic_reference);
+        assert_eq!(creation.atomic_reference, true);
         assert_eq!(e57_reader.coordinate_metadata(), Some("coord meta"));
         let library_version = e57_reader.library_version().unwrap();
         assert!(library_version.contains("Rust E57 Library"));
@@ -621,10 +621,10 @@ fn write_read_meta_data() {
         assert_eq!(pc.original_guids, Some(guids));
         let start = pc.acquisition_start.unwrap();
         assert_eq!(start.gps_time, 0.0);
-        assert!(!start.atomic_reference);
+        assert_eq!(start.atomic_reference, false);
         let end = pc.acquisition_end.unwrap();
         assert_eq!(end.gps_time, 1.23);
-        assert!(!end.atomic_reference);
+        assert_eq!(start.atomic_reference, false);
         assert_eq!(pc.temperature, Some(23.0));
         assert_eq!(pc.humidity, Some(66.6));
         assert_eq!(pc.atmospheric_pressure, Some(1337.0));

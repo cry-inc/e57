@@ -69,7 +69,7 @@ fn creation() {
     let reader = E57Reader::from_file("testdata/bunnyDouble.e57").unwrap();
     let creation = reader.creation().unwrap();
     assert_eq!(creation.gps_time, 987369380.8049808);
-    assert!(!creation.atomic_reference);
+    assert_eq!(creation.atomic_reference, false);
 }
 
 #[test]
@@ -157,9 +157,9 @@ fn cartesian_bounds() {
     let bounds = pc.cartesian_bounds.as_ref().unwrap();
     assert_eq!(bounds.x_min, Some(-9.779529571533203));
     assert_eq!(bounds.x_max, Some(-6.774238109588623));
-    assert_eq!(bounds.y_min, Some(4.513_879_299_163_818));
-    assert_eq!(bounds.y_max, Some(7.515_460_491_180_42));
-    assert_eq!(bounds.z_min, Some(295.524_688_720_703_1));
+    assert_eq!(bounds.y_min, Some(4.513879299163818));
+    assert_eq!(bounds.y_max, Some(7.51546049118042));
+    assert_eq!(bounds.z_min, Some(295.5246887207031));
     assert_eq!(bounds.z_max, Some(298.53216552734375));
 }
 
