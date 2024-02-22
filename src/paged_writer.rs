@@ -93,7 +93,7 @@ impl<T: Write + Read + Seek> PagedWriter<T> {
         // If available, read existing page data
         let mut unread = &mut self.page_buffer[..];
         while !unread.is_empty() {
-            let read = self.writer.read(&mut unread)?;
+            let read = self.writer.read(unread)?;
             if read == 0 {
                 break;
             }
@@ -209,7 +209,7 @@ mod tests {
     #[test]
     fn empty() {
         let path = Path::new("empty.bin");
-        let file = open_options().open(&path).unwrap();
+        let file = open_options().open(path).unwrap();
         let writer = PagedWriter::new(file).unwrap();
         drop(writer);
         assert_eq!(path.metadata().unwrap().len(), 0);
@@ -219,7 +219,7 @@ mod tests {
     #[test]
     fn partial_page() {
         let path = Path::new("partial.bin");
-        let file = open_options().open(&path).unwrap();
+        let file = open_options().open(path).unwrap();
 
         // Write only three bytes
         let mut writer = PagedWriter::new(file).unwrap();
@@ -243,7 +243,7 @@ mod tests {
     #[test]
     fn single_page() {
         let path = Path::new("single.bin");
-        let file = open_options().open(&path).unwrap();
+        let file = open_options().open(path).unwrap();
         let mut writer = PagedWriter::new(file).unwrap();
 
         // Write exactly one page
@@ -265,7 +265,7 @@ mod tests {
     #[test]
     fn multi_page() {
         let path = Path::new("multi.bin");
-        let file = open_options().open(&path).unwrap();
+        let file = open_options().open(path).unwrap();
         let mut writer = PagedWriter::new(file).unwrap();
 
         // Write a little bit more than one page
@@ -305,7 +305,7 @@ mod tests {
     #[test]
     fn flush_in_page() {
         let path = Path::new("flush.bin");
-        let file = open_options().open(&path).unwrap();
+        let file = open_options().open(path).unwrap();
         let mut writer = PagedWriter::new(file).unwrap();
 
         // Partial page
@@ -337,7 +337,7 @@ mod tests {
     #[test]
     fn seek_existing_page() {
         let path = Path::new("seek_existing.bin");
-        let file = open_options().open(&path).unwrap();
+        let file = open_options().open(path).unwrap();
         let mut writer = PagedWriter::new(file).unwrap();
 
         // Write two pages with ones
@@ -379,7 +379,7 @@ mod tests {
     #[test]
     fn phys_position_size() {
         let path = Path::new("phys_position_size.bin");
-        let file = open_options().open(&path).unwrap();
+        let file = open_options().open(path).unwrap();
         let mut writer = PagedWriter::new(file).unwrap();
 
         // Write a page and some bytes
@@ -388,7 +388,7 @@ mod tests {
 
         // We expect the physical position to be the logical + CRC size
         let pos = writer.physical_position().unwrap();
-        assert_eq!(pos, 1028 + CRC_SIZE as u64);
+        assert_eq!(pos, 1028 + CRC_SIZE);
 
         // We expect the physical size to be two pages with CRC sums
         let size = writer.physical_size().unwrap();
@@ -400,7 +400,7 @@ mod tests {
     #[test]
     fn align() {
         let path = Path::new("align.bin");
-        let file = open_options().open(&path).unwrap();
+        let file = open_options().open(path).unwrap();
         let mut writer = PagedWriter::new(file).unwrap();
 
         writer.align().unwrap();
@@ -425,7 +425,7 @@ mod tests {
     #[test]
     fn short_seek_back() {
         let path = Path::new("short_seek_back.bin");
-        let file = open_options().open(&path).unwrap();
+        let file = open_options().open(path).unwrap();
         let mut writer = PagedWriter::new(file).unwrap();
 
         writer.write_all(&[4, 1, 2, 3]).unwrap();
@@ -448,7 +448,7 @@ mod tests {
     #[test]
     fn write_into_page() {
         let path = Path::new("write_into_page.bin");
-        let file = open_options().open(&path).unwrap();
+        let file = open_options().open(path).unwrap();
         let mut writer = PagedWriter::new(file).unwrap();
 
         writer.write_all(&[1; PAGE_PAYLOAD_SIZE]).unwrap();
