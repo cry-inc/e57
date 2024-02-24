@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [0.10.4] - 2024-02-22
 
 - Smaller perfomance improvements for reading E57 files
-- Fixed page boundary crossing errors (thx nil-vr!)
+- Fixed paged writer boundary crossing errors (thx nil-vr!)
 - Fixed alignment issues after writing image blob sections (thx nil-vr!)
 
 ## [0.10.3] - 2023-12-06

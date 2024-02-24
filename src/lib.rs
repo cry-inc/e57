@@ -1,4 +1,4 @@
-//! A pure Rust library for reading E57 files without unsafe code.
+//! A pure Rust library for reading and writing E57 files without any unsafe code.
 //!
 //! Some example code can be found [here](https://github.com/cry-inc/e57/tree/master/tools) in the GitHub repository.
 //!
