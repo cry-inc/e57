@@ -5,7 +5,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Update Rust
         run: rustup toolchain install stable --profile minimal --no-self-update
       - name: Enable Rust Caching
@@ -24,7 +24,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Update Rust
         run: rustup toolchain install stable --profile minimal --no-self-update
       - name: Enable Rust Caching
