@@ -249,152 +249,51 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
     }
 
     fn validate_prototype(prototype: &[Record]) -> Result<()> {
-        // Helper to look up if a records
+        // Helpers to check and look up records
         let contains = |n: RecordName| prototype.iter().any(|p| p.name == n);
         let get = |n: RecordName| prototype.iter().find(|p| p.name == n);
 
-        // Cartesian coordinate check
-        let mut cartesian = 0;
-        if contains(RecordName::CartesianX) {
-            cartesian += 1;
-        }
-        if contains(RecordName::CartesianY) {
-            cartesian += 1;
-        }
-        if contains(RecordName::CartesianZ) {
-            cartesian += 1;
-        }
-        if cartesian != 0 && cartesian != 3 {
-            Error::invalid("You have to include all three Cartesian coordinates for X, Y and Z")?
-        }
-        if let Some(r) = get(RecordName::CartesianInvalidState) {
-            if !contains(RecordName::CartesianX) {
-                Error::invalid("CartesianInvalidState requires Cartesian coordinates")?
-            }
-            match r.data_type {
-                RecordDataType::Integer { min: 0, max: 2 } => {}
-                _ => {
-                    Error::invalid("CartesianInvalidState needs to be an integer between 0 and 2")?
-                }
-            }
-        }
-
-        // Spherical coordinate check
-        let mut spherical = 0;
-        if contains(RecordName::SphericalAzimuth) {
-            spherical += 1;
-        }
-        if contains(RecordName::SphericalElevation) {
-            spherical += 1;
-        }
-        if contains(RecordName::SphericalRange) {
-            spherical += 1;
-        }
-        if spherical != 0 && spherical != 3 {
-            Error::invalid("You have to include all three spherical coordinates for azimuth, elevation and range")?
-        }
-        if let Some(r) = get(RecordName::SphericalInvalidState) {
-            if !contains(RecordName::SphericalAzimuth) {
-                Error::invalid("SphericalInvalidState requires spherical coordinates")?
-            }
-            match r.data_type {
-                RecordDataType::Integer { min: 0, max: 2 } => {}
-                _ => {
-                    Error::invalid("SphericalInvalidState needs to be an integer between 0 and 2")?
-                }
-            }
-        }
-        if let Some(r) = get(RecordName::SphericalAzimuth) {
-            if let RecordDataType::Integer { .. } = r.data_type {
-                Error::invalid("SphericalAzimuth cannot have an integer type")?
-            }
-        }
-        if let Some(r) = get(RecordName::SphericalElevation) {
-            if let RecordDataType::Integer { .. } = r.data_type {
-                Error::invalid("SphericalElevation cannot have an integer type")?
-            }
-        }
-
         // Cartesian or spherical?
+        validate_cartesian(prototype)?;
+        validate_spherical(prototype)?;
         if !contains(RecordName::CartesianX) && !contains(RecordName::SphericalAzimuth) {
             Error::invalid("You have to include Cartesian or spherical coordinates")?
         }
 
-        // Color check
-        let mut color = 0;
-        if contains(RecordName::ColorRed) {
-            color += 1;
-        }
-        if contains(RecordName::ColorGreen) {
-            color += 1;
-        }
-        if contains(RecordName::ColorBlue) {
-            color += 1;
-        }
-        if color != 0 && color != 3 {
-            Error::invalid("You have to include all three color values for red, green and blue")?
-        }
-        if let Some(r) = get(RecordName::IsColorInvalid) {
-            if !contains(RecordName::ColorRed) {
-                Error::invalid("IsColorInvalid requires colors")?
-            }
-            match r.data_type {
-                RecordDataType::Integer { min: 0, max: 1 } => {}
-                _ => Error::invalid("IsColorInvalid needs to be an integer between 0 and 1")?,
-            }
-        }
-
-        // Return check
-        let mut ret = 0;
-        if let Some(r) = get(RecordName::ReturnCount) {
-            ret += 1;
-            match r.data_type {
-                RecordDataType::Integer { .. } => {}
-                _ => Error::invalid("ReturnCount must have an integer type")?,
-            }
-        }
-        if let Some(r) = get(RecordName::ReturnIndex) {
-            ret += 1;
-            match r.data_type {
-                RecordDataType::Integer { .. } => {}
-                _ => Error::invalid("ReturnIndex must have an integer type")?,
-            }
-        }
-        if ret != 0 && ret != 2 {
-            Error::invalid("You have to include both, ReturnCount and ReturnIndex")?
-        }
+        validate_color(prototype)?;
+        validate_return(prototype)?;
 
         // Row & column check
-        if let Some(r) = get(RecordName::RowIndex) {
-            match r.data_type {
+        if let Some(record) = get(RecordName::RowIndex) {
+            match record.data_type {
                 RecordDataType::Integer { .. } => {}
                 _ => Error::invalid("RowIndex must have an integer type")?,
             }
         }
-        if let Some(r) = get(RecordName::ColumnIndex) {
-            match r.data_type {
+        if let Some(record) = get(RecordName::ColumnIndex) {
+            match record.data_type {
                 RecordDataType::Integer { .. } => {}
                 _ => Error::invalid("ColumnIndex must have an integer type")?,
             }
         }
 
         // Intensity check
-        if let Some(r) = get(RecordName::IsIntensityInvalid) {
+        if let Some(record) = get(RecordName::IsIntensityInvalid) {
             if !contains(RecordName::Intensity) {
                 Error::invalid("IsIntensityInvalid requires Intensity")?
             }
-            match r.data_type {
+            match record.data_type {
                 RecordDataType::Integer { min: 0, max: 1 } => {}
                 _ => Error::invalid("IsIntensityInvalid needs to be an integer between 0 and 1")?,
             }
         }
 
         // Time stamp check
-        if let Some(r) = get(RecordName::IsTimeStampInvalid) {
+        if let Some(record) = get(RecordName::IsTimeStampInvalid) {
             if !contains(RecordName::TimeStamp) {
                 Error::invalid("IsTimeStampInvalid requires TimeStamp")?
             }
-            match r.data_type {
+            match record.data_type {
                 RecordDataType::Integer { min: 0, max: 1 } => {}
                 _ => Error::invalid("IsTimeStampInvalid needs to be an integer between 0 and 1")?,
             }
@@ -656,4 +555,128 @@ fn update_max<T: PartialOrd>(value: T, min: &mut Option<T>) {
     } else {
         *min = Some(value)
     }
+}
+
+fn contains(prototype: &[Record], name: RecordName) -> bool {
+    prototype.iter().any(|p| p.name == name)
+}
+
+fn get(prototype: &[Record], name: RecordName) -> Option<&Record> {
+    prototype.iter().find(|p| p.name == name)
+}
+
+/// Validate Cartesian coordinates in prototype
+fn validate_cartesian(prototype: &[Record]) -> Result<()> {
+    let mut cartesian = 0;
+    if contains(prototype, RecordName::CartesianX) {
+        cartesian += 1;
+    }
+    if contains(prototype, RecordName::CartesianY) {
+        cartesian += 1;
+    }
+    if contains(prototype, RecordName::CartesianZ) {
+        cartesian += 1;
+    }
+    if cartesian != 0 && cartesian != 3 {
+        Error::invalid("You have to include all three Cartesian coordinates for X, Y and Z")?
+    }
+    if let Some(record) = get(prototype, RecordName::CartesianInvalidState) {
+        if !contains(prototype, RecordName::CartesianX) {
+            Error::invalid("CartesianInvalidState requires Cartesian coordinates")?
+        }
+        match record.data_type {
+            RecordDataType::Integer { min: 0, max: 2 } => {}
+            _ => Error::invalid("CartesianInvalidState needs to be an integer between 0 and 2")?,
+        }
+    }
+    Ok(())
+}
+
+/// Validate spherical coordinates in prototype
+fn validate_spherical(prototype: &[Record]) -> Result<()> {
+    let mut spherical = 0;
+    if contains(prototype, RecordName::SphericalAzimuth) {
+        spherical += 1;
+    }
+    if contains(prototype, RecordName::SphericalElevation) {
+        spherical += 1;
+    }
+    if contains(prototype, RecordName::SphericalRange) {
+        spherical += 1;
+    }
+    if spherical != 0 && spherical != 3 {
+        Error::invalid(
+            "You have to include all three spherical coordinates for azimuth, elevation and range",
+        )?
+    }
+    if let Some(record) = get(prototype, RecordName::SphericalInvalidState) {
+        if !contains(prototype, RecordName::SphericalAzimuth) {
+            Error::invalid("SphericalInvalidState requires spherical coordinates")?
+        }
+        match record.data_type {
+            RecordDataType::Integer { min: 0, max: 2 } => {}
+            _ => Error::invalid("SphericalInvalidState needs to be an integer between 0 and 2")?,
+        }
+    }
+    if let Some(record) = get(prototype, RecordName::SphericalAzimuth) {
+        if let RecordDataType::Integer { .. } = record.data_type {
+            Error::invalid("SphericalAzimuth cannot have an integer type")?
+        }
+    }
+    if let Some(record) = get(prototype, RecordName::SphericalElevation) {
+        if let RecordDataType::Integer { .. } = record.data_type {
+            Error::invalid("SphericalElevation cannot have an integer type")?
+        }
+    }
+    Ok(())
+}
+
+/// Validate color in prototype
+fn validate_color(prototype: &[Record]) -> Result<()> {
+    let mut color = 0;
+    if contains(prototype, RecordName::ColorRed) {
+        color += 1;
+    }
+    if contains(prototype, RecordName::ColorGreen) {
+        color += 1;
+    }
+    if contains(prototype, RecordName::ColorBlue) {
+        color += 1;
+    }
+    if color != 0 && color != 3 {
+        Error::invalid("You have to include all three color values for red, green and blue")?
+    }
+    if let Some(record) = get(prototype, RecordName::IsColorInvalid) {
+        if !contains(prototype, RecordName::ColorRed) {
+            Error::invalid("IsColorInvalid requires colors")?
+        }
+        match record.data_type {
+            RecordDataType::Integer { min: 0, max: 1 } => {}
+            _ => Error::invalid("IsColorInvalid needs to be an integer between 0 and 1")?,
+        }
+    }
+    Ok(())
+}
+
+/// Validate return in prototype
+fn validate_return(prototype: &[Record]) -> Result<()> {
+    let mut ret = 0;
+    if let Some(record) = get(prototype, RecordName::ReturnCount) {
+        ret += 1;
+        match record.data_type {
+            RecordDataType::Integer { .. } => {}
+            _ => Error::invalid("ReturnCount must have an integer type")?,
+        }
+    }
+    if let Some(record) = get(prototype, RecordName::ReturnIndex) {
+        ret += 1;
+        match record.data_type {
+            RecordDataType::Integer { .. } => {}
+            _ => Error::invalid("ReturnIndex must have an integer type")?,
+        }
+    }
+    if ret != 0 && ret != 2 {
+        Error::invalid("You have to include both, ReturnCount and ReturnIndex")?
+    }
+    Ok(())
 }
