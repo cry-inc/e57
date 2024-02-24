@@ -55,7 +55,7 @@ impl Error {
         })
     }
 
-    /// Creates a new NotImplemented error.
+    /// Creates a new `NotImplemented` error.
     pub fn not_implemented<T, C>(desc: C) -> Result<T>
     where
         C: Display + Send + Sync + 'static,

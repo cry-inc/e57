@@ -15,7 +15,8 @@
     clippy::expect_used,
     clippy::panic,
     clippy::large_stack_arrays,
-    clippy::large_types_passed_by_value
+    clippy::large_types_passed_by_value,
+    clippy::doc_markdown
 )]
 
 mod bitpack;

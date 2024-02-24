@@ -100,7 +100,7 @@ impl<'a, T: Read + Write + Seek> ImageWriter<'a, T> {
     }
 
     /// Adds an optional visual reference image, also known as preview image.
-    /// See also VisualReferenceImageProperties struct for more details.
+    /// See also `VisualReferenceImageProperties` struct for more details.
     /// The optional PNG mask image can be used to indicate valid/invalid
     /// pixels in the image, for example if the image is not rectangular.
     /// The mask must have the same size as the actual image.
@@ -130,7 +130,7 @@ impl<'a, T: Read + Write + Seek> ImageWriter<'a, T> {
 
     /// Adds pinhole image data.
     /// Width and height must match the actual binary PNG or JPEG image.
-    /// See also PinholeImageProperties struct for more details.
+    /// See also `PinholeImageProperties` struct for more details.
     /// The optional PNG mask image can be used to indicate valid/invalid
     /// pixels in the image, for example if the image is not rectangular.
     /// The mask must have the same size as the actual image.
@@ -163,7 +163,7 @@ impl<'a, T: Read + Write + Seek> ImageWriter<'a, T> {
     }
 
     /// Adds spherical image data.
-    /// See also SphericalImageProperties struct for more details.
+    /// See also `SphericalImageProperties` struct for more details.
     /// The optional PNG mask image can be used to indicate valid/invalid
     /// pixels in the image, for example if the image is not rectangular.
     /// The mask must have the same size as the actual image.
@@ -196,7 +196,7 @@ impl<'a, T: Read + Write + Seek> ImageWriter<'a, T> {
     }
 
     /// Adds cylindrical image data.
-    /// See also CylindricalImageProperties struct for more details.
+    /// See also `CylindricalImageProperties` struct for more details.
     /// The optional PNG mask image can be used to indicate valid/invalid
     /// pixels in the image, for example if the image is not rectangular.
     /// The mask must have the same size as the actual image.

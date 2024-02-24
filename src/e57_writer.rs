@@ -19,7 +19,8 @@ pub struct E57Writer<T: Read + Write + Seek> {
 impl<T: Write + Read + Seek> E57Writer<T> {
     /// Creates a new E57 generator from a writer that must also implement Read and Seek.
     ///
-    /// Keep in mind that File::create() will not work as input because it only opens the file for writing!
+    /// `File::create()` will not work as input because it only opens the file for writing.
+    /// Most typical use cases should prefer `E57Writer::from_file()` over this constructor.
     pub fn new(writer: T, guid: &str) -> Result<Self> {
         // Set up paged writer abstraction for CRC
         let mut writer = PagedWriter::new(writer)?;
