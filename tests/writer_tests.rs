@@ -700,3 +700,72 @@ fn write_read_empty_point_cloud() {
 
     remove_file(path).unwrap();
 }
+
+#[test]
+fn write_read_index_bounds() {
+    let path = Path::new("write_read_index_bounds.e57");
+
+    let mut e57 = E57Writer::from_file(path, "guid_file").unwrap();
+    let prototype = vec![
+        Record::CARTESIAN_X_F32,
+        Record::CARTESIAN_Y_F32,
+        Record::CARTESIAN_Z_F32,
+        Record {
+            name: RecordName::ColumnIndex,
+            data_type: RecordDataType::Integer { min: 0, max: 1023 },
+        },
+        Record {
+            name: RecordName::RowIndex,
+            data_type: RecordDataType::Integer { min: 0, max: 1023 },
+        },
+        Record {
+            name: RecordName::ReturnCount,
+            data_type: RecordDataType::Integer { min: 0, max: 1023 },
+        },
+        Record {
+            name: RecordName::ReturnIndex,
+            data_type: RecordDataType::Integer { min: 0, max: 1023 },
+        },
+    ];
+    let mut pc_writer = e57.add_pointcloud("guid_pointcloud", prototype).unwrap();
+    pc_writer
+        .add_point(vec![
+            RecordValue::Single(1.1),
+            RecordValue::Single(2.2),
+            RecordValue::Single(3.3),
+            RecordValue::Integer(11),
+            RecordValue::Integer(12),
+            RecordValue::Integer(13),
+            RecordValue::Integer(14),
+        ])
+        .unwrap();
+    pc_writer
+        .add_point(vec![
+            RecordValue::Single(4.4),
+            RecordValue::Single(5.5),
+            RecordValue::Single(6.6),
+            RecordValue::Integer(21),
+            RecordValue::Integer(22),
+            RecordValue::Integer(23),
+            RecordValue::Integer(24),
+        ])
+        .unwrap();
+    pc_writer.finalize().unwrap();
+    e57.finalize().unwrap();
+    drop(e57);
+
+    let e57 = E57Reader::from_file(path).unwrap();
+    let pointclouds = e57.pointclouds();
+    assert_eq!(pointclouds.len(), 1);
+    let pc = pointclouds.first().unwrap();
+    assert_eq!(pc.prototype.len(), 7);
+    let bounds = pc.index_bounds.clone().unwrap();
+    assert_eq!(bounds.column_min, Some(11));
+    assert_eq!(bounds.column_max, Some(21));
+    assert_eq!(bounds.row_min, Some(12));
+    assert_eq!(bounds.row_max, Some(22));
+    assert_eq!(bounds.return_min, Some(14));
+    assert_eq!(bounds.return_max, Some(24));
+
+    remove_file(path).unwrap();
+}
