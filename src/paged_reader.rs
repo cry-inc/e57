@@ -158,24 +158,6 @@ impl<T: Read + Seek> Read for PagedReader<T> {
     }
 }
 
-impl<T: Read + Seek> Seek for PagedReader<T> {
-    fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
-        let new_offset = match pos {
-            SeekFrom::Start(p) => p,
-            SeekFrom::End(p) => (self.log_file_size as i64 + p) as u64,
-            SeekFrom::Current(p) => (self.offset as i64 + p) as u64,
-        };
-        if new_offset > self.log_file_size {
-            Err(Error::new(
-                ErrorKind::InvalidInput,
-                format!("Detected invalid offset {new_offset} after end of file"),
-            ))?;
-        }
-        self.offset = new_offset;
-        Ok(self.offset)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -228,35 +210,6 @@ mod tests {
     }
 
     #[test]
-    fn seek() {
-        let file = File::open("testdata/bunnyDouble.e57").unwrap();
-        let mut reader = PagedReader::new(file, PAGE_SIZE).unwrap();
-
-        let xml_logical_offset = 737844;
-        assert_eq!(
-            reader.seek(SeekFrom::Start(xml_logical_offset)).unwrap(),
-            xml_logical_offset
-        );
-
-        let mut buffer = [0_u8; 5];
-        reader.read_exact(&mut buffer).unwrap();
-        assert_eq!(String::from_utf8(buffer.to_vec()).unwrap(), "<?xml");
-
-        assert_eq!(reader.seek(SeekFrom::Start(0)).unwrap(), 0);
-
-        let expected_logical_file_end = 740520;
-        assert_eq!(
-            reader.seek(SeekFrom::End(0)).unwrap(),
-            expected_logical_file_end
-        );
-
-        assert_eq!(
-            reader.seek(SeekFrom::Current(-10)).unwrap(),
-            expected_logical_file_end - 10
-        );
-    }
-
-    #[test]
     fn physical_seek() {
         let file = File::open("testdata/bunnyDouble.e57").unwrap();
         let mut reader = PagedReader::new(file, PAGE_SIZE).unwrap();
@@ -277,9 +230,12 @@ mod tests {
         let file = File::open("testdata/bunnyDouble.e57").unwrap();
         let mut reader = PagedReader::new(file, PAGE_SIZE).unwrap();
 
-        reader.seek(SeekFrom::End(0)).unwrap();
-
+        // Read entire file
         let mut buffer = Vec::new();
+        assert_eq!(reader.read_to_end(&mut buffer).unwrap(), 740520);
+
+        // Try again, nothing should be read
+        buffer.clear();
         assert_eq!(reader.read_to_end(&mut buffer).unwrap(), 0);
     }
 
@@ -290,13 +246,13 @@ mod tests {
         let mut reader = PagedReader::new(cursor, 128).unwrap();
 
         reader.align().unwrap();
-        assert_eq!(reader.stream_position().unwrap(), 0);
+        assert_eq!(reader.offset, 0);
 
-        reader.seek(SeekFrom::Start(1)).unwrap();
+        reader.seek_physical(1).unwrap();
         reader.align().unwrap();
-        assert_eq!(reader.stream_position().unwrap(), ALIGNMENT_SIZE);
+        assert_eq!(reader.offset, ALIGNMENT_SIZE);
 
         reader.align().unwrap();
-        assert_eq!(reader.stream_position().unwrap(), ALIGNMENT_SIZE);
+        assert_eq!(reader.offset, ALIGNMENT_SIZE);
     }
 }
