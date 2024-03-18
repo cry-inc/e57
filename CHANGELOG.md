@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.5] - 2024-03-18
+
+- Fixed handling of integer values when min and max values are equal
+- Very minor documentation improvements
+- Enabled and fixed additional Clippy lints
+- Deleted some unused code from paged reader
+
 ## [0.10.4] - 2024-02-22
 
 - Smaller perfomance improvements for reading E57 files
