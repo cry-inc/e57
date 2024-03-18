@@ -769,3 +769,120 @@ fn write_read_index_bounds() {
 
     remove_file(path).unwrap();
 }
+
+#[test]
+fn write_read_int_min_max_equal() {
+    let path = Path::new("write_read_int_min_max_equal.e57");
+
+    let mut e57 = E57Writer::from_file(path, "guid_file").unwrap();
+    let prototype = vec![
+        Record::CARTESIAN_X_F32,
+        Record::CARTESIAN_Y_F32,
+        Record::CARTESIAN_Z_F32,
+        Record {
+            name: RecordName::ColorRed,
+            data_type: RecordDataType::Integer { min: 0, max: 0 },
+        },
+        Record {
+            name: RecordName::ColorGreen,
+            data_type: RecordDataType::Integer {
+                min: 1111,
+                max: 1111,
+            },
+        },
+        Record {
+            name: RecordName::ColorBlue,
+            data_type: RecordDataType::Integer {
+                min: -1111,
+                max: -1111,
+            },
+        },
+        Record {
+            name: RecordName::Intensity,
+            data_type: RecordDataType::ScaledInteger {
+                min: 10,
+                max: 10,
+                scale: 2.1,
+                offset: 100.2,
+            },
+        },
+    ];
+    let mut pc_writer = e57.add_pointcloud("guid_pointcloud", prototype).unwrap();
+    pc_writer
+        .add_point(vec![
+            RecordValue::Single(1.1),
+            RecordValue::Single(2.2),
+            RecordValue::Single(3.3),
+            RecordValue::Integer(0),
+            RecordValue::Integer(1111),
+            RecordValue::Integer(-1111),
+            RecordValue::ScaledInteger(10),
+        ])
+        .unwrap();
+    pc_writer
+        .add_point(vec![
+            RecordValue::Single(4.4),
+            RecordValue::Single(5.5),
+            RecordValue::Single(6.6),
+            RecordValue::Integer(0),
+            RecordValue::Integer(1111),
+            RecordValue::Integer(-1111),
+            RecordValue::ScaledInteger(10),
+        ])
+        .unwrap();
+    pc_writer.finalize().unwrap();
+    e57.finalize().unwrap();
+    drop(e57);
+
+    let mut e57 = E57Reader::from_file(path).unwrap();
+    let pointclouds = e57.pointclouds();
+    assert_eq!(pointclouds.len(), 1);
+    let pc = pointclouds.first().unwrap();
+    assert_eq!(pc.prototype.len(), 7);
+    match pc.prototype[3].data_type {
+        RecordDataType::Integer { min, max } => {
+            assert_eq!(min, 0);
+            assert_eq!(max, 0);
+        }
+        _ => panic!("Unexpected data type"),
+    };
+    match pc.prototype[4].data_type {
+        RecordDataType::Integer { min, max } => {
+            assert_eq!(min, 1111);
+            assert_eq!(max, 1111);
+        }
+        _ => panic!("Unexpected data type"),
+    };
+    match pc.prototype[5].data_type {
+        RecordDataType::Integer { min, max } => {
+            assert_eq!(min, -1111);
+            assert_eq!(max, -1111);
+        }
+        _ => panic!("Unexpected data type"),
+    };
+    match pc.prototype[6].data_type {
+        RecordDataType::ScaledInteger {
+            min,
+            max,
+            scale,
+            offset,
+        } => {
+            assert_eq!(min, 10);
+            assert_eq!(max, 10);
+            assert_eq!(scale, 2.1);
+            assert_eq!(offset, 100.2);
+        }
+        _ => panic!("Unexpected data type"),
+    };
+    let iter = e57.pointcloud_raw(pc).unwrap();
+    for p in iter {
+        let p = p.unwrap();
+        assert_eq!(p.len(), 7);
+        assert_eq!(p[3], RecordValue::Integer(0));
+        assert_eq!(p[4], RecordValue::Integer(1111));
+        assert_eq!(p[5], RecordValue::Integer(-1111));
+        assert_eq!(p[6], RecordValue::ScaledInteger(10));
+    }
+
+    remove_file(path).unwrap();
+}
