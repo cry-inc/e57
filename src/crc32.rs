@@ -1,5 +1,5 @@
 /// Simple CRC 32 ISCSI/Castagnoli implementation.
-/// This is code is based on the SW fallback of https://github.com/zowens/crc32c.
+/// This is code is based on the SW fallback of <https://github.com/zowens/crc32c>.
 pub struct Crc32 {
     table: [u32; 256],
 }
