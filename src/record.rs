@@ -99,7 +99,7 @@ pub enum RecordName {
 
 /// Represents a raw value of attributes inside a point cloud.
 ///
-/// For scaled integers the record data type with the scale is needed to calulcate the actual f64 value.
+/// For scaled integers the record data type with the scale and offset is needed to calculate the actual f64 value.
 #[derive(Clone, Debug, PartialEq)]
 pub enum RecordValue {
     Single(f32),
@@ -220,9 +220,9 @@ impl RecordDataType {
                     optional_attribute(node, "minimum", tag_name, type_name)?.unwrap_or(i64::MIN);
                 let max =
                     optional_attribute(node, "maximum", tag_name, type_name)?.unwrap_or(i64::MAX);
-                if max <= min {
+                if max < min {
                     Error::invalid(format!(
-                        "Maximum value '{max}' and minimum value '{min}' of type '{type_name}' in XML tag '{tag_name}' are inconsistent"
+                        "Maximum value '{max}' and minimum value '{min}' of type '{type_name}' in XML tag '{tag_name}' are invalid"
                     ))?
                 }
                 RecordDataType::Integer { min, max }
@@ -232,9 +232,9 @@ impl RecordDataType {
                     optional_attribute(node, "minimum", tag_name, type_name)?.unwrap_or(i64::MIN);
                 let max =
                     optional_attribute(node, "maximum", tag_name, type_name)?.unwrap_or(i64::MAX);
-                if max <= min {
+                if max < min {
                     Error::invalid(format!(
-                        "Maximum value '{max}' and minimum value '{min}' of type '{type_name}' in XML tag '{tag_name}' are inconsistent"
+                        "Maximum value '{max}' and minimum value '{min}' of type '{type_name}' in XML tag '{tag_name}' are invalid"
                     ))?
                 }
                 let scale = optional_attribute(node, "scale", tag_name, type_name)?.unwrap_or(1.0);
@@ -426,7 +426,11 @@ fn serialize_integer(value: i64, min: i64, max: i64, buffer: &mut ByteStreamWrit
 #[inline]
 fn integer_bits(min: i64, max: i64) -> usize {
     let range = max as i128 - min as i128;
-    range.ilog2() as usize + 1
+    if range > 0 {
+        range.ilog2() as usize + 1
+    } else {
+        0
+    }
 }
 
 fn optional_attribute<T>(

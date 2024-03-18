@@ -106,7 +106,24 @@ impl<'a, T: Read + Seek> QueueReader<'a, T> {
                     self.byte_streams[i].append(&self.buffer);
                 }
 
-                self.parse_byte_streams()?;
+                // Find smallest number of expected items in any queue after stream unpacking.
+                // This is required for the corner case when the bit size of an record
+                // is zero and we don't know how many items to "unpack" from an empty buffer.
+                let mut min_queue_size = usize::MAX;
+                for (i, bs) in self.buffer_sizes.iter().enumerate() {
+                    let bit_size = self.pc.prototype[i].data_type.bit_size();
+                    // We can only check records with a non-zero bit size
+                    if bit_size != 0 {
+                        let bs_items = (bs * 8) / bit_size;
+                        let queue_items = self.queues[i].len();
+                        let items = bs_items + queue_items;
+                        if items < min_queue_size {
+                            min_queue_size = items;
+                        }
+                    }
+                }
+
+                self.parse_byte_streams(min_queue_size)?;
             }
         };
 
@@ -116,7 +133,7 @@ impl<'a, T: Read + Seek> QueueReader<'a, T> {
     }
 
     /// Extracts raw values from byte streams into queues.
-    fn parse_byte_streams(&mut self) -> Result<()> {
+    fn parse_byte_streams(&mut self, min_queue_size: usize) -> Result<()> {
         for (i, r) in self.pc.prototype.iter().enumerate() {
             match r.data_type {
                 RecordDataType::Single { .. } => {
@@ -125,14 +142,38 @@ impl<'a, T: Read + Seek> QueueReader<'a, T> {
                 RecordDataType::Double { .. } => {
                     BitPack::unpack_doubles(&mut self.byte_streams[i], &mut self.queues[i])?
                 }
-                RecordDataType::ScaledInteger { min, max, .. } => BitPack::unpack_scaled_ints(
-                    &mut self.byte_streams[i],
-                    min,
-                    max,
-                    &mut self.queues[i],
-                )?,
+                RecordDataType::ScaledInteger { min, max, .. } => {
+                    if r.data_type.bit_size() == 0 {
+                        // If the bit size of an record is zero, we don't know how many items to unpack.
+                        // Thats because they are not really unpacked, but instead generated with a zero value.
+                        // We use the supplied minimal size to ensure that we create enough items
+                        // to fill the queue enough to not be the limiting queue between all records.
+                        while self.queues[i].len() < min_queue_size {
+                            self.queues[i].push_back(RecordValue::ScaledInteger(min));
+                        }
+                    } else {
+                        BitPack::unpack_scaled_ints(
+                            &mut self.byte_streams[i],
+                            min,
+                            max,
+                            &mut self.queues[i],
+                        )?
+                    }
+                }
                 RecordDataType::Integer { min, max } => {
-                    BitPack::unpack_ints(&mut self.byte_streams[i], min, max, &mut self.queues[i])?
+                    if r.data_type.bit_size() == 0 {
+                        // See comment above for scaled integers!
+                        while self.queues[i].len() < min_queue_size {
+                            self.queues[i].push_back(RecordValue::Integer(min));
+                        }
+                    } else {
+                        BitPack::unpack_ints(
+                            &mut self.byte_streams[i],
+                            min,
+                            max,
+                            &mut self.queues[i],
+                        )?
+                    }
                 }
             };
         }
