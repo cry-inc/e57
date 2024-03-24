@@ -11,6 +11,9 @@
  *
  * The unpacked results will be saved into an folder with the suffix "_unpacked"
  * in the same folder as the original file.
+ *
+ * If --no-points is passed after the file path then the points
+ * will not be extracted, greatly reducing the time to extract the other files
  */
 
 use anyhow::{ensure, Context, Result};
@@ -32,6 +35,7 @@ pub struct E57Metadata {
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
     ensure!(args.len() >= 2, "Usage: extract-images <path/to/my.e57>");
+    let extract_points = !args.contains(&"--no-points".to_string());
 
     // Prepare input file and output folder
     let input_file = &args[1];
@@ -135,56 +139,58 @@ fn main() -> Result<()> {
     }
 
     // Extract point clouds
-    let pointclouds = e57.pointclouds();
-    let pc_count = pointclouds.len();
-    println!("Found {pc_count} point cloud(s)");
-    for (index, pc) in pointclouds.iter().enumerate() {
-        println!("Starting to extract data for point cloud #{index}...");
+    if extract_points {
+        let pointclouds = e57.pointclouds();
+        let pc_count = pointclouds.len();
+        println!("Found {pc_count} point cloud(s)");
+        for (index, pc) in pointclouds.iter().enumerate() {
+            println!("Starting to extract data for point cloud #{index}...");
 
-        // Extract metadata and write to txt file
-        let pc_metadata_file = output_folder.join(format!("pc_{index}.txt"));
-        let desc = format!("{pc:#?}");
-        write(pc_metadata_file, &desc).context("Failed to write metadata of point cloud")?;
-        println!("  Exported point cloud metadata");
+            // Extract metadata and write to txt file
+            let pc_metadata_file = output_folder.join(format!("pc_{index}.txt"));
+            let desc = format!("{pc:#?}");
+            write(pc_metadata_file, &desc).context("Failed to write metadata of point cloud")?;
+            println!("  Exported point cloud metadata");
 
-        // Create CSV header
-        let file_name = format!("pc_{index}.csv");
-        let file_path = output_folder.join(file_name);
-        let file =
-            File::create(file_path).context("Failed to open point cloud file for writing")?;
-        let mut writer = BufWriter::new(file);
-        let headers: Vec<String> = pc
-            .prototype
-            .iter()
-            .map(|r| format!("{:?} {:?}", r.name, r.data_type))
-            .collect();
-        let mut header = headers.join(";");
-        header += "\n";
-        writer
-            .write_all(header.as_bytes())
-            .context("Failed to write CSV header")?;
-
-        // Write CSV data
-        let iter = e57
-            .pointcloud_raw(pc)
-            .context("Failed to open point cloud iterator")?;
-        for p in iter {
-            let p = p.context("Failed to extract raw point")?;
-            let values: Vec<String> = p
+            // Create CSV header
+            let file_name = format!("pc_{index}.csv");
+            let file_path = output_folder.join(file_name);
+            let file =
+                File::create(file_path).context("Failed to open point cloud file for writing")?;
+            let mut writer = BufWriter::new(file);
+            let headers: Vec<String> = pc
+                .prototype
                 .iter()
-                .map(|r| match &r {
-                    RecordValue::Single(s) => s.to_string(),
-                    RecordValue::Double(d) => d.to_string(),
-                    RecordValue::ScaledInteger(si) => si.to_string(),
-                    RecordValue::Integer(i) => i.to_string(),
-                })
+                .map(|r| format!("{:?} {:?}", r.name, r.data_type))
                 .collect();
-            let line = values.join(";") + "\n";
+            let mut header = headers.join(";");
+            header += "\n";
             writer
-                .write_all(line.as_bytes())
-                .context("Failed to write CSV point")?;
+                .write_all(header.as_bytes())
+                .context("Failed to write CSV header")?;
+
+            // Write CSV data
+            let iter = e57
+                .pointcloud_raw(pc)
+                .context("Failed to open point cloud iterator")?;
+            for p in iter {
+                let p = p.context("Failed to extract raw point")?;
+                let values: Vec<String> = p
+                    .iter()
+                    .map(|r| match &r {
+                        RecordValue::Single(s) => s.to_string(),
+                        RecordValue::Double(d) => d.to_string(),
+                        RecordValue::ScaledInteger(si) => si.to_string(),
+                        RecordValue::Integer(i) => i.to_string(),
+                    })
+                    .collect();
+                let line = values.join(";") + "\n";
+                writer
+                    .write_all(line.as_bytes())
+                    .context("Failed to write CSV point")?;
+            }
+            println!("  Exported point cloud data to CSV file");
         }
-        println!("  Exported point cloud data to CSV file");
     }
 
     Ok(())
