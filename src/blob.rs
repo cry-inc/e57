@@ -16,6 +16,15 @@ pub struct Blob {
 }
 
 impl Blob {
+    /// Creates a blob instance manually from offset and length.
+    /// WARNING: This constructor is NOT required for standard E57 functionality!
+    /// In normal cases, like when reading images, the library will provide all Blob instances.
+    /// This is only needed for use cases with E57 extensions to read custom binary data.
+    /// In this case the offset and length values must be extracted manually from the XML data.
+    pub fn new(offset: u64, length: u64) -> Self {
+        Blob { offset, length }
+    }
+
     pub(crate) fn from_node(node: &Node) -> Result<Self> {
         if Some("Blob") != node.attribute("type") {
             Error::invalid("The supplided tag is not a blob")?

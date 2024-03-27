@@ -2,7 +2,9 @@ use crate::error::Converter;
 use crate::paged_writer::PagedWriter;
 use crate::pc_writer::PointCloudWriter;
 use crate::root::{serialize_root, Root};
-use crate::{DateTime, Error, Extension, Header, Image, ImageWriter, PointCloud, Record, Result};
+use crate::{
+    Blob, DateTime, Error, Extension, Header, Image, ImageWriter, PointCloud, Record, Result,
+};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
 use std::path::Path;
@@ -66,6 +68,12 @@ impl<T: Write + Read + Seek> E57Writer<T> {
     ) -> Result<PointCloudWriter<T>> {
         Extension::validate_prototype(&prototype, &self.extensions)?;
         PointCloudWriter::new(&mut self.writer, &mut self.pointclouds, guid, prototype)
+    }
+
+    /// Adds a new binary data section to the E57 file.
+    /// This feature is only required for custom data and extensions!
+    pub fn add_blob(&mut self, reader: &mut dyn Read) -> Result<Blob> {
+        Blob::write(&mut self.writer, reader)
     }
 
     /// Creates a new image writer for adding an image to the E57 file.

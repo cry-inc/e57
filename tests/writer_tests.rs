@@ -1,11 +1,11 @@
 use e57::{
-    CartesianCoordinate, DateTime, E57Reader, E57Writer, Extension, ImageFormat, Point, Projection,
-    Quaternion, RawValues, Record, RecordDataType, RecordName, RecordValue, Result,
+    Blob, CartesianCoordinate, DateTime, E57Reader, E57Writer, Extension, ImageFormat, Point,
+    Projection, Quaternion, RawValues, Record, RecordDataType, RecordName, RecordValue, Result,
     SphericalImageProperties, Transform, Translation, VisualReferenceImageProperties,
 };
 use std::f32::consts::PI;
 use std::fs::{remove_file, File};
-use std::io::Seek;
+use std::io::{Cursor, Seek};
 use std::path::Path;
 
 #[test]
@@ -882,6 +882,36 @@ fn write_read_int_min_max_equal() {
         assert_eq!(p[4], RecordValue::Integer(1111));
         assert_eq!(p[5], RecordValue::Integer(-1111));
         assert_eq!(p[6], RecordValue::ScaledInteger(10));
+    }
+
+    remove_file(path).unwrap();
+}
+
+#[test]
+fn extensions_write_read_blobs() {
+    let path = Path::new("extensions_write_read_blobs.e57");
+    let binary_data = vec![123_u8; 4096];
+    let offset;
+
+    {
+        let mut e57_writer = E57Writer::from_file(path, "guid_file").unwrap();
+        let mut reader = Cursor::new(&binary_data);
+        let blob = e57_writer.add_blob(&mut reader).unwrap();
+        assert_eq!(blob.length, binary_data.len() as u64);
+        assert!(blob.offset > 0);
+        offset = blob.offset;
+        e57_writer.finalize().unwrap();
+    }
+
+    {
+        let mut e57 = E57Reader::from_file(path).unwrap();
+        assert_eq!(e57.guid(), "guid_file");
+        let blob = Blob::new(offset, binary_data.len() as u64);
+        let mut writer = Cursor::new(Vec::new());
+        let bytes = e57.blob(&blob, &mut writer).unwrap();
+        assert_eq!(bytes, blob.length);
+        let data = writer.into_inner();
+        assert_eq!(data, binary_data);
     }
 
     remove_file(path).unwrap();
