@@ -916,3 +916,32 @@ fn extensions_write_read_blobs() {
 
     remove_file(path).unwrap();
 }
+
+#[test]
+fn custom_xml_test() {
+    let path = Path::new("custom_xml_test.e57");
+    let inserted_xml = "<myext:mytag type=\"Structure\"></myext:mytag>";
+    let extension = Extension::new("myext", "https://mycompany.com/myext");
+
+    {
+        let mut e57_writer = E57Writer::from_file(path, "guid_file").unwrap();
+        e57_writer.register_extesion(extension).unwrap();
+        e57_writer
+            .finalize_customized_xml(|xml| {
+                assert!(!xml.contains(inserted_xml));
+                let from = "</e57Root>";
+                let to = format!("{}\n</e57Root>", inserted_xml);
+                Ok(xml.replace(from, &to))
+            })
+            .unwrap();
+    }
+
+    {
+        let e57 = E57Reader::from_file(path).unwrap();
+        assert_eq!(e57.guid(), "guid_file");
+        let xml = e57.xml();
+        assert!(xml.contains(inserted_xml));
+    }
+
+    remove_file(path).unwrap();
+}

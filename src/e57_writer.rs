@@ -103,12 +103,28 @@ impl<T: Write + Read + Seek> E57Writer<T> {
     /// This will generate and write the XML metadata to finalize and complete the E57 file.
     /// Without calling this method before dropping the E57 file will be incomplete and invalid!
     pub fn finalize(&mut self) -> Result<()> {
+        self.finalize_customized_xml(Ok)
+    }
+
+    /// Same as `finalize()` but with additional XML transformation step.
+    ///
+    /// Allows customizing the XML data before its written into the E57 file.
+    /// This is required for adding E57 extension data to the XML.
+    /// The transformer receives an XML string and must return an XML string.
+    /// The client is responsible for parsing, modifying and serializing th XML again in a non-destructive way.
+    /// The E57 library will not validate the XML string before writing it into the E57 file!
+    /// If the transformer fails, the finalization is aborted and any error is forwarded.
+    pub fn finalize_customized_xml(
+        &mut self,
+        transformer: impl Fn(String) -> Result<String>,
+    ) -> Result<()> {
         let xml = serialize_root(
             &self.root,
             &self.pointclouds,
             &self.images,
             &self.extensions,
         )?;
+        let xml = transformer(xml)?;
         let xml_bytes = xml.as_bytes();
         let xml_length = xml_bytes.len();
         let xml_offset = self.writer.physical_position()?;
