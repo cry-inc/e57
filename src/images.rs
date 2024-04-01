@@ -1,4 +1,3 @@
-use crate::error::Converter;
 use crate::xml;
 use crate::{Blob, DateTime, Error, Result, Transform};
 use roxmltree::{Document, Node};
@@ -70,16 +69,13 @@ impl Image {
     }
 
     pub(crate) fn vec_from_document(document: &Document) -> Result<Vec<Self>> {
-        let images2d_node = document
-            .descendants()
-            .find(|n| n.has_tag_name("images2D"))
-            .invalid_err("Cannot find 'images2D' tag in XML document")?;
-
         let mut images = Vec::new();
-        for n in images2d_node.children() {
-            if n.has_tag_name("vectorChild") && n.attribute("type") == Some("Structure") {
-                let image = Self::from_node(&n)?;
-                images.push(image);
+        if let Some(images2d_node) = document.descendants().find(|n| n.has_tag_name("images2D")) {
+            for n in images2d_node.children() {
+                if n.has_tag_name("vectorChild") && n.attribute("type") == Some("Structure") {
+                    let image = Self::from_node(&n)?;
+                    images.push(image);
+                }
             }
         }
         Ok(images)

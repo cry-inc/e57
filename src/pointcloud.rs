@@ -67,16 +67,13 @@ pub struct PointCloud {
 
 impl PointCloud {
     pub(crate) fn vec_from_document(document: &Document) -> Result<Vec<Self>> {
-        let data3d_node = document
-            .descendants()
-            .find(|n| n.has_tag_name("data3D"))
-            .invalid_err("Cannot find 'data3D' tag in XML document")?;
-
         let mut pointclouds = Vec::new();
-        for n in data3d_node.children() {
-            if n.has_tag_name("vectorChild") && n.attribute("type") == Some("Structure") {
-                let pointcloud = Self::from_node(&n)?;
-                pointclouds.push(pointcloud);
+        if let Some(data3d_node) = document.descendants().find(|n| n.has_tag_name("data3D")) {
+            for n in data3d_node.children() {
+                if n.has_tag_name("vectorChild") && n.attribute("type") == Some("Structure") {
+                    let pointcloud = Self::from_node(&n)?;
+                    pointclouds.push(pointcloud);
+                }
             }
         }
         Ok(pointclouds)

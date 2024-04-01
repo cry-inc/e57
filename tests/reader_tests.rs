@@ -1,6 +1,6 @@
 use e57::{
-    CartesianCoordinate, E57Reader, ImageFormat, Point, Projection, RawValues, Record, RecordName,
-    RecordValue, Result, SphericalCoordinate,
+    CartesianCoordinate, E57Reader, ImageFormat, Point, Projection, RawValues, Record,
+    RecordDataType, RecordName, RecordValue, Result, SphericalCoordinate,
 };
 use std::fs::File;
 
@@ -629,4 +629,43 @@ fn scaled_integer_intensity() {
         );
         assert_eq!(p[1][4].to_i64(&proto[4].data_type).unwrap(), 0);
     }
+}
+
+#[test]
+fn no_images_tag() {
+    let e57 = E57Reader::from_file("testdata/las2e57_no_images_tag.e57").unwrap();
+    assert_eq!(e57.images().len(), 0);
+}
+
+#[test]
+fn las2e57() {
+    let mut e57 = E57Reader::from_file("testdata/las2e57_no_images_tag.e57").unwrap();
+
+    // Extension should be detected
+    let extentions = e57.extensions();
+    assert_eq!(extentions.len(), 1);
+    assert_eq!(extentions[0].namespace, "las");
+
+    // Point cloud prototype should contain LAS record
+    let pcs = e57.pointclouds();
+    assert_eq!(pcs.len(), 1);
+    let pc = pcs.first().unwrap();
+    assert!(matches!(
+        pc.prototype[5].data_type,
+        RecordDataType::Integer { min: 0, max: 65535 }
+    ));
+    assert_eq!(
+        pc.prototype[5].name,
+        RecordName::Unknown {
+            namespace: String::from("las"),
+            name: String::from("pointSourceId")
+        }
+    );
+
+    // Reading all the LAS record values should work
+    let iter = e57.pointcloud_raw(pc).unwrap();
+    let points = iter.collect::<Result<Vec<RawValues>>>().unwrap();
+    assert_eq!(points.len(), pc.records as usize);
+    let point = points.first().unwrap().clone();
+    assert_eq!(point[5], RecordValue::Integer(1));
 }
