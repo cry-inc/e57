@@ -109,16 +109,17 @@ impl<T: Read + Seek> PagedReader<T> {
         // now everybody has to swap bytes as well because it was not noticed back then :)
         let calculated_checksum = crc.to_be_bytes();
 
+        #[cfg(not(fuzzing))]
         if expected_checksum != calculated_checksum {
             self.page_num = None;
-            Err(Error::new(
+            return Err(Error::new(
                 ErrorKind::InvalidData,
                 format!("Detected invalid checksum (expected: {expected_checksum:?}, actual: {calculated_checksum:?}) for page {page}")
-            ))
-        } else {
-            self.page_num = Some(page);
-            Ok(())
+            ));
         }
+
+        self.page_num = Some(page);
+        Ok(())
     }
 
     /// Do some skipping to next 4-byte-aligned offset, if needed.
