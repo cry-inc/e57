@@ -22,7 +22,7 @@ fn extensions_example() {
         };
 
         // Register extension
-        writer.register_extesion(ext.clone()).unwrap();
+        writer.register_extension(ext.clone()).unwrap();
 
         // Define point cloud prototype with XYZ and custom classification attribute
         let prototype = vec![

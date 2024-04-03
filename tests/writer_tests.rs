@@ -307,8 +307,8 @@ fn attribute_extensions() {
             namespace: "ext2".to_owned(),
             url: "http://institute.org/e57/ext2".to_owned(),
         };
-        writer.register_extesion(ext1.clone()).unwrap();
-        writer.register_extesion(ext2.clone()).unwrap();
+        writer.register_extension(ext1.clone()).unwrap();
+        writer.register_extension(ext2.clone()).unwrap();
 
         const INTEGER_TYPE: RecordDataType = RecordDataType::Integer { min: -10, max: 11 };
         const SCALED_INT: RecordDataType = RecordDataType::ScaledInteger {
@@ -427,8 +427,8 @@ fn unknown_namespace_name_fails() {
     assert!(writer.add_pointcloud("pc_guid", prototype.clone()).is_err());
 
     let ext = Extension::new("ext", "https://cop.com/ext");
-    assert!(writer.register_extesion(ext.clone()).is_ok());
-    assert!(writer.register_extesion(ext.clone()).is_err());
+    assert!(writer.register_extension(ext.clone()).is_ok());
+    assert!(writer.register_extension(ext.clone()).is_err());
     assert!(writer.add_pointcloud("pc_guid", prototype.clone()).is_ok());
 
     remove_file(out_path).unwrap();
@@ -925,7 +925,7 @@ fn custom_xml_test() {
 
     {
         let mut e57_writer = E57Writer::from_file(path, "guid_file").unwrap();
-        e57_writer.register_extesion(extension).unwrap();
+        e57_writer.register_extension(extension).unwrap();
         e57_writer
             .finalize_customized_xml(|xml| {
                 assert!(!xml.contains(inserted_xml));
