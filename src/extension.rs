@@ -1,10 +1,43 @@
 use crate::{Error, Record, RecordName, Result};
 use roxmltree::Document;
 
-/// Describes an extension by name and URL as used in the XML namespace desclaration.
+/// Describes an E57 extension by name and URL.
 ///
-/// Each extension has its own namespace that used when describing additional data
-/// in the XML section of the E57 file.
+/// The E57 specification includes an mechanism for extensions.
+/// Each extension has its own namespace in the XML section of the E57 file.
+/// Such extensions can for example specify custom point attributes or
+/// add additional metadata and custom binary blobs.
+///
+/// Every E57 parser must be able to ignore any unknown extensions.
+/// Some extensions are <a href="http://www.libe57.org/extensions.html" target="_blank">officially documented</a>,
+/// others are proprietary and have no public documentation.
+///
+/// Since full extension support involves all kinds of XML operations,
+/// it can greatly increase the API of any E57 library.
+/// This library is using a more pragmatic approach and requires you to bring your own XML library.
+/// This allows the API of this library to stay small, focused and lightweight.
+///
+/// Extension features directly supported by this library are:
+/// * reading and defining of XML namespaces for extensions
+/// * reading and writing additional custom point attributes
+/// * reading and writing of binary blobs
+///
+/// Extensions that require specific XML parsing are possible.
+/// You need to load your E57 file and then call `E57Reader::xml()` method to get the full original XML string.
+/// This will return an UTF8 string that can be feed into an XML parser.
+/// This library is using `roxmltree` for lightweight XML parsing.
+///
+/// Extensions that require XML manipulation when writing E57 files are also possible.
+/// You need to first finishing writing all point clouds, images and binary blobs.
+/// Then when you are ready to call `E57Writer::finalize()` to write the XML section and close the file,
+/// you need to call `E57Writer::finalize_customized_xml()` instead.
+/// This allows you to supply a transformer that will receive the generated XML string
+/// and can manipulate it before its written into the file.
+/// Your code is responsible for parsing, modifying and serializing th XML again in a non-destructive way!
+///
+/// # Example Code
+/// You can find a <a href="https://github.com/cry-inc/e57/blob/master/tests/extensions.rs" target="_blank">
+/// complete example</a> for reading and writing E57 files with extensions in the automated tests of the library.
 #[derive(Clone, Debug)]
 pub struct Extension {
     /// XML namespace name.

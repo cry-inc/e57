@@ -2,6 +2,9 @@
 //!
 //! Some example code can be found [here](https://github.com/cry-inc/e57/tree/master/tools) in the GitHub repository.
 //!
+//! ### Extensions
+//! This library supports reading and writing [extensions](Extension) as defined in the E57 specification.
+//!
 //! ### Optional Crate Features
 //! There is an optional feature called `crc32c`.
 //! If enabled, it will include an [external crate](https://crates.io/crates/crc32c) as additional dependency.

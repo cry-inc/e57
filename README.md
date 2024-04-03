@@ -22,7 +22,6 @@ but for that use case the LAS/LAZ file format is more commonly used.
 * Does not support Point Grouping
 * Does not support Index Packets
 * Does not support point attributes of type String
-* Only very basic support for extensions
 
 ## Please report incompatible files!
 If you found an E57 file that can be read with other software but produces an error with this crate,
