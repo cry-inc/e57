@@ -2,16 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.0] - 2024-04-11
+
+- Breaking Change: Fixed typo in public API to register E57 extensions.
+- Fixed reading E57 files without data3D or images2D tags in XML section.
+- Added public API to write and read arbitrary blobs for E57 extensions.
+- Added public API to allow XML customization for E57 extensions.
+- Extended documentation and example code for E57 extensions.
+- New flag for e57-unpack tool to extract only images and skip point data (thx Graham!)
+
 ## [0.10.5] - 2024-03-18
 
-- Fixed handling of integer values when min and max values are equal
-- Very minor documentation improvements
-- Enabled and fixed additional Clippy lints
-- Deleted some unused code from paged reader
+- Fixed handling of integer values when min and max values are equal.
+- Very minor documentation improvements.
+- Enabled and fixed additional Clippy lints.
+- Deleted some unused code from paged reader.
 
 ## [0.10.4] - 2024-02-22
 
-- Smaller perfomance improvements for reading E57 files
+- Smaller perfomance improvements for reading E57 files.
 - Fixed paged writer boundary crossing errors (thx nil-vr!)
 - Fixed alignment issues after writing image blob sections (thx nil-vr!)
 
