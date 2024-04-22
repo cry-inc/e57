@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.1] - 2024-04-22
+
+- Fixed typo in `intensityMaximum` XML tag when writing E57 files.
+- Added missing support for non-integer color and intensity limits when writing E57 files.
+
 ## [0.11.0] - 2024-04-11
 
 - Breaking Change: Fixed typo in public API to register E57 extensions.
