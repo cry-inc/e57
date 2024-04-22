@@ -73,14 +73,14 @@ impl IntensityLimits {
     }
 
     pub(crate) fn xml_string(&self) -> String {
-        let mut xml = String::from("<intensityLimits type=\"Structure\">");
+        let mut xml = String::from("<intensityLimits type=\"Structure\">\n");
         if let Some(min) = &self.intensity_min {
-            xml += &format!("<intensityMinimum type=\"Integer\">{min}</intensityMinimum>");
+            xml += &record_value_to_xml("intensityMinimum", min);
         }
         if let Some(max) = &self.intensity_max {
-            xml += &format!("<intenstiyMaximum type=\"Integer\">{max}</intenstiyMaximum>");
+            xml += &record_value_to_xml("intensityMaximum", max);
         }
-        xml += "</intensityLimits>";
+        xml += "</intensityLimits>\n";
         xml
     }
 }
@@ -133,26 +133,42 @@ impl ColorLimits {
     }
 
     pub(crate) fn xml_string(&self) -> String {
-        let mut xml = String::from("<colorLimits type=\"Structure\">");
+        let mut xml = String::from("<colorLimits type=\"Structure\">\n");
         if let Some(min) = &self.red_min {
-            xml += &format!("<colorRedMinimum type=\"Integer\">{min}</colorRedMinimum>");
+            xml += &record_value_to_xml("colorRedMinimum", min);
         }
         if let Some(max) = &self.red_max {
-            xml += &format!("<colorRedMaximum type=\"Integer\">{max}</colorRedMaximum>");
+            xml += &record_value_to_xml("colorRedMaximum", max);
         }
         if let Some(min) = &self.green_min {
-            xml += &format!("<colorGreenMinimum type=\"Integer\">{min}</colorGreenMinimum>");
+            xml += &record_value_to_xml("colorGreenMinimum", min);
         }
         if let Some(max) = &self.green_max {
-            xml += &format!("<colorGreenMaximum type=\"Integer\">{max}</colorGreenMaximum>");
+            xml += &record_value_to_xml("colorGreenMaximum", max);
         }
         if let Some(min) = &self.blue_min {
-            xml += &format!("<colorBlueMinimum type=\"Integer\">{min}</colorBlueMinimum>");
+            xml += &record_value_to_xml("colorBlueMinimum", min);
         }
         if let Some(max) = &self.blue_max {
-            xml += &format!("<colorBlueMaximum type=\"Integer\">{max}</colorBlueMaximum>");
+            xml += &record_value_to_xml("colorBlueMaximum", max);
         }
-        xml += "</colorLimits>";
+        xml += "</colorLimits>\n";
         xml
+    }
+}
+
+/// Converts a record value to a XML limit tag with the correct type
+fn record_value_to_xml(tag_name: &str, value: &RecordValue) -> String {
+    match value {
+        RecordValue::Integer(value) => {
+            format!("<{tag_name} type=\"Integer\">{value}</{tag_name}>\n")
+        }
+        RecordValue::ScaledInteger(value) => {
+            format!("<{tag_name} type=\"ScaledInteger\">{value}</{tag_name}>\n")
+        }
+        RecordValue::Single(value) => {
+            format!("<{tag_name} type=\"Float\" precision=\"single\">{value}</{tag_name}>\n")
+        }
+        RecordValue::Double(value) => format!("<{tag_name} type=\"Float\">{value}</{tag_name}>\n"),
     }
 }
