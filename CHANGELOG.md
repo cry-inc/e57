@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.2] - 2024-06-02
+
+- Updated `roxmltree` dependency to version 0.20.
+
 ## [0.11.1] - 2024-04-22
 
 - Fixed typo in `intensityMaximum` XML tag when writing E57 files.
