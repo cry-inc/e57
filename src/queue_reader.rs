@@ -76,11 +76,19 @@ impl<'a, T: Read + Seek> QueueReader<'a, T> {
     pub fn advance(&mut self) -> Result<()> {
         let packet_header = PacketHeader::read(self.reader)?;
         match packet_header {
-            PacketHeader::Index(_) => {
-                Error::not_implemented("Index packets are not yet supported")?
+            PacketHeader::Index(header) => {
+                // Just skip over index packets
+                let mut buffer = vec![0; header.packet_length as usize];
+                self.reader
+                    .read_exact(&mut buffer)
+                    .read_err("Failed to read data of index packet")?
             }
-            PacketHeader::Ignored(_) => {
-                Error::not_implemented("Ignored packets are not yet supported")?
+            PacketHeader::Ignored(header) => {
+                // Just skip over ignored packets
+                let mut buffer = vec![0; header.packet_length as usize];
+                self.reader
+                    .read_exact(&mut buffer)
+                    .read_err("Failed to read data of ignored packet")?
             }
             PacketHeader::Data(header) => {
                 if header.bytestream_count as usize != self.byte_streams.len() {

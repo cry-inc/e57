@@ -16,11 +16,11 @@ impl PacketHeader {
             .read_exact(&mut buffer)
             .read_err("Failed to read packet type ID")?;
 
-        if buffer[0] == 0 {
+        if buffer[0] == IndexPacketHeader::ID {
             Ok(PacketHeader::Index(IndexPacketHeader::read(reader)?))
-        } else if buffer[0] == 1 {
+        } else if buffer[0] == DataPacketHeader::ID {
             Ok(PacketHeader::Data(DataPacketHeader::read(reader)?))
-        } else if buffer[0] == 2 {
+        } else if buffer[0] == IgnoredPacketHeader::ID {
             Ok(PacketHeader::Ignored(IgnoredPacketHeader::read(reader)?))
         } else {
             Error::invalid("Found unknown packet ID when trying to read packet header")?
@@ -30,36 +30,41 @@ impl PacketHeader {
 
 pub struct IndexPacketHeader {
     pub packet_length: u64,
-    pub entry_count: u16,
-    pub index_level: u8,
 }
 
 impl IndexPacketHeader {
+    pub const ID: u8 = 0;
+
     pub fn read(reader: &mut dyn Read) -> Result<Self> {
         let mut buffer = [0_u8; 15];
         reader
             .read_exact(&mut buffer)
             .read_err("Failed to read index packet header")?;
 
+        // Check reserved values in second and last eight bytes of header
+        if buffer[0] != 0 {
+            Error::invalid("The reserved bytes inside an index packet must be zero")?
+        }
+        for value in buffer.iter().skip(7) {
+            if *value != 0 {
+                Error::invalid("The reserved bytes inside an index packet must be zero")?
+            }
+        }
+
         // Parse values
         let packet_length =
             u16::from_le_bytes(buffer[1..3].try_into().internal_err(WRONG_OFFSET)?) as u64 + 1;
-        let entry_count = u16::from_le_bytes(buffer[3..5].try_into().internal_err(WRONG_OFFSET)?);
-        let index_level = buffer[5];
 
-        // Validate values
-        if packet_length == 0 {
-            Error::invalid("A data packet length of 0 is not allowed")?
-        }
+        // Currently unused header fields
+        let _entry_count = u16::from_le_bytes(buffer[3..5].try_into().internal_err(WRONG_OFFSET)?);
+        let _index_level = buffer[5];
+
+        // Validate length
         if packet_length % 4 != 0 {
             Error::invalid("Index packet length is not aligned and a multiple of four")?
         }
 
-        Ok(Self {
-            packet_length,
-            entry_count,
-            index_level,
-        })
+        Ok(Self { packet_length })
     }
 }
 
@@ -70,6 +75,8 @@ pub struct DataPacketHeader {
 }
 
 impl DataPacketHeader {
+    pub const ID: u8 = 1;
+
     pub const SIZE: usize = 6;
 
     pub fn read(reader: &mut dyn Read) -> Result<Self> {
@@ -86,9 +93,6 @@ impl DataPacketHeader {
             u16::from_le_bytes(buffer[3..5].try_into().internal_err(WRONG_OFFSET)?);
 
         // Validate values
-        if packet_length == 0 {
-            Error::invalid("A data packet length of 0 is not allowed")?
-        }
         if packet_length % 4 != 0 {
             Error::invalid("Data packet length is not aligned and a multiple of four")?
         }
@@ -122,6 +126,8 @@ pub struct IgnoredPacketHeader {
 }
 
 impl IgnoredPacketHeader {
+    pub const ID: u8 = 2;
+
     pub fn read(reader: &mut dyn Read) -> Result<Self> {
         // Read Ignored Packet
         let mut buffer = [0_u8; 3];
@@ -129,14 +135,16 @@ impl IgnoredPacketHeader {
             .read_exact(&mut buffer)
             .read_err("Failed to read ignore packet header")?;
 
-        // Parse values
+        // Check reserved value
+        if buffer[0] != 0 {
+            Error::invalid("The first byte inside ignored packets is reserved and must be zero")?
+        }
+
+        // Parse length
         let packet_length =
             u16::from_le_bytes(buffer[1..3].try_into().internal_err(WRONG_OFFSET)?) as u64 + 1;
 
-        // Validate values
-        if packet_length == 0 {
-            Error::invalid("A ignored packet length of 0 is not allowed")?
-        }
+        // Validate length
         if packet_length % 4 != 0 {
             Error::invalid("Ignored packet length is not aligned and a multiple of four")?
         }
