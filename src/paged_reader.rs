@@ -109,7 +109,6 @@ impl<T: Read + Seek> PagedReader<T> {
         // now everybody has to swap bytes as well because it was not noticed back then :)
         let calculated_checksum = crc.to_be_bytes();
 
-        #[cfg(not(fuzzing))]
         if expected_checksum != calculated_checksum {
             self.page_num = None;
             return Err(Error::new(
