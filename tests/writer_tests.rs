@@ -945,3 +945,50 @@ fn custom_xml_test() {
 
     remove_file(path).unwrap();
 }
+
+#[test]
+fn writer_bug_reproduction() {
+    let file = "writer_repro_bug.e57";
+    {
+        let mut writer = e57::E57Writer::from_file(file, "file_uuid").unwrap();
+        let proto = vec![
+            Record::CARTESIAN_X_F32,
+            Record::CARTESIAN_Y_F32,
+            Record::CARTESIAN_Z_F32,
+            Record {
+                name: RecordName::Intensity,
+                data_type: RecordDataType::ScaledInteger {
+                    min: 0,
+                    max: 2047,
+                    scale: 1.0,
+                    offset: 0.0,
+                },
+            },
+        ];
+        let mut pc_writer = writer.add_pointcloud("pc_guid", proto).unwrap();
+        for _ in 0..4785 {
+            let point = vec![
+                RecordValue::Single(0.0),
+                RecordValue::Single(0.0),
+                RecordValue::Single(0.0),
+                RecordValue::ScaledInteger(0),
+            ];
+            pc_writer.add_point(point).unwrap();
+        }
+        pc_writer.finalize().unwrap();
+        writer.finalize().unwrap();
+    }
+    {
+        let mut reader = e57::E57Reader::from_file(file).unwrap();
+        let pcs = reader.pointclouds();
+        for pc in pcs {
+            let iter = reader.pointcloud_raw(&pc).unwrap();
+            for point in iter {
+                if let Err(err) = point {
+                    panic!("Error reading point at: {err}");
+                }
+            }
+        }
+    }
+    std::fs::remove_file(file).unwrap();
+}
