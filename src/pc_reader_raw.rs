@@ -39,7 +39,8 @@ impl<'a, T: Read + Seek> Iterator for PointCloudReaderRaw<'a, T> {
         }
 
         // Refill property queues if required
-        if self.queue_reader.available() < 1 {
+        // (in some corner cases more than one advance is required)
+        while self.queue_reader.available() < 1 {
             if let Err(err) = self.queue_reader.advance() {
                 return Some(Err(err));
             }
