@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.3] - 2024-08-17
+
+- Fixed critical writer bug that could produce corrupt E57 files.
+  This occured when point attributes sizes were not full bytes.
+  (For example intensity integer values between 0 and 2047)
+
 ## [0.11.2] - 2024-06-02
 
 - Updated `roxmltree` dependency to version 0.20.
