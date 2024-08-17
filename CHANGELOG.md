@@ -2,11 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.11.3] - 2024-08-17
+## [0.11.4] - 2024-08-17
 
-- Fixed critical writer bug that could produce corrupt E57 files.
-  This occured when point attributes sizes were not full bytes.
-  (For example intensity integer values between 0 and 2047)
+- Fixed critical writer bug that could produce invalid E57 files.
+  This occured when point attributes sizes were not full bytes,
+  for example intensity integer values between 0 and 2047.
+  In other cases the file was valid, but contained wrong values for such attributes.
+- Fixed minor corner case in reader when a data packet did not contain a full point.
+
+## ~~[0.11.3]~~ - 2024-08-17
+
+- **This version was yanked from crates.io and is no longer available!**
+- Broken fix for critical writer bug that could produce corrupt E57 files.
 
 ## [0.11.2] - 2024-06-02
 
