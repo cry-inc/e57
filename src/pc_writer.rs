@@ -33,6 +33,7 @@ pub struct PointCloudWriter<'a, T: Read + Write + Seek> {
     point_count: u64,
     buffer: VecDeque<RawValues>,
     max_points_per_packet: usize,
+    byte_streams: Vec<ByteStreamWriteBuffer>,
     cartesian_bounds: Option<CartesianBounds>,
     spherical_bounds: Option<SphericalBounds>,
     index_bounds: Option<IndexBounds>,
@@ -66,6 +67,9 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
 
         // Calculate max number of points per packet
         let max_points_per_packet = get_max_packet_points(&prototype);
+
+        // Prepare byte stream buffers
+        let byte_streams = vec![ByteStreamWriteBuffer::new(); prototype.len()];
 
         let mut section_header = CompressedVectorSectionHeader::default();
         let section_offset = writer.physical_position()?;
@@ -135,6 +139,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             prototype,
             point_count: 0,
             buffer: VecDeque::new(),
+            byte_streams,
             max_points_per_packet,
             cartesian_bounds,
             spherical_bounds,
@@ -299,14 +304,10 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         Ok(())
     }
 
-    fn write_buffer_to_disk(&mut self) -> Result<()> {
+    fn write_buffer_to_disk(&mut self, last_flush: bool) -> Result<()> {
+        // Add points from buffer into byte streams
         let packet_points = self.max_points_per_packet.min(self.buffer.len());
-        if packet_points == 0 {
-            return Ok(());
-        }
-
         let proto_len = self.prototype.len();
-        let mut buffers = vec![ByteStreamWriteBuffer::new(); proto_len];
         for _ in 0..packet_points {
             let p = self
                 .buffer
@@ -316,22 +317,37 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
                 let raw_value = p
                     .get(i)
                     .invalid_err("Prototype is bigger than number of provided values")?;
-                prototype.data_type.write(raw_value, &mut buffers[i])?;
+                prototype
+                    .data_type
+                    .write(raw_value, &mut self.byte_streams[i])?;
             }
         }
 
         // Check and prepare buffer sizes
-        let mut sum_buffer_sizes = 0;
-        let mut buffer_sizes = Vec::with_capacity(proto_len);
-        for buffer in &buffers {
-            let len = buffer.all_bytes();
-            sum_buffer_sizes += len;
-            buffer_sizes.push(len as u16);
+        let mut streams_empty = true;
+        let mut sum_bs_sizes = 0;
+        let mut bs_sizes = Vec::with_capacity(proto_len);
+        for bs in &self.byte_streams {
+            let bs_size = if last_flush {
+                bs.all_bytes()
+            } else {
+                bs.full_bytes()
+            };
+            if bs_size > 0 {
+                streams_empty = false;
+            }
+            sum_bs_sizes += bs_size;
+            bs_sizes.push(bs_size as u16);
+        }
+
+        // No data to write, lets stop here
+        if streams_empty {
+            return Ok(());
         }
 
         // Calculate packet length for header, must be aligned to four bytes.
         // If the length exceeds 2^16 this library has somewhere a logic bug!
-        let mut packet_length = DataPacketHeader::SIZE + proto_len * 2 + sum_buffer_sizes;
+        let mut packet_length = DataPacketHeader::SIZE + proto_len * 2 + sum_bs_sizes;
         if packet_length % 4 != 0 {
             let missing = 4 - (packet_length % 4);
             packet_length += missing;
@@ -352,7 +368,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         .write(&mut self.writer)?;
 
         // Write bytestream sizes as u16 values
-        for size in buffer_sizes {
+        for size in bs_sizes {
             let bytes = size.to_le_bytes();
             self.writer
                 .write_all(&bytes)
@@ -360,8 +376,12 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         }
 
         // Write actual bytestream buffers with data
-        for buffer in &mut buffers {
-            let data = buffer.get_all_bytes();
+        for bs in &mut self.byte_streams {
+            let data = if last_flush {
+                bs.get_all_bytes()
+            } else {
+                bs.get_full_bytes()
+            };
             self.writer
                 .write_all(&data)
                 .write_err("Cannot write bytestream buffer into data packet")?;
@@ -477,7 +497,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
 
         // Empty buffer and write points when its full
         if self.buffer.len() >= self.max_points_per_packet {
-            self.write_buffer_to_disk()?;
+            self.write_buffer_to_disk(false)?;
         }
 
         Ok(())
@@ -485,10 +505,13 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
 
     /// Called after all points have been added to finalize the creation of the new point cloud.
     pub fn finalize(&mut self) -> Result<()> {
-        // Flush remaining points from buffer
+        // Flush remaining points from buffer into byte streams and write them
         while !self.buffer.is_empty() {
-            self.write_buffer_to_disk()?;
+            self.write_buffer_to_disk(false)?;
         }
+
+        // Flush last partial bytes from byte streams
+        self.write_buffer_to_disk(true)?;
 
         // We need to write the section header again with the final length
         // which was previously unknown and is now available.

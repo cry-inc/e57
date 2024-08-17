@@ -947,8 +947,8 @@ fn custom_xml_test() {
 }
 
 #[test]
-fn writer_bug_regression_test() {
-    let file = "writer_bug_regression.e57";
+fn writer_bug_regression_partial_bytes() {
+    let file = "writer_bug_regression_partial_bytes.e57";
     {
         let mut writer = e57::E57Writer::from_file(file, "file_uuid").unwrap();
         let proto = vec![
@@ -984,9 +984,58 @@ fn writer_bug_regression_test() {
         let pcs = reader.pointclouds();
         for pc in pcs {
             let iter = reader.pointcloud_raw(&pc).unwrap();
-            for point in iter {
+            for (i, point) in iter.enumerate() {
                 if let Err(err) = point {
-                    panic!("Error reading point at: {err}");
+                    panic!("Error reading point {i} at: {err}");
+                }
+            }
+        }
+    }
+    std::fs::remove_file(file).unwrap();
+}
+
+#[test]
+fn writer_bug_regression_invalid_integers() {
+    let file = "writer_bug_regression_invalid_integers.e57";
+    {
+        let mut writer = e57::E57Writer::from_file(file, "file_uuid").unwrap();
+        let proto = vec![
+            Record::CARTESIAN_X_F32,
+            Record::CARTESIAN_Y_F32,
+            Record::CARTESIAN_Z_F32,
+            Record {
+                name: RecordName::Intensity,
+                data_type: RecordDataType::ScaledInteger {
+                    min: 0,
+                    max: 2047,
+                    scale: 1.0,
+                    offset: 0.0,
+                },
+            },
+        ];
+        let mut pc_writer = writer.add_pointcloud("pc_guid", proto).unwrap();
+        // must be more than the the max packet point count of the internal writer
+        for i in 0..5000 {
+            let point = vec![
+                RecordValue::Single(0.0),
+                RecordValue::Single(0.0),
+                RecordValue::Single(0.0),
+                RecordValue::ScaledInteger(i % 2048),
+            ];
+            pc_writer.add_point(point).unwrap();
+        }
+        pc_writer.finalize().unwrap();
+        writer.finalize().unwrap();
+    }
+    {
+        let mut reader = e57::E57Reader::from_file(file).unwrap();
+        let pcs = reader.pointclouds();
+        for pc in pcs {
+            let iter = reader.pointcloud_raw(&pc).unwrap();
+            for (i, point) in iter.enumerate() {
+                match point {
+                    Ok(p) => assert_eq!(p[3], RecordValue::ScaledInteger(i as i64 % 2048)),
+                    Err(err) => panic!("Error reading point {i} at: {err}"),
                 }
             }
         }

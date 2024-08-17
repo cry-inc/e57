@@ -47,9 +47,23 @@ impl ByteStreamWriteBuffer {
         }
     }
 
+    pub fn get_full_bytes(&mut self) -> Vec<u8> {
+        let to_take = self.full_bytes();
+        self.buffer.drain(..to_take).collect()
+    }
+
     pub fn get_all_bytes(&mut self) -> Vec<u8> {
         self.last_byte_bit = 0;
         self.buffer.drain(..).collect()
+    }
+
+    pub fn full_bytes(&self) -> usize {
+        let len = self.buffer.len();
+        if self.last_byte_bit != 0 {
+            len - 1
+        } else {
+            len
+        }
     }
 
     pub fn all_bytes(&self) -> usize {
@@ -64,7 +78,11 @@ mod tests {
     #[test]
     fn empty() {
         let mut buffer = ByteStreamWriteBuffer::new();
+        assert_eq!(buffer.full_bytes(), 0);
         assert_eq!(buffer.all_bytes(), 0);
+
+        let full = buffer.get_full_bytes();
+        assert_eq!(full.len(), 0);
 
         let all = buffer.get_all_bytes();
         assert_eq!(all.len(), 0);
@@ -74,12 +92,14 @@ mod tests {
     fn add_bytes() {
         let mut buffer = ByteStreamWriteBuffer::new();
         buffer.add_bytes(&[1, 2, 3, 4]);
+        assert_eq!(buffer.full_bytes(), 4);
         assert_eq!(buffer.all_bytes(), 4);
 
-        let all = buffer.get_all_bytes();
-        assert_eq!(all.len(), 4);
-        assert_eq!(all, [1, 2, 3, 4]);
+        let full = buffer.get_full_bytes();
+        assert_eq!(full.len(), 4);
+        assert_eq!(full, [1, 2, 3, 4]);
 
+        assert_eq!(buffer.full_bytes(), 0);
         assert_eq!(buffer.all_bytes(), 0);
     }
 
@@ -89,12 +109,20 @@ mod tests {
         buffer.add_bytes(&[1, 2, 3, 4]);
         buffer.add_bits(&[0b00001111], 4);
 
+        assert_eq!(buffer.full_bytes(), 4);
         assert_eq!(buffer.all_bytes(), 5);
 
-        let all = buffer.get_all_bytes();
-        assert_eq!(all.len(), 5);
-        assert_eq!(all, [1, 2, 3, 4, 0b00001111]);
+        let full = buffer.get_full_bytes();
+        assert_eq!(full.len(), 4);
+        assert_eq!(full, [1, 2, 3, 4]);
+        assert_eq!(buffer.full_bytes(), 0);
+        assert_eq!(buffer.all_bytes(), 1);
 
+        let all = buffer.get_all_bytes();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all, [0b00001111]);
+
+        assert_eq!(buffer.full_bytes(), 0);
         assert_eq!(buffer.all_bytes(), 0);
     }
 
@@ -104,6 +132,7 @@ mod tests {
         buffer.add_bits(&[0b00001111], 4);
         buffer.add_bits(&[0b00001111], 4);
 
+        assert_eq!(buffer.full_bytes(), 1);
         assert_eq!(buffer.all_bytes(), 1);
 
         let all = buffer.get_all_bytes();
@@ -117,6 +146,7 @@ mod tests {
         buffer.add_bytes(&[0b10000001]);
         buffer.add_bits(&[0b100001], 6);
 
+        assert_eq!(buffer.full_bytes(), 2);
         assert_eq!(buffer.all_bytes(), 3);
 
         let all = buffer.get_all_bytes();
