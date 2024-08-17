@@ -947,8 +947,8 @@ fn custom_xml_test() {
 }
 
 #[test]
-fn writer_bug_reproduction() {
-    let file = "writer_repro_bug.e57";
+fn writer_bug_regression_test() {
+    let file = "writer_bug_regression.e57";
     {
         let mut writer = e57::E57Writer::from_file(file, "file_uuid").unwrap();
         let proto = vec![
@@ -966,7 +966,8 @@ fn writer_bug_reproduction() {
             },
         ];
         let mut pc_writer = writer.add_pointcloud("pc_guid", proto).unwrap();
-        for _ in 0..4785 {
+        // exactly the the max packet point count of the internal writer
+        for _ in 0..4861 {
             let point = vec![
                 RecordValue::Single(0.0),
                 RecordValue::Single(0.0),

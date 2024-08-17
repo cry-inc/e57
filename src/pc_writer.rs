@@ -64,18 +64,14 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         // Make sure the prototype is not invalid or incomplete
         Self::validate_prototype(&prototype)?;
 
+        // Calculate max number of points per packet
+        let max_points_per_packet = get_max_packet_points(&prototype);
+
         let mut section_header = CompressedVectorSectionHeader::default();
         let section_offset = writer.physical_position()?;
         section_header.data_offset = section_offset + CompressedVectorSectionHeader::SIZE;
         section_header.section_length = CompressedVectorSectionHeader::SIZE;
         section_header.write(writer)?;
-
-        // Each data packet can contain up to 2^16 bytes, but we need some reserved
-        // space for header data. We also need to consider some "incomplete" bytes
-        // from record value sizes that are not a multiple of 8 bits.
-        // So lets round down a bit to have some spare bytes.
-        let point_size_bits: usize = prototype.iter().map(|p| p.data_type.bit_size()).sum();
-        let max_points_per_packet = (64000 * 8) / point_size_bits;
 
         // Prepare bounds
         let has_cartesian = prototype.iter().any(|p| p.name == RecordName::CartesianX);
@@ -685,4 +681,18 @@ fn validate_return(prototype: &[Record]) -> Result<()> {
         Error::invalid("You have to include both, ReturnCount and ReturnIndex")?
     }
     Ok(())
+}
+
+/// Calculate maximum number of points per packet.
+/// Each data packet can contain up to 2^16 bytes, but we need some reserved
+/// space for header data. We also need to consider some "incomplete" bytes
+/// from record value sizes that are not a multiple of 8 bits.
+fn get_max_packet_points(prototype: &[Record]) -> usize {
+    const SAFETY_MARGIN: usize = 500;
+    let point_size_bits: usize = prototype.iter().map(|p| p.data_type.bit_size()).sum();
+    let bs_size_headers = prototype.len() * 2; // u16 for each byte stream header
+    let headers_size = DataPacketHeader::SIZE + bs_size_headers;
+    let max_incomplete_bytes = prototype.len();
+    let u16_max = u16::MAX as usize;
+    ((u16_max - headers_size - max_incomplete_bytes - SAFETY_MARGIN) * 8) / point_size_bits
 }
