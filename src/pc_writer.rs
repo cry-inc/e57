@@ -64,17 +64,18 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         // Make sure the prototype is not invalid or incomplete
         Self::validate_prototype(&prototype)?;
 
-        let section_offset = writer.physical_position()?;
-
         let mut section_header = CompressedVectorSectionHeader::default();
+        let section_offset = writer.physical_position()?;
         section_header.data_offset = section_offset + CompressedVectorSectionHeader::SIZE;
         section_header.section_length = CompressedVectorSectionHeader::SIZE;
         section_header.write(writer)?;
 
-        // Each data packet can contain up to 2^16 bytes and we need some reserved
-        // space for header and bytes that are not yet filled and need to be included later.
-        let point_size: usize = prototype.iter().map(|p| p.data_type.bit_size()).sum();
-        let max_points_per_packet = (64000 * 8) / point_size;
+        // Each data packet can contain up to 2^16 bytes, but we need some reserved
+        // space for header data. We also need to consider some "incomplete" bytes
+        // from record value sizes that are not a multiple of 8 bits.
+        // So lets round down a bit to have some spare bytes.
+        let point_size_bits: usize = prototype.iter().map(|p| p.data_type.bit_size()).sum();
+        let max_points_per_packet = (64000 * 8) / point_size_bits;
 
         // Prepare bounds
         let has_cartesian = prototype.iter().any(|p| p.name == RecordName::CartesianX);
@@ -302,14 +303,14 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         Ok(())
     }
 
-    fn write_buffer_to_disk(&mut self, last_write: bool) -> Result<()> {
+    fn write_buffer_to_disk(&mut self) -> Result<()> {
         let packet_points = self.max_points_per_packet.min(self.buffer.len());
         if packet_points == 0 {
             return Ok(());
         }
 
-        let prototype_len = self.prototype.len();
-        let mut buffers = vec![ByteStreamWriteBuffer::new(); prototype_len];
+        let proto_len = self.prototype.len();
+        let mut buffers = vec![ByteStreamWriteBuffer::new(); proto_len];
         for _ in 0..packet_points {
             let p = self
                 .buffer
@@ -325,25 +326,22 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
 
         // Check and prepare buffer sizes
         let mut sum_buffer_sizes = 0;
-        let mut buffer_sizes = Vec::with_capacity(prototype_len);
+        let mut buffer_sizes = Vec::with_capacity(proto_len);
         for buffer in &buffers {
-            let len = if last_write {
-                buffer.all_bytes()
-            } else {
-                buffer.full_bytes()
-            };
+            let len = buffer.all_bytes();
             sum_buffer_sizes += len;
             buffer_sizes.push(len as u16);
         }
 
-        // Calculate packet length for header
-        let mut packet_length = DataPacketHeader::SIZE + prototype_len * 2 + sum_buffer_sizes;
+        // Calculate packet length for header, must be aligned to four bytes.
+        // If the length exceeds 2^16 this library has somewhere a logic bug!
+        let mut packet_length = DataPacketHeader::SIZE + proto_len * 2 + sum_buffer_sizes;
         if packet_length % 4 != 0 {
             let missing = 4 - (packet_length % 4);
             packet_length += missing;
         }
         if packet_length > u16::MAX as usize {
-            Error::internal("Invalid data packet length")?
+            Error::internal("Invalid data packet length detected")?
         }
 
         // Add data packet length to section length for later
@@ -353,7 +351,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         DataPacketHeader {
             comp_restart_flag: false,
             packet_length: packet_length as u64,
-            bytestream_count: prototype_len as u16,
+            bytestream_count: proto_len as u16,
         }
         .write(&mut self.writer)?;
 
@@ -367,11 +365,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
 
         // Write actual bytestream buffers with data
         for buffer in &mut buffers {
-            let data = if last_write {
-                buffer.get_all_bytes()
-            } else {
-                buffer.get_full_bytes()
-            };
+            let data = buffer.get_all_bytes();
             self.writer
                 .write_all(&data)
                 .write_err("Cannot write bytestream buffer into data packet")?;
@@ -390,8 +384,11 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             Error::invalid("Number of values does not match prototype length")?
         }
 
+        // Go over all values to validate and extract min/max values
         for (i, p) in self.prototype.iter().enumerate() {
             let value = &values[i];
+
+            // Ensure that each value fits the corresponding prototype entry
             if !match p.data_type {
                 RecordDataType::Single { .. } => matches!(value, RecordValue::Single(..)),
                 RecordDataType::Double { .. } => matches!(value, RecordValue::Double(..)),
@@ -405,6 +402,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
                 ))?
             }
 
+            // Update cartesian bounds
             if p.name == RecordName::CartesianX
                 || p.name == RecordName::CartesianY
                 || p.name == RecordName::CartesianZ
@@ -427,6 +425,8 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
                     update_max(value, &mut bounds.z_max);
                 }
             }
+
+            // Update spherical bounds
             if p.name == RecordName::SphericalAzimuth
                 || p.name == RecordName::SphericalElevation
                 || p.name == RecordName::SphericalRange
@@ -449,6 +449,8 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
                     update_max(value, &mut bounds.range_max);
                 }
             }
+
+            // Update row/col bounds
             if p.name == RecordName::RowIndex
                 || p.name == RecordName::ColumnIndex
                 || p.name == RecordName::ReturnIndex
@@ -473,11 +475,15 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             }
         }
 
+        // Add new point to output buffer
         self.buffer.push_back(values);
         self.point_count += 1;
+
+        // Empty buffer and write points when its full
         if self.buffer.len() >= self.max_points_per_packet {
-            self.write_buffer_to_disk(false)?;
+            self.write_buffer_to_disk()?;
         }
+
         Ok(())
     }
 
@@ -485,7 +491,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
     pub fn finalize(&mut self) -> Result<()> {
         // Flush remaining points from buffer
         while !self.buffer.is_empty() {
-            self.write_buffer_to_disk(true)?;
+            self.write_buffer_to_disk()?;
         }
 
         // We need to write the section header again with the final length
