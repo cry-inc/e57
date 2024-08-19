@@ -1,0 +1,25 @@
+diff --git a/ports/libe57format/portfile.cmake b/ports/libe57format/portfile.cmake
+index 8f22d2ba5..9bc2adfcc 100644
+--- a/ports/libe57format/portfile.cmake
++++ b/ports/libe57format/portfile.cmake
+@@ -2,7 +2,7 @@ vcpkg_from_github(
+     OUT_SOURCE_PATH SOURCE_PATH
+     REPO asmaloney/libE57Format
+     REF "v${VERSION}"
+-    SHA512 9be79a969b74008801e20531530cdf3dc1f0041d6fbd2be1aaa8d58b35b06309b1f324309ad1d989a345389ed168c96c325ebe65844efec9bbffd183bf2e4766
++    SHA512 3c69766fbd4b048db760835181fdb928add08b5914c00f3927739a36797aa4417b0607654100c578e1c8778605b617bc2a29d342d26931bdb87924ca58080dcd
+     HEAD_REF master
+ )
+ 
+diff --git a/ports/libe57format/vcpkg.json b/ports/libe57format/vcpkg.json
+index 7d00f4ee0..89615c6c4 100644
+--- a/ports/libe57format/vcpkg.json
++++ b/ports/libe57format/vcpkg.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "libe57format",
+-  "version": "3.1.1",
++  "version": "3.2.0",
+   "description": "A library to provide read & write support for the E57 file format.",
+   "homepage": "https://github.com/asmaloney/libE57Format",
+   "license": "BSL-1.0",
