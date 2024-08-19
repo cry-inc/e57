@@ -245,6 +245,10 @@ fn empty_e57_file() {
     let reader = E57Reader::from_file(file).unwrap();
 
     assert_eq!(reader.guid(), "{976E9187-A110-48D1-D58E-5DBF07B1630E}");
+    assert_eq!(
+        reader.library_version().as_deref(),
+        Some("E57Format-3.0.0-AMD64_64-vc1937")
+    );
     assert!(reader.coordinate_metadata().is_none());
     assert!(reader.creation().is_none());
 
@@ -263,6 +267,10 @@ fn with_extension() {
     let ext = &extensions[0];
     assert_eq!(ext.namespace, "nor");
     assert_eq!(ext.url, "http://www.libe57.org/E57_EXT_surface_normals.txt");
+    assert_eq!(
+        reader.library_version().as_deref(),
+        Some("E57Format-3.2.0-AMD64_64-vc1940")
+    );
 
     let pointclouds = reader.pointclouds();
     assert_eq!(pointclouds.len(), 1);
