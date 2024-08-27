@@ -10,7 +10,7 @@
 
 use anyhow::{ensure, Context, Result};
 use e57::{CartesianCoordinate, E57Reader};
-use las::{Builder, Color, Point, Version, Write, Writer};
+use las::{Builder, Color, Point, Version, Writer};
 use std::env::args;
 
 fn main() -> Result<()> {
@@ -74,7 +74,9 @@ fn main() -> Result<()> {
             if let Some(intensity) = p.intensity {
                 point.intensity = (intensity * u16::MAX as f32) as u16;
             }
-            writer.write(point).context("Failed to write LAZ point")?;
+            writer
+                .write_point(point)
+                .context("Failed to write LAZ point")?;
         }
     }
 
