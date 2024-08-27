@@ -327,7 +327,6 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         }
 
         // Check and prepare buffer sizes
-        let mut streams_empty = true;
         let mut sum_bs_sizes = 0;
         let mut bs_sizes = Vec::with_capacity(proto_len);
         for bs in &self.byte_streams {
@@ -336,58 +335,53 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             } else {
                 bs.full_bytes()
             };
-            if bs_size > 0 {
-                streams_empty = false;
-            }
             sum_bs_sizes += bs_size;
             bs_sizes.push(bs_size as u16);
         }
 
-        // No data to write, lets stop here
-        if streams_empty {
-            return Ok(());
-        }
+        // Only write packet if there is actual data!
+        if sum_bs_sizes > 0 {
+            // Calculate packet length for header, must be aligned to four bytes.
+            // If the length exceeds 2^16 this library has somewhere a logic bug!
+            let mut packet_length = DataPacketHeader::SIZE + proto_len * 2 + sum_bs_sizes;
+            if packet_length % 4 != 0 {
+                let missing = 4 - (packet_length % 4);
+                packet_length += missing;
+            }
+            if packet_length > u16::MAX as usize {
+                Error::internal("Invalid data packet length detected")?
+            }
 
-        // Calculate packet length for header, must be aligned to four bytes.
-        // If the length exceeds 2^16 this library has somewhere a logic bug!
-        let mut packet_length = DataPacketHeader::SIZE + proto_len * 2 + sum_bs_sizes;
-        if packet_length % 4 != 0 {
-            let missing = 4 - (packet_length % 4);
-            packet_length += missing;
-        }
-        if packet_length > u16::MAX as usize {
-            Error::internal("Invalid data packet length detected")?
-        }
+            // Add data packet length to section length for later
+            self.section_header.section_length += packet_length as u64;
 
-        // Add data packet length to section length for later
-        self.section_header.section_length += packet_length as u64;
+            // Write data packet header
+            DataPacketHeader {
+                comp_restart_flag: false,
+                packet_length: packet_length as u64,
+                bytestream_count: proto_len as u16,
+            }
+            .write(&mut self.writer)?;
 
-        // Write data packet header
-        DataPacketHeader {
-            comp_restart_flag: false,
-            packet_length: packet_length as u64,
-            bytestream_count: proto_len as u16,
-        }
-        .write(&mut self.writer)?;
+            // Write bytestream sizes as u16 values
+            for size in bs_sizes {
+                let bytes = size.to_le_bytes();
+                self.writer
+                    .write_all(&bytes)
+                    .write_err("Cannot write data packet buffer size")?;
+            }
 
-        // Write bytestream sizes as u16 values
-        for size in bs_sizes {
-            let bytes = size.to_le_bytes();
-            self.writer
-                .write_all(&bytes)
-                .write_err("Cannot write data packet buffer size")?;
-        }
-
-        // Write actual bytestream buffers with data
-        for bs in &mut self.byte_streams {
-            let data = if last_flush {
-                bs.get_all_bytes()
-            } else {
-                bs.get_full_bytes()
-            };
-            self.writer
-                .write_all(&data)
-                .write_err("Cannot write bytestream buffer into data packet")?;
+            // Write actual bytestream buffers with data
+            for bs in &mut self.byte_streams {
+                let data = if last_flush {
+                    bs.get_all_bytes()
+                } else {
+                    bs.get_full_bytes()
+                };
+                self.writer
+                    .write_all(&data)
+                    .write_err("Cannot write bytestream buffer into data packet")?;
+            }
         }
 
         self.writer
