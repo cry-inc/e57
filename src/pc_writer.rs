@@ -71,11 +71,14 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         // Prepare byte stream buffers
         let byte_streams = vec![ByteStreamWriteBuffer::new(); prototype.len()];
 
+        // Write preliminary section header with incomplete length and wrong offsets
         let mut section_header = CompressedVectorSectionHeader::default();
         let section_offset = writer.physical_position()?;
-        section_header.data_offset = section_offset + CompressedVectorSectionHeader::SIZE;
         section_header.section_length = CompressedVectorSectionHeader::SIZE;
         section_header.write(writer)?;
+
+        // Now we know the data offset and can set it for later
+        section_header.data_offset = writer.physical_position()?;
 
         // Prepare bounds
         let has_cartesian = prototype.iter().any(|p| p.name == RecordName::CartesianX);
