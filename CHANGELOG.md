@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.5] - 2024-08-27
+
+- Fixed critical writer bug that occurred when the compressed vector
+  section header and the data offset were not in the same page.
+  In such cases the the data offset was off by the 4 bytes,
+  (which is the size of the CRC32 checksum).
+- Fixed potential alignment bug in writer when doing early outs while writings points to disk.
+- Updated example code to use the latest version of the LAS crate.
+
 ## [0.11.4] - 2024-08-17
 
 - Fixed critical writer bug that could produce invalid E57 files.
