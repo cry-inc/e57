@@ -343,4 +343,19 @@ impl PointCloud {
     pub fn has_timestamp(&self) -> bool {
         self.contains(&[RecordName::TimeStamp])
     }
+
+    /// Tries to returns the Cartesian bounds of the point cloud, if possible.
+    /// If existing, it will return the Cartesian bounds provided in the E57 file.
+    /// If thats not possible it will try to calculate the bounds from any
+    /// existing spherical bounds in the E57 file (see [`SphericalBounds::to_cartesian`]).
+    /// If that is also not possible, it will return `None`.
+    pub fn get_cartesian_bounds(&self) -> Option<CartesianBounds> {
+        if let Some(bounds) = &self.cartesian_bounds {
+            Some(bounds.clone())
+        } else if let Some(bounds) = &self.spherical_bounds {
+            bounds.to_cartesian()
+        } else {
+            None
+        }
+    }
 }

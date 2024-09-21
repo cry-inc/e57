@@ -96,6 +96,21 @@ impl SphericalBounds {
         xml += "</sphericalBounds>\n";
         xml
     }
+
+    /// Converts the spherical bounds into Cartesian bounds.
+    /// The result will be bigger than the actual Cartesian bounds, since it is not possible
+    /// to calculate the exact Cartesian bounds without iterating over all points.
+    /// Will return `None` if the spherical range is not defined.
+    pub fn to_cartesian(&self) -> Option<CartesianBounds> {
+        self.range_max.map(|range| CartesianBounds {
+            x_min: Some(-range),
+            x_max: Some(range),
+            y_min: Some(-range),
+            y_max: Some(range),
+            z_min: Some(-range),
+            z_max: Some(range),
+        })
+    }
 }
 
 /// Optional minimum and maximum values for the row, column and return indices.
