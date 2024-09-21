@@ -28,7 +28,10 @@
             "command": "cargo",
             "args": [
                 "clippy",
-                "--all"
+                "--all",
+                "--locked",
+                "--all-targets",
+                "--all-features"
             ],
             "problemMatcher": [
                 "$rustc"
