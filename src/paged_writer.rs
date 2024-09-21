@@ -225,8 +225,8 @@ mod tests {
         assert_eq!(content[0], 0_u8);
         assert_eq!(content[1], 1_u8);
         assert_eq!(content[2], 2_u8);
-        for i in 3..PAGE_PAYLOAD_SIZE {
-            assert_eq!(content[i], 0_u8);
+        for byte in content.iter().take(PAGE_PAYLOAD_SIZE).skip(3) {
+            assert_eq!(*byte, 0_u8);
         }
         assert_eq!(&content[PAGE_PAYLOAD_SIZE..], &[156, 69, 208, 231]);
 
@@ -247,8 +247,8 @@ mod tests {
 
         // Check file content
         let content = std::fs::read(path).unwrap();
-        for i in 0..PAGE_PAYLOAD_SIZE {
-            assert_eq!(content[i], 1_u8);
+        for byte in content.iter().take(PAGE_PAYLOAD_SIZE) {
+            assert_eq!(*byte, 1_u8);
         }
         assert_eq!(&content[PAGE_PAYLOAD_SIZE..], &[25, 85, 144, 35]);
 
@@ -316,11 +316,11 @@ mod tests {
 
         // Check file content
         let content = std::fs::read(path).unwrap();
-        for i in 0..6 {
-            assert_eq!(content[i], i as u8);
+        for (i, byte) in content.iter().enumerate().take(6) {
+            assert_eq!(*byte, i as u8);
         }
-        for i in 6..PAGE_PAYLOAD_SIZE {
-            assert_eq!(content[i], 0_u8);
+        for byte in content.iter().take(PAGE_PAYLOAD_SIZE).skip(6) {
+            assert_eq!(*byte, 0_u8);
         }
         assert_eq!(&content[PAGE_PAYLOAD_SIZE..], &[50, 14, 64, 153]);
 
@@ -392,7 +392,7 @@ mod tests {
         writer.flush().unwrap();
 
         // The four bytes at the end of a page are the checksum and should not be seeked into!
-        assert!(writer.physical_seek(PAGE_PAYLOAD_SIZE as u64 + 0).is_err());
+        assert!(writer.physical_seek(PAGE_PAYLOAD_SIZE as u64).is_err());
         assert!(writer.physical_seek(PAGE_PAYLOAD_SIZE as u64 + 3).is_err());
 
         remove_file(path).unwrap();
@@ -457,8 +457,8 @@ mod tests {
         assert_eq!(content[5], 2);
         assert_eq!(content[6], 2);
         assert_eq!(content[7], 0);
-        for i in 8..PAGE_PAYLOAD_SIZE {
-            assert_eq!(content[i], 0);
+        for byte in content.iter().take(PAGE_PAYLOAD_SIZE).skip(8) {
+            assert_eq!(*byte, 0);
         }
 
         remove_file(path).unwrap();
@@ -505,13 +505,17 @@ mod tests {
         // Check file content
         drop(writer);
         let content = std::fs::read(path).unwrap();
-        for i in 0..PAGE_PAYLOAD_SIZE - 1 {
-            assert_eq!(content[i], 1);
+        for byte in content.iter().take(PAGE_PAYLOAD_SIZE - 1) {
+            assert_eq!(*byte, 1);
         }
         assert_eq!(3, content[PAGE_PAYLOAD_SIZE - 1]);
         assert_eq!(3, content[PAGE_SIZE as usize]);
-        for i in PAGE_SIZE as usize + 1..(PAGE_SIZE as usize + PAGE_PAYLOAD_SIZE) {
-            assert_eq!(content[i], 2,);
+        for byte in content
+            .iter()
+            .take(PAGE_SIZE as usize + PAGE_PAYLOAD_SIZE)
+            .skip(PAGE_SIZE as usize + 1)
+        {
+            assert_eq!(*byte, 2,);
         }
 
         remove_file(path).unwrap();

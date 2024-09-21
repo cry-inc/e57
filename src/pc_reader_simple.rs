@@ -520,7 +520,7 @@ mod tests {
             assert_eq!(y, 0.0);
             assert_eq!(z, 10.0);
         } else {
-            assert!(false)
+            panic!("All points must be valid")
         }
     }
 
@@ -547,7 +547,7 @@ mod tests {
             assert!((y - cartesian[1]).abs() < 0.00001);
             assert!((z - cartesian[2]).abs() < 0.00001);
         } else {
-            assert!(false);
+            panic!("All points must be valid")
         }
     }
 }

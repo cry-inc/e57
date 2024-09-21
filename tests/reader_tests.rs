@@ -69,7 +69,7 @@ fn creation() {
     let reader = E57Reader::from_file("testdata/bunnyDouble.e57").unwrap();
     let creation = reader.creation().unwrap();
     assert_eq!(creation.gps_time, 987369380.8049808);
-    assert_eq!(creation.atomic_reference, false);
+    assert!(!creation.atomic_reference);
 }
 
 #[test]
@@ -246,7 +246,7 @@ fn empty_e57_file() {
 
     assert_eq!(reader.guid(), "{976E9187-A110-48D1-D58E-5DBF07B1630E}");
     assert_eq!(
-        reader.library_version().as_deref(),
+        reader.library_version(),
         Some("E57Format-3.0.0-AMD64_64-vc1937")
     );
     assert!(reader.coordinate_metadata().is_none());
@@ -268,7 +268,7 @@ fn with_extension() {
     assert_eq!(ext.namespace, "nor");
     assert_eq!(ext.url, "http://www.libe57.org/E57_EXT_surface_normals.txt");
     assert_eq!(
-        reader.library_version().as_deref(),
+        reader.library_version(),
         Some("E57Format-3.2.0-AMD64_64-vc1940")
     );
 
@@ -381,7 +381,10 @@ fn spherical_coordinates() {
             elevation: 0.0
         }
     );
+
+    #[allow(clippy::approx_constant)]
     let angle = 359.0 * (3.14 / 360.0);
+
     assert_eq!(
         points[359].spherical,
         SphericalCoordinate::Direction {
