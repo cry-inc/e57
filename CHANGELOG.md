@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.6] - 2024-10-07
+
+- Fixed reader bug that occured for some cases when a point cloud contained values where min=max.
+  See issue #12 for more details: https://github.com/cry-inc/e57/issues/12
+- Added some convenience helpers for getting Cartesian bounds.
+- Some very minor documentation improvements.
+
 ## [0.11.5] - 2024-08-27
 
 - Fixed critical writer bug that occurred when the compressed vector
