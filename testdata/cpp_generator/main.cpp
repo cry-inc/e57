@@ -257,6 +257,50 @@ void scaled_integer_intensity() {
 	if (!writer.Close()) throw std::string("Failed to close scaled_integer_intensity.e57");
 }
 
+// Read error reproduction case for
+// https://github.com/cry-inc/e57/issues/12
+void read_error() {
+	e57::WriterOptions options;
+	e57::Writer writer("read_error.e57", options);
+	e57::Data3D header;
+	header.pointCount = 2651;
+	header.pointFields.colorRedField = true;
+	header.pointFields.colorGreenField = true;
+	header.pointFields.colorBlueField = true;
+	header.pointFields.sphericalAzimuthField = true;
+	header.pointFields.sphericalElevationField = true;
+	header.pointFields.sphericalRangeField = true;
+	header.pointFields.sphericalInvalidStateField = true;
+	header.pointFields.intensityField = true;
+	header.pointFields.rowIndexField = true;
+	header.pointFields.columnIndexField = true;
+	header.colorLimits.colorRedMaximum = 255;
+	header.colorLimits.colorGreenMaximum = 255;
+	header.colorLimits.colorBlueMaximum = 255;
+	header.intensityLimits.intensityMinimum = 0;
+	header.intensityLimits.intensityMaximum = 0;
+	header.pointFields.pointRangeNodeType = e57::NumericalNodeType::Float;
+	header.pointFields.angleNodeType = e57::NumericalNodeType::Float;
+	header.pointFields.intensityNodeType = e57::NumericalNodeType::Integer;
+	header.pointFields.columnIndexMaximum = 5742 - 1;
+	header.pointFields.rowIndexMaximum = 8534 - 1;
+	e57::Data3DPointsFloat buffer(header);
+	for (size_t i = 0; i < header.pointCount; i++) {
+		buffer.sphericalAzimuth[i] = 0;
+		buffer.sphericalElevation[i] = 0;
+		buffer.sphericalRange[i] = 0;
+		buffer.sphericalInvalidState[i] = 0;
+		buffer.colorRed[i] = 0;
+		buffer.colorGreen[i] = 0;
+		buffer.colorBlue[i] = 0;
+		buffer.intensity[i] = 0;
+		buffer.rowIndex[i] = 0;
+		buffer.columnIndex[i] = 0;
+	}
+	writer.WriteData3DData(header, buffer);
+	writer.Close();
+}
+
 int main() {
 	empty();
 	tiny_pc();
@@ -267,6 +311,7 @@ int main() {
 	original_guids();
 	integer_intensity();
 	scaled_integer_intensity();
+	read_error();
 
 	std::cout << "Finished!\n";
 }

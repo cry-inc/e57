@@ -680,3 +680,21 @@ fn las2e57() {
     let point = points.first().unwrap().clone();
     assert_eq!(point[5], RecordValue::Integer(1));
 }
+
+#[test]
+fn read_error_cpp_file() {
+    let path = "testdata/read_error.e57";
+    let mut e57 = E57Reader::from_file(path).unwrap();
+    let pointclouds = e57.pointclouds();
+    assert_eq!(pointclouds.len(), 1);
+    let pc = pointclouds.first().unwrap();
+    assert_eq!(pc.records, 2651);
+    let iter = e57.pointcloud_raw(&pc).unwrap();
+    let mut counter = 0;
+    for res in iter {
+        let p = res.unwrap();
+        assert_eq!(p.len(), 10);
+        counter += 1;
+    }
+    assert_eq!(counter, pc.records);
+}
