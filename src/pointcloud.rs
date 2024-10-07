@@ -29,7 +29,7 @@ pub struct PointCloud {
     pub name: Option<String>,
     /// Optional user-defined description of the point cloud.
     pub description: Option<String>,
-    /// Optional Cartesian bounds for the point cloud.
+    /// Optional axis-aligned Cartesian bounds for the point cloud in local coordinates.
     pub cartesian_bounds: Option<CartesianBounds>,
     /// Optional spherical bounds for the point cloud.
     pub spherical_bounds: Option<SphericalBounds>,
@@ -345,6 +345,7 @@ impl PointCloud {
     }
 
     /// Tries to returns the Cartesian bounds of the point cloud, if possible.
+    /// The bounds will be in local coordinates without the point clouds transformation pose applied.
     /// If existing, it will return the Cartesian bounds provided in the E57 file.
     /// If thats not possible it will try to calculate the bounds from any
     /// existing spherical bounds in the E57 file (see [`SphericalBounds::to_cartesian`]).

@@ -14,6 +14,7 @@ impl ByteStreamReadBuffer {
         }
     }
 
+    /// Append a fresh slice of bytes to the end of the stream
     pub fn append(&mut self, data: &[u8]) {
         let consumed_bytes = self.offset / 8;
         let remaining_bytes = self.buffer.len() - consumed_bytes;
@@ -49,6 +50,7 @@ impl ByteStreamReadBuffer {
         Some(data as u64)
     }
 
+    /// Returns the number of available bits in the stream
     pub fn available(&self) -> usize {
         (self.buffer.len() * 8) - self.offset
     }
