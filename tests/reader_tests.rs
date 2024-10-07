@@ -690,7 +690,7 @@ fn read_error_cpp_file() {
     assert_eq!(pointclouds.len(), 1);
     let pc = pointclouds.first().unwrap();
     assert_eq!(pc.records, 2651);
-    let iter = e57.pointcloud_raw(&pc).unwrap();
+    let iter = e57.pointcloud_raw(pc).unwrap();
     let mut counter = 0;
     for res in iter {
         let p = res.unwrap();
@@ -779,7 +779,7 @@ fn read_error_rust() {
         assert_eq!(pointclouds.len(), 1);
         let pc = pointclouds.first().unwrap();
         assert_eq!(pc.records, 2651);
-        let iter = e57.pointcloud_raw(&pc).unwrap();
+        let iter = e57.pointcloud_raw(pc).unwrap();
         let mut counter = 0;
         for res in iter {
             let p = res.unwrap();
