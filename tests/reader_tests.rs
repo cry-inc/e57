@@ -681,6 +681,7 @@ fn las2e57() {
     assert_eq!(point[5], RecordValue::Integer(1));
 }
 
+// Test case for https://github.com/cry-inc/e57/issues/12
 #[test]
 fn read_error_cpp_file() {
     let path = "testdata/read_error.e57";
@@ -697,4 +698,95 @@ fn read_error_cpp_file() {
         counter += 1;
     }
     assert_eq!(counter, pc.records);
+}
+
+// Test case for https://github.com/cry-inc/e57/issues/12
+#[test]
+fn read_error_rust() {
+    let path = "read_error_rust.e57";
+    {
+        let mut writer = e57::E57Writer::from_file(path, "file_uuid").unwrap();
+        let proto = vec![
+            Record {
+                name: RecordName::SphericalAzimuth,
+                data_type: RecordDataType::Single {
+                    min: None,
+                    max: None,
+                },
+            },
+            Record {
+                name: RecordName::SphericalElevation,
+                data_type: RecordDataType::Single {
+                    min: None,
+                    max: None,
+                },
+            },
+            Record {
+                name: RecordName::SphericalRange,
+                data_type: RecordDataType::Single {
+                    min: None,
+                    max: None,
+                },
+            },
+            Record {
+                name: RecordName::SphericalInvalidState,
+                data_type: RecordDataType::Integer { min: 0, max: 2 },
+            },
+            Record::COLOR_RED_U8,
+            Record::COLOR_GREEN_U8,
+            Record::COLOR_BLUE_U8,
+            Record {
+                name: RecordName::Intensity,
+                data_type: RecordDataType::Integer { min: 0, max: 0 },
+            },
+            Record {
+                name: RecordName::ColumnIndex,
+                data_type: RecordDataType::Integer {
+                    min: 0,
+                    max: 5742 - 1,
+                },
+            },
+            Record {
+                name: RecordName::RowIndex,
+                data_type: RecordDataType::Integer {
+                    min: 0,
+                    max: 8534 - 1,
+                },
+            },
+        ];
+        let mut pc_writer = writer.add_pointcloud("pc_guid", proto).unwrap();
+        for _ in 0..2651 {
+            let point = vec![
+                RecordValue::Single(0.0), // Azimuth
+                RecordValue::Single(0.0), // Elevation
+                RecordValue::Single(0.0), // Range
+                RecordValue::Integer(0),  // Invalid State
+                RecordValue::Integer(0),  // Red
+                RecordValue::Integer(0),  // Green
+                RecordValue::Integer(0),  // Blue
+                RecordValue::Integer(0),  // Intensity
+                RecordValue::Integer(0),  // Column Index
+                RecordValue::Integer(0),  // Row Index
+            ];
+            pc_writer.add_point(point).unwrap();
+        }
+        pc_writer.finalize().unwrap();
+        writer.finalize().unwrap();
+    }
+    {
+        let mut e57 = E57Reader::from_file(path).unwrap();
+        let pointclouds = e57.pointclouds();
+        assert_eq!(pointclouds.len(), 1);
+        let pc = pointclouds.first().unwrap();
+        assert_eq!(pc.records, 2651);
+        let iter = e57.pointcloud_raw(&pc).unwrap();
+        let mut counter = 0;
+        for res in iter {
+            let p = res.unwrap();
+            assert_eq!(p.len(), 10);
+            counter += 1;
+        }
+        assert_eq!(counter, pc.records);
+    }
+    std::fs::remove_file(path).unwrap();
 }
