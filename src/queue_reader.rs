@@ -117,12 +117,13 @@ impl<'a, T: Read + Seek> QueueReader<'a, T> {
                 // Find smallest number of expected items in any queue after stream unpacking.
                 // This is required for the corner case when the bit size of an record
                 // is zero and we don't know how many items to "unpack" from an empty buffer.
+                // This happens for example with integer values where min=max, because all values are equal.
                 let mut min_queue_size = usize::MAX;
-                for (i, bs) in self.buffer_sizes.iter().enumerate() {
+                for (i, bs) in self.byte_streams.iter().enumerate() {
                     let bit_size = self.pc.prototype[i].data_type.bit_size();
                     // We can only check records with a non-zero bit size
                     if bit_size != 0 {
-                        let bs_items = (bs * 8) / bit_size;
+                        let bs_items = bs.available() / bit_size;
                         let queue_items = self.queues[i].len();
                         let items = bs_items + queue_items;
                         if items < min_queue_size {
@@ -153,9 +154,10 @@ impl<'a, T: Read + Seek> QueueReader<'a, T> {
                 RecordDataType::ScaledInteger { min, max, .. } => {
                     if r.data_type.bit_size() == 0 {
                         // If the bit size of an record is zero, we don't know how many items to unpack.
-                        // Thats because they are not really unpacked, but instead generated with a zero value.
+                        // Thats because they are not really unpacked, but instead generated with a predefined value.
+                        // Since this can only happen when min=max we know that min is the expected value.
                         // We use the supplied minimal size to ensure that we create enough items
-                        // to fill the queue enough to not be the limiting queue between all records.
+                        // to fill the queue enough to not be the limiting queue.
                         while self.queues[i].len() < min_queue_size {
                             self.queues[i].push_back(RecordValue::ScaledInteger(min));
                         }
