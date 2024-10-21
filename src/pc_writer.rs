@@ -22,6 +22,8 @@ use std::collections::VecDeque;
 use std::io::{Read, Seek, Write};
 
 /// Creates a new point cloud by taking points and writing them into an E57 file.
+/// Bounds for Cartesian and spherical coordinates are extracted automatically.
+/// The same is also true for any index bounds.
 pub struct PointCloudWriter<'a, T: Read + Write + Seek> {
     writer: &'a mut PagedWriter<T>,
     pointclouds: &'a mut Vec<PointCloud>,
@@ -263,6 +265,16 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         self.intensity_limits = value;
     }
 
+    /// Sets the color limits of the point cloud.
+    /// Only required if the point cloud contains color data.
+    /// This must represent the full range of all possible color values.
+    /// The default value is the range extracted from the prototypes color data types.
+    /// Since the data type range might be different from the actual limits,
+    /// it is strongly recommended to set this limit manually.
+    pub fn set_color_limits(&mut self, value: Option<ColorLimits>) {
+        self.color_limits = value;
+    }
+
     fn validate_prototype(prototype: &[Record]) -> Result<()> {
         // Helpers to check and look up records
         let contains = |n: RecordName| prototype.iter().any(|p| p.name == n);
@@ -473,7 +485,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
                 }
             }
 
-            // Update row/col bounds
+            // Update index bounds
             if p.name == RecordName::RowIndex
                 || p.name == RecordName::ColumnIndex
                 || p.name == RecordName::ReturnIndex
