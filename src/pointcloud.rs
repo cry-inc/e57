@@ -98,7 +98,7 @@ impl PointCloud {
         let cartesian_bounds = node.children().find(|n| n.has_tag_name("cartesianBounds"));
         let spherical_bounds = node.children().find(|n| n.has_tag_name("sphericalBounds"));
         let index_bounds = node.children().find(|n| n.has_tag_name("indexBounds"));
-        let intensity_limits = node.children().find(|n| n.has_tag_name("colorLimits"));
+        let intensity_limits = node.children().find(|n| n.has_tag_name("intensityLimits"));
         let color_limits = node.children().find(|n| n.has_tag_name("colorLimits"));
 
         // Read optional vector of original GUIDs

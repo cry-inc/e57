@@ -57,7 +57,7 @@ pub struct IntensityLimits {
 impl IntensityLimits {
     pub(crate) fn from_node(node: &Node) -> Result<Self> {
         let intensity_min = extract_limit(node, "intensityMinimum")?;
-        let intensity_max = extract_limit(node, "intenstiyMaximum")?;
+        let intensity_max = extract_limit(node, "intensityMaximum")?;
         Ok(Self {
             intensity_min,
             intensity_max,
