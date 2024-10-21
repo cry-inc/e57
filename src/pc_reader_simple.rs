@@ -107,14 +107,6 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
         }) = pc.intensity_limits
         {
             (min as f64, max as f64)
-        } else if let Some(IntensityLimits {
-            intensity_min: Some(RecordValue::ScaledInteger(_)),
-            intensity_max: Some(RecordValue::ScaledInteger(_)),
-        }) = pc.intensity_limits
-        {
-            Error::not_implemented(
-                "Intensity limits of type scaled integer are currently not supported",
-            )?
         } else {
             // Fallback to intensity data type range if intensity limits are not available
             if let Some(intensity) = pc
