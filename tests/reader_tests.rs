@@ -1,6 +1,6 @@
 use e57::{
-    CartesianCoordinate, E57Reader, ImageFormat, Point, Projection, RawValues, Record,
-    RecordDataType, RecordName, RecordValue, Result, SphericalCoordinate,
+    CartesianCoordinate, E57Reader, ImageFormat, IntensityLimits, Point, Projection, RawValues,
+    Record, RecordDataType, RecordName, RecordValue, Result, SphericalCoordinate,
 };
 use std::fs::File;
 
@@ -787,6 +787,73 @@ fn read_error_rust() {
             counter += 1;
         }
         assert_eq!(counter, pc.records);
+    }
+    std::fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn intensity_normalization() {
+    let path = "intensity_normalization.e57";
+    {
+        let mut writer = e57::E57Writer::from_file(path, "file_uuid").unwrap();
+        let proto = vec![
+            Record::CARTESIAN_X_F32,
+            Record::CARTESIAN_Y_F32,
+            Record::CARTESIAN_Z_F32,
+            Record {
+                name: RecordName::Intensity,
+                data_type: RecordDataType::Integer { min: 0, max: 32 },
+            },
+        ];
+        let mut pc_writer = writer.add_pointcloud("pc_guid", proto).unwrap();
+        pc_writer
+            .add_point(vec![
+                RecordValue::Single(1.0),
+                RecordValue::Single(1.0),
+                RecordValue::Single(1.0),
+                RecordValue::Integer(0),
+            ])
+            .unwrap();
+        pc_writer
+            .add_point(vec![
+                RecordValue::Single(2.0),
+                RecordValue::Single(2.0),
+                RecordValue::Single(2.0),
+                RecordValue::Integer(10),
+            ])
+            .unwrap();
+        pc_writer
+            .add_point(vec![
+                RecordValue::Single(3.0),
+                RecordValue::Single(3.0),
+                RecordValue::Single(3.0),
+                RecordValue::Integer(20),
+            ])
+            .unwrap();
+
+        // Setting the limits should override the type limits!
+        pc_writer.set_intensity_limits(Some(IntensityLimits {
+            intensity_min: Some(RecordValue::Integer(0)),
+            intensity_max: Some(RecordValue::Integer(20)),
+        }));
+
+        pc_writer.finalize().unwrap();
+        writer.finalize().unwrap();
+    }
+    {
+        let mut e57 = E57Reader::from_file(path).unwrap();
+        let pointclouds = e57.pointclouds();
+        assert_eq!(pointclouds.len(), 1);
+        let pc = pointclouds.first().unwrap();
+        assert_eq!(pc.records, 3);
+        let iter = e57.pointcloud_simple(pc).unwrap();
+        let points = iter.collect::<Result<Vec<Point>>>().unwrap();
+        assert_eq!(points.len(), 3);
+
+        // Normalized values should be according limits, not type range!
+        assert_eq!(points[0].intensity, Some(0.0));
+        assert_eq!(points[1].intensity, Some(0.5));
+        assert_eq!(points[2].intensity, Some(1.0));
     }
     std::fs::remove_file(path).unwrap();
 }
