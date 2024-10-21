@@ -32,6 +32,7 @@ pub enum Error {
     },
 
     /// Some feature or aspect of E57 that is not yet implement by this library.
+    /// Feel free to create feature request issues here: <https://github.com/cry-inc/e57/issues>
     NotImplemented { desc: String },
 
     /// An unexpected internal issue occured.

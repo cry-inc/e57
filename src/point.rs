@@ -25,7 +25,7 @@ pub enum SphericalCoordinate {
     Invalid,
 }
 
-/// Simple point colors with RGB values between 0 and 1.
+/// Simple point colors with normalized RGB values between 0 and 1.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Color {
     pub red: f32,
@@ -52,6 +52,8 @@ pub struct Point {
     /// Floating point intensity value between 0 and 1.
     /// None means the whole point cloud has no intensity or the intensity of this individual point is invalid.
     /// Please check the point cloud properties to understand whether the point cloud in general has intensity or not.
+    /// When reading, the normalization is done using the intensity limits of the point cloud being read.
+    /// If there are no intensity limits, the min and max values of the intensity record type are used as fallback.
     pub intensity: Option<f32>,
 
     /// Row index (Y-axis) to describe point data in a 2D image-like grid.

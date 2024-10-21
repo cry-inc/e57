@@ -1,8 +1,8 @@
 use crate::paged_reader::PagedReader;
 use crate::queue_reader::QueueReader;
 use crate::{
-    CartesianCoordinate, Color, Error, Point, PointCloud, RecordName, RecordValue, Result,
-    SphericalCoordinate, Transform, Translation,
+    CartesianCoordinate, Color, Error, IntensityLimits, Point, PointCloud, RecordDataType,
+    RecordName, RecordValue, Result, SphericalCoordinate, Transform, Translation,
 };
 use std::collections::VecDeque;
 use std::io::{Read, Seek};
@@ -35,6 +35,7 @@ pub struct PointCloudReaderSimple<'a, T: Read + Seek> {
     values: Vec<RecordValue>, // Reusable buffer for a set of raw values for a single point
     points: VecDeque<Point>, // Queue with finished points ready for reading
     buffer: Vec<Point>, // Reusable buffer for extracting new points and transforming them
+    ir: Option<(f64, f64, f64)>, // Intensity range for normalization (min, max, inverse range)
 }
 
 impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
@@ -54,6 +55,7 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
             values: Vec::with_capacity(pc.prototype.len()),
             points: VecDeque::new(),
             buffer: Vec::new(),
+            ir: Self::intensity_range(pc)?,
         })
     }
 
@@ -82,6 +84,78 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
     /// Default setting is enabled.
     pub fn apply_pose(&mut self, enable: bool) {
         self.transform = enable;
+    }
+
+    /// Tries to find the range of intensity values.
+    /// Will return a tuple with `(min, max, inverse_range)`.
+    fn intensity_range(pc: &PointCloud) -> Result<Option<(f64, f64, f64)>> {
+        let (min, max) = if let Some(IntensityLimits {
+            intensity_min: Some(RecordValue::Double(min)),
+            intensity_max: Some(RecordValue::Double(max)),
+        }) = pc.intensity_limits
+        {
+            (min, max)
+        } else if let Some(IntensityLimits {
+            intensity_min: Some(RecordValue::Single(min)),
+            intensity_max: Some(RecordValue::Single(max)),
+        }) = pc.intensity_limits
+        {
+            (min as f64, max as f64)
+        } else if let Some(IntensityLimits {
+            intensity_min: Some(RecordValue::Integer(min)),
+            intensity_max: Some(RecordValue::Integer(max)),
+        }) = pc.intensity_limits
+        {
+            (min as f64, max as f64)
+        } else if let Some(IntensityLimits {
+            intensity_min: Some(RecordValue::ScaledInteger(_)),
+            intensity_max: Some(RecordValue::ScaledInteger(_)),
+        }) = pc.intensity_limits
+        {
+            Error::not_implemented(
+                "Intensity limits of type scaled integer are currently not supported",
+            )?
+        } else {
+            // Fallback to intensity data type range if intensity limits are not available
+            if let Some(intensity) = pc
+                .prototype
+                .iter()
+                .find(|p| p.name == RecordName::Intensity)
+            {
+                let data_type = &intensity.data_type;
+                match data_type {
+                    RecordDataType::Single {
+                        min: Some(min),
+                        max: Some(max),
+                    } => (*min as f64, *max as f64),
+                    RecordDataType::Double {
+                        min: Some(min),
+                        max: Some(max),
+                    } => (*min, *max),
+                    RecordDataType::ScaledInteger {
+                        min,
+                        max,
+                        scale,
+                        offset,
+                    } => (
+                        *min as f64 * *scale + *offset,
+                        *max as f64 * *scale + *offset,
+                    ),
+                    RecordDataType::Integer { min, max } => (*min as f64, *max as f64),
+                    _ => return Ok(None), // Min and/or max are missing from data types
+                }
+            } else {
+                // No intensity field found
+                return Ok(None);
+            }
+        };
+
+        let range = max - min;
+        if range < 0.0 {
+            Error::invalid("Found invalid intensity range")?;
+        }
+
+        Ok(Some((min, max, 1.0 / range)))
     }
 
     fn prepare_transform(pc: &PointCloud) -> ([f64; 9], Translation) {
@@ -143,6 +217,17 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
             intensity_invalid: fi(RecordName::IsIntensityInvalid),
             row: fi(RecordName::RowIndex),
             column: fi(RecordName::ColumnIndex),
+        }
+    }
+
+    #[inline]
+    fn normalize_intensity(&self, value: f64) -> Result<f32> {
+        if let Some((min, max, inv_range)) = self.ir {
+            let clamped = value.clamp(min, max);
+            let normalized = (clamped - min) * inv_range;
+            Ok(normalized as f32)
+        } else {
+            Error::invalid("Failed to find intensity limits for normalization")?
         }
     }
 
@@ -263,14 +348,8 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
         };
         let intensity = if let Some(ind) = indices.intensity {
             if intensity_invalid == 0 {
-                Some(
-                    // Use unwrap_or() to make the simple iterator
-                    // more robust against weird files that forgot
-                    // to add proper min/max values.
-                    values[ind]
-                        .to_unit_f32(&proto[ind].data_type)
-                        .unwrap_or(0.0),
-                )
+                let value = values[ind].to_f64(&proto[ind].data_type)?;
+                Some(self.normalize_intensity(value)?)
             } else if intensity_invalid == 1 {
                 None
             } else {
