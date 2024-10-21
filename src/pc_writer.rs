@@ -253,6 +253,16 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         self.atmospheric_pressure = value;
     }
 
+    /// Sets the intensity limits of the point cloud.
+    /// Only required if the point cloud contains intensity data.
+    /// This must represent the full range of the sensor that captured the point cloud data.
+    /// The default value is the range extracted from the prototypes intensity data type.
+    /// Since the data type range might be bigger than the actual sensor range,
+    /// it is strongly recommended to set this limit manually.
+    pub fn set_intensity_limits(&mut self, value: Option<IntensityLimits>) {
+        self.intensity_limits = value;
+    }
+
     fn validate_prototype(prototype: &[Record]) -> Result<()> {
         // Helpers to check and look up records
         let contains = |n: RecordName| prototype.iter().any(|p| p.name == n);
