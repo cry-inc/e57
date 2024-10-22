@@ -28,6 +28,8 @@ pub struct PointCloudReaderSimple<'a, T: Read + Seek> {
     s2c: bool,                      // Convert spherical to Cartesian coordinates?
     c2s: bool,                      // Connvert Cartesian to spherical coordinates?
     i2c: bool,                      // Use integer as color fallback?
+    ni: bool,                       // Normalize intensity?
+    nc: bool,                       // Normalize color?
     rotation: [f64; 9],             // Rotation to be applied to all points in post-processing
     translation: Translation,       // Translation to be applied to all points in post-processing
     indices: Indices,               // Lookup table for point attriutes to index in raw values
@@ -54,6 +56,8 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
             s2c: true,
             c2s: false,
             i2c: true,
+            ni: true,
+            nc: true,
             read: 0,
             values: Vec::with_capacity(pc.prototype.len()),
             points: VecDeque::new(),
@@ -84,6 +88,20 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
     /// Default setting is enabled.
     pub fn intensity_to_color(&mut self, enable: bool) {
         self.i2c = enable;
+    }
+
+    /// If enabled, the iterator will automatically normalize intensity to a range between 0 and 1.
+    /// Default setting is enabled. If disabled, the original intensity value is returned as f32.
+    /// See also [`PointCloud::intensity_limits`] and [`Point::intensity`] for more information.
+    pub fn normalize_intensity(&mut self, enable: bool) {
+        self.ni = enable;
+    }
+
+    /// If enabled, the iterator will automatically normalize color values to a range between 0 and 1.
+    /// Default setting is enabled. If disabled, the original color values are returned as f32.
+    /// See also [`PointCloud::color_limits`] and [`Color`] for more information.
+    pub fn normalize_color(&mut self, enable: bool) {
+        self.nc = enable;
     }
 
     /// If enabled, the iterator will apply the point cloud pose to the Cartesian coordinates.
@@ -155,12 +173,16 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
     }
 
     #[inline]
-    fn normalize_value(&self, value: f64, range: &Option<Range>) -> f32 {
-        if let Some(range) = range {
-            range.normalize(value)
+    fn normalize_value(&self, enabled: bool, value: f64, range: &Option<Range>) -> f32 {
+        if enabled {
+            if let Some(range) = range {
+                range.normalize(value)
+            } else {
+                // Return zero for point clouds without proper range
+                0.0
+            }
         } else {
-            // Return zero for point clouds without proper range
-            0.0
+            value as f32
         }
     }
 
@@ -248,14 +270,17 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
             if color_invalid == 0 {
                 Some(Color {
                     red: self.normalize_value(
+                        self.nc,
                         values[ind.0].to_f64(&proto[ind.0].data_type)?,
                         &self.red_range,
                     ),
                     green: self.normalize_value(
+                        self.nc,
                         values[ind.1].to_f64(&proto[ind.1].data_type)?,
                         &self.green_range,
                     ),
                     blue: self.normalize_value(
+                        self.nc,
                         values[ind.2].to_f64(&proto[ind.2].data_type)?,
                         &self.blue_range,
                     ),
@@ -282,7 +307,7 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
         let intensity = if let Some(ind) = indices.intensity {
             if intensity_invalid == 0 {
                 let value = values[ind].to_f64(&proto[ind].data_type)?;
-                Some(self.normalize_value(value, &self.intensity_range))
+                Some(self.normalize_value(self.ni, value, &self.intensity_range))
             } else if intensity_invalid == 1 {
                 None
             } else {

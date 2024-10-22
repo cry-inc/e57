@@ -35,9 +35,9 @@ pub struct PointCloud {
     pub spherical_bounds: Option<SphericalBounds>,
     /// Optional index bounds (row, column, return values) for the point cloud.
     pub index_bounds: Option<IndexBounds>,
-    /// Optional intensity limits for the point cloud.
+    /// Optional intensity limits for the point cloud. Should represent the full range the sensor is able to capture.
     pub intensity_limits: Option<IntensityLimits>,
-    /// Optional color limits for the point cloud.
+    /// Optional color limits for the point cloud. Should represent the full range the sensor is able to capture.
     pub color_limits: Option<ColorLimits>,
     /// Optional transformation to convert data from the local point cloud coordinates to the file-level coordinate system.
     pub transform: Option<Transform>,

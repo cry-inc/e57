@@ -856,6 +856,22 @@ fn intensity_normalization() {
         assert_eq!(points[1].intensity, Some(0.5));
         assert_eq!(points[2].intensity, Some(1.0));
     }
+    {
+        let mut e57 = E57Reader::from_file(path).unwrap();
+        let pointclouds = e57.pointclouds();
+        assert_eq!(pointclouds.len(), 1);
+        let pc = pointclouds.first().unwrap();
+        assert_eq!(pc.records, 3);
+        let mut iter = e57.pointcloud_simple(pc).unwrap();
+        iter.normalize_intensity(false);
+        let points = iter.collect::<Result<Vec<Point>>>().unwrap();
+        assert_eq!(points.len(), 3);
+
+        // Values should NOT be normalized!
+        assert_eq!(points[0].intensity, Some(0.0));
+        assert_eq!(points[1].intensity, Some(10.0));
+        assert_eq!(points[2].intensity, Some(20.0));
+    }
     std::fs::remove_file(path).unwrap();
 }
 
@@ -950,6 +966,43 @@ fn color_normalization() {
                 red: 1.0,
                 green: 1.0,
                 blue: 1.0
+            })
+        );
+    }
+    {
+        let mut e57 = E57Reader::from_file(path).unwrap();
+        let pointclouds = e57.pointclouds();
+        assert_eq!(pointclouds.len(), 1);
+        let pc = pointclouds.first().unwrap();
+        assert_eq!(pc.records, 3);
+        let mut iter = e57.pointcloud_simple(pc).unwrap();
+        iter.normalize_color(false);
+        let points = iter.collect::<Result<Vec<Point>>>().unwrap();
+        assert_eq!(points.len(), 3);
+
+        // Values should NOT be normalized!
+        assert_eq!(
+            points[0].color,
+            Some(Color {
+                red: 0.0,
+                green: 0.0,
+                blue: 0.0
+            })
+        );
+        assert_eq!(
+            points[1].color,
+            Some(Color {
+                red: 10.0,
+                green: 50.0,
+                blue: 100.0
+            })
+        );
+        assert_eq!(
+            points[2].color,
+            Some(Color {
+                red: 20.0,
+                green: 100.0,
+                blue: 200.0
             })
         );
     }
