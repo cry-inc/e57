@@ -22,6 +22,7 @@ use std::collections::VecDeque;
 use std::io::{Read, Seek, Write};
 
 /// Creates a new point cloud by taking points and writing them into an E57 file.
+///
 /// Bounds for Cartesian and spherical coordinates are extracted automatically.
 /// The same is also true for any index bounds.
 pub struct PointCloudWriter<'a, T: Read + Write + Seek> {

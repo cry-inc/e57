@@ -26,6 +26,7 @@ pub enum SphericalCoordinate {
 }
 
 /// Simple RGB point colors.
+///
 /// When reading, the colors are by default normalized to values between 0 and 1.
 /// The normalization is done using the color limits of the point cloud being read.
 /// If there are no color limits, the min and max values of the color record types are used as fallback.

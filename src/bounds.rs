@@ -3,6 +3,7 @@ use crate::Result;
 use roxmltree::Node;
 
 /// Optional minimum and maximum values for Cartesian X, Y and Z coordinates.
+///
 /// Represents an axis-aligned bounding box of Cartesian coordinates.
 #[derive(Clone, Debug, Default)]
 pub struct CartesianBounds {
