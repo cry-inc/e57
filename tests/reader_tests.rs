@@ -1,6 +1,7 @@
 use e57::{
-    CartesianCoordinate, E57Reader, ImageFormat, IntensityLimits, Point, Projection, RawValues,
-    Record, RecordDataType, RecordName, RecordValue, Result, SphericalCoordinate,
+    CartesianCoordinate, Color, ColorLimits, E57Reader, ImageFormat, IntensityLimits, Point,
+    Projection, RawValues, Record, RecordDataType, RecordName, RecordValue, Result,
+    SphericalCoordinate,
 };
 use std::fs::File;
 
@@ -854,6 +855,103 @@ fn intensity_normalization() {
         assert_eq!(points[0].intensity, Some(0.0));
         assert_eq!(points[1].intensity, Some(0.5));
         assert_eq!(points[2].intensity, Some(1.0));
+    }
+    std::fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn color_normalization() {
+    let path = "color_normalization.e57";
+    {
+        let mut writer = e57::E57Writer::from_file(path, "file_uuid").unwrap();
+        let proto = vec![
+            Record::CARTESIAN_X_F32,
+            Record::CARTESIAN_Y_F32,
+            Record::CARTESIAN_Z_F32,
+            Record::COLOR_RED_U8,
+            Record::COLOR_GREEN_U8,
+            Record::COLOR_BLUE_U8,
+        ];
+        let mut pc_writer = writer.add_pointcloud("pc_guid", proto).unwrap();
+        pc_writer
+            .add_point(vec![
+                RecordValue::Single(1.0),
+                RecordValue::Single(1.0),
+                RecordValue::Single(1.0),
+                RecordValue::Integer(0),
+                RecordValue::Integer(0),
+                RecordValue::Integer(0),
+            ])
+            .unwrap();
+        pc_writer
+            .add_point(vec![
+                RecordValue::Single(2.0),
+                RecordValue::Single(2.0),
+                RecordValue::Single(2.0),
+                RecordValue::Integer(10),
+                RecordValue::Integer(50),
+                RecordValue::Integer(100),
+            ])
+            .unwrap();
+        pc_writer
+            .add_point(vec![
+                RecordValue::Single(3.0),
+                RecordValue::Single(3.0),
+                RecordValue::Single(3.0),
+                RecordValue::Integer(20),
+                RecordValue::Integer(100),
+                RecordValue::Integer(200),
+            ])
+            .unwrap();
+
+        // Setting the limits should override the type limits!
+        pc_writer.set_color_limits(Some(ColorLimits {
+            red_min: Some(RecordValue::Integer(0)),
+            red_max: Some(RecordValue::Integer(20)),
+            green_min: Some(RecordValue::Integer(0)),
+            green_max: Some(RecordValue::Integer(100)),
+            blue_min: Some(RecordValue::Integer(0)),
+            blue_max: Some(RecordValue::Integer(200)),
+        }));
+
+        pc_writer.finalize().unwrap();
+        writer.finalize().unwrap();
+    }
+    {
+        let mut e57 = E57Reader::from_file(path).unwrap();
+        let pointclouds = e57.pointclouds();
+        assert_eq!(pointclouds.len(), 1);
+        let pc = pointclouds.first().unwrap();
+        assert_eq!(pc.records, 3);
+        let iter = e57.pointcloud_simple(pc).unwrap();
+        let points = iter.collect::<Result<Vec<Point>>>().unwrap();
+        assert_eq!(points.len(), 3);
+
+        // Normalized values should be according limits, not type range!
+        assert_eq!(
+            points[0].color,
+            Some(Color {
+                red: 0.0,
+                green: 0.0,
+                blue: 0.0
+            })
+        );
+        assert_eq!(
+            points[1].color,
+            Some(Color {
+                red: 0.5,
+                green: 0.5,
+                blue: 0.5
+            })
+        );
+        assert_eq!(
+            points[2].color,
+            Some(Color {
+                red: 1.0,
+                green: 1.0,
+                blue: 1.0
+            })
+        );
     }
     std::fs::remove_file(path).unwrap();
 }
