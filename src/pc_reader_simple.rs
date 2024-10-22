@@ -20,7 +20,10 @@ struct Indices {
     column: Option<usize>,
 }
 
-/// Iterate over all normalized points of a point cloud for reading.
+/// Simple iterator over all normalized points of a point cloud for reading.
+///
+/// If you need direct access to the raw low level values of the point cloud you should use
+/// [`PointCloudReaderRaw`](crate::PointCloudReaderRaw) instead.
 pub struct PointCloudReaderSimple<'a, T: Read + Seek> {
     pc: PointCloud,
     queue_reader: QueueReader<'a, T>,
@@ -601,7 +604,7 @@ impl Range {
             }
         }
 
-        // Fallback to intensity data type range if intensity limits are not available
+        // Fallback to data type range if color limits are not available
         if let Some(intensity) = pc.prototype.iter().find(|p| p.name == RecordName::ColorRed) {
             Ok(Some(Self::from_record_data_type(&intensity.data_type)?))
         } else {
@@ -623,7 +626,7 @@ impl Range {
             }
         }
 
-        // Fallback to intensity data type range if intensity limits are not available
+        // Fallback to data type range if color limits are not available
         if let Some(intensity) = pc
             .prototype
             .iter()
@@ -647,7 +650,7 @@ impl Range {
             }
         }
 
-        // Fallback to intensity data type range if intensity limits are not available
+        // Fallback to data type range if color limits are not available
         if let Some(intensity) = pc
             .prototype
             .iter()
