@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.7] - 2024-10-22
+
+- Fixed two bugs that prevented intensity limits from being read correctly.
+- Made color and intensity normalization optional (still enabled by default).
+- Better intensity and color normalization using the proper limits of the point cloud.
+  The library was using the type ranges before, which is now only a fallback.
+- Allow setting intensity and color limits manually when writing point clouds.
+- Improved documentation related to color and intensity topics.
+
 ## [0.11.6] - 2024-10-07
 
 - Fixed reader bug that occured for some cases when a point cloud contained values where min=max.
