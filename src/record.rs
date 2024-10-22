@@ -338,51 +338,6 @@ impl RecordValue {
         }
     }
 
-    pub fn to_unit_f32(&self, dt: &RecordDataType) -> Result<f32> {
-        match self {
-            RecordValue::Single(s) => {
-                if let RecordDataType::Single {
-                    min: Some(min),
-                    max: Some(max),
-                } = dt
-                {
-                    Ok((s - min) / (max - min))
-                } else {
-                    Error::internal(
-                        "Tried to convert single value with wrong data type or without min/max",
-                    )
-                }
-            }
-            RecordValue::Double(d) => {
-                if let RecordDataType::Double {
-                    min: Some(min),
-                    max: Some(max),
-                } = dt
-                {
-                    Ok(((d - min) / (max - min)) as f32)
-                } else {
-                    Error::internal(
-                        "Tried to convert double value with wrong data type or without min/max",
-                    )
-                }
-            }
-            RecordValue::ScaledInteger(si) => {
-                if let RecordDataType::ScaledInteger { min, max, .. } = dt {
-                    Ok((*si as i128 - *min as i128) as f32 / (*max as i128 - *min as i128) as f32)
-                } else {
-                    Error::internal("Tried to convert scaled integer value with wrong data type")
-                }
-            }
-            RecordValue::Integer(i) => {
-                if let RecordDataType::Integer { min, max } = dt {
-                    Ok((*i as i128 - *min as i128) as f32 / (*max as i128 - *min as i128) as f32)
-                } else {
-                    Error::internal("Tried to convert integer value with wrong data type")
-                }
-            }
-        }
-    }
-
     pub fn to_u8(&self, dt: &RecordDataType) -> Result<u8> {
         if let (RecordValue::Integer(i), RecordDataType::Integer { min, max }) = (self, dt) {
             if *min >= 0 && *max <= 255 {
