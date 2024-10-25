@@ -1,7 +1,8 @@
 name: CI
 on: [push, pull_request, workflow_dispatch]
 jobs:
-  Linux:
+  linux_x86_64:
+    name: Linux x86-64
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -20,7 +21,8 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Check Docs
         run: RUSTDOCFLAGS="-Dwarnings" cargo doc --package e57
-  Windows:
+  windows_x86_64:
+    name: Windows x86-64
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -33,3 +35,33 @@ jobs:
         run: cargo build --release --all
       - name: Execute Tests
         run: cargo test --release --all
+  mac_x86_64:
+    name: MacOS x86-64
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Update Rust
+        run: rustup toolchain install stable --profile minimal --no-self-update
+      - name: Install x64 target
+        run: rustup target add x86_64-apple-darwin
+      - name: Enable Rust Caching
+        uses: Swatinem/rust-cache@v2
+      - name: Release Build
+        run: cargo build --release --all --target x86_64-apple-darwin
+      - name: Execute Tests
+        run: cargo test --release --all --target x86_64-apple-darwin
+  mac_aarch64:
+    name: MacOS AArch64
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Update Rust
+        run: rustup toolchain install stable --profile minimal --no-self-update
+      - name: Enable Rust Caching
+        uses: Swatinem/rust-cache@v2
+      - name: Release Build
+        run: cargo build --release --all --target aarch64-apple-darwin
+      - name: Execute Tests
+        run: cargo test --release --all --target aarch64-apple-darwin
