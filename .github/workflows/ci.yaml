@@ -21,6 +21,24 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Check Docs
         run: RUSTDOCFLAGS="-Dwarnings" cargo doc --package e57
+  linux_aarch64:
+    name: Linux AArch64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Update Rust
+        run: rustup toolchain install stable --profile minimal --no-self-update
+      - name: Install Cargo Binary Install
+        run: curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+      - name: Install Cargo Cross
+        run: cargo binstall cross --no-confirm
+      - name: Enable Rust Caching
+        uses: Swatinem/rust-cache@v2
+      - name: Release Build
+        run: cross build --release --all --target aarch64-unknown-linux-gnu
+      - name: Execute Tests
+        run: cross test --release --all --target aarch64-unknown-linux-gnu
   windows_x86_64:
     name: Windows x86-64
     runs-on: windows-latest
