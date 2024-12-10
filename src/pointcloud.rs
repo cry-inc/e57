@@ -292,9 +292,9 @@ impl PointCloud {
     }
 
     fn contains(&self, names: &[RecordName]) -> bool {
-        return names
+        names
             .iter()
-            .all(|searched| self.prototype.iter().any(|actual| &actual.name == searched));
+            .all(|searched| self.prototype.iter().any(|actual| &actual.name == searched))
     }
 
     /// Returns true if the point prototype contains X, Y and Z records for Cartesian coordinates.

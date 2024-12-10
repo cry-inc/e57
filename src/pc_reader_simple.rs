@@ -347,7 +347,7 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
     }
 }
 
-impl<'a, T: Read + Seek> Iterator for PointCloudReaderSimple<'a, T> {
+impl<T: Read + Seek> Iterator for PointCloudReaderSimple<'_, T> {
     /// Each iterator item is a result for an extracted point.
     type Item = Result<Point>;
 
