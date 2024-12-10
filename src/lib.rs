@@ -7,7 +7,7 @@
 //!
 //! ### Optional Crate Features
 //! There is an optional feature called `crc32c`.
-//! If enabled, it will include an [external crate](https://crates.io/crates/crc32c) as additional dependency.
+//! If enabled, it will include an [external CRC crate](https://crates.io/crates/crc32c) as additional dependency.
 //! This crate provides a faster CRC implementation with HW support.
 //! It can speed up reading and writing of larger E57 files.
 //! The feature is **disabled by default** to keep the number dependencies as small as possible.
