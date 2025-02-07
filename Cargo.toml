@@ -26,10 +26,11 @@ crc32c = { version = "0.6", optional = true }
 
 [workspace]
 members = [
-    "tools/extract-xml",
-    "tools/e57-to-xyz",
-    "tools/e57-to-laz",
-    "tools/xyz-to-e57",
     "tools/crc-validator",
+    "tools/e57-to-image",
+    "tools/e57-to-laz",
+    "tools/e57-to-xyz",
     "tools/e57-unpack",
+    "tools/extract-xml",
+    "tools/xyz-to-e57",
 ]
