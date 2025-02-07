@@ -45,7 +45,7 @@ fn xml() {
     let reader = E57Reader::from_file("testdata/bunnyDouble.e57").unwrap();
     let header = reader.header();
     let xml = reader.xml();
-    let xml_len = xml.as_bytes().len();
+    let xml_len = xml.len();
 
     assert_eq!(xml_len, 2172);
     assert_eq!(xml_len, header.xml_length as usize);
