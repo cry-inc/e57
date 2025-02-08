@@ -1,0 +1,10 @@
+[package]
+name = "e57-to-pano"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+e57 = { path = "../../" }
+anyhow = "1"
+png = "0.17"

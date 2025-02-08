@@ -1,7 +1,8 @@
 /*
- * Small example application that converts structured scans in E57 files to planar PNG images.
+ * Small example application that converts structured scans in E57 files to planar PNG RGBA images.
  * This works only for structured scans with row and column indices.
  * By default the point color will be used, the intensity will be used as fallback.
+ * Areas without color and intensity will stay transparent and black.
  *
  * Important hint:
  * To get the existing PNG or JPEG images stored in E57 files use the `e57-unpack` tool instead.
@@ -9,8 +10,9 @@
  * The output files will be named like the input file and placed in the same folder.
  * They will have an additional number suffix and the extension PNG.
  *
- * Please note that the output picture *must not* be treated as 360 degree panorama image!
- * It just visualizes the row/column grid of the scans as is.
+ * Please note that the output picture *must not* be treated as 360 degree panorama image.
+ * It just visualizes the 2D row/column grid of the scans as is.
+ * Use the tool `e57-to-pano` if you need valid 360 degree panorama images!
  */
 
 use anyhow::{ensure, Context, Result};
@@ -23,7 +25,7 @@ fn main() -> Result<()> {
     let args: Vec<String> = args().collect();
     ensure!(args.len() >= 2, "Usage: e57-to-image <path/to/my.e57>");
 
-    // Prepare input and output file paths
+    // Prepare input file path
     let in_path = Path::new(&args[1]);
 
     // Open E57 input file for reading

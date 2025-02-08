@@ -31,6 +31,7 @@ members = [
     "tools/e57-from-xyz",
     "tools/e57-to-image",
     "tools/e57-to-laz",
+    "tools/e57-to-pano",
     "tools/e57-to-xyz",
     "tools/e57-unpack",
 ]
