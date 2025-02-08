@@ -36,6 +36,20 @@ Ideally, you can provide a link to the file itself. If that is not possible,
 please include the full error message and the name of the software that produced the file.
 If possible, please also include the XML section of the file.
 
+## E57 Tools
+The [tools folder](tools/) contains a set of small applications to work with E57 files.
+They are intended as example code that explains how to use the library,
+but also as a set of usefuls tools when working with E57 files:
+
+* `e57-check-crc` to validate all the CRC32 checksums in an E57 file. This helps to detect corrupt files upfront before evaluating the actual content of the file.
+* `e57-extract-xml` to quickly extract the XML document that contains all the metadata of the E57 file.
+* `e57-from-xyz` to generate a E57 file from a unstructured XYZ ASCII point cloud file.
+* `e57-to-image` to export the 2D row/column grids of structured point clouds inside E57 files to planar PNG images.
+* `e57-to-laz` to convert an E57 into a compressed and unstructured LAZ file.
+* `e57-to-pano` to project structured point clouds inside E57 files to spherical 360 degree panorama PNG images.
+* `e57-to-xyz` to convert an E57 into an unstructured XYZ ASCII file.
+* `e57-unpack` to "unpack" the content of an E57 file to a folder on disk to be able to investigate and evaluate the contents of the file easier.
+
 ## Motivation
 The E57 file format is well established for exchanging data produced by terrestrial lasers scanners.
 However, there are not many implementations that can read and write this file format.
