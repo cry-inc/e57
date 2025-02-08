@@ -9,7 +9,7 @@ use std::io::{stdout, BufReader, Write};
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
-    ensure!(args.len() >= 2, "Usage: extract-xml <path/to/my.e57>");
+    ensure!(args.len() >= 2, "Usage: e57-extract-xml <path/to/my.e57>");
 
     let file = File::open(&args[1]).context("Failed to open E57 file")?;
     let reader = BufReader::new(file);

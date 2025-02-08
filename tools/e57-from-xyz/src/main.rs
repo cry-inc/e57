@@ -20,7 +20,7 @@ use uuid::Uuid;
 
 fn main() -> Result<()> {
     let args: Vec<String> = args().collect();
-    ensure!(args.len() >= 2, "Usage: xyz-to-e57 <path/to/my.xyz>");
+    ensure!(args.len() >= 2, "Usage: e57-from-xyz <path/to/my.xyz>");
 
     let in_file = args[1].clone();
     let out_file = in_file.clone() + ".e57";

@@ -1,5 +1,5 @@
 [package]
-name = "crc-validator"
+name = "e57-from-xyz"
 version = "0.1.0"
 edition = "2021"
 publish = false
@@ -7,3 +7,4 @@ publish = false
 [dependencies]
 e57 = { path = "../../" }
 anyhow = "1"
+uuid = { version = "1", features = ["v4"] }

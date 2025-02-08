@@ -14,7 +14,7 @@ fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
     ensure!(
         args.len() >= 2,
-        "Usage:\n  crc-validator <path/to/my.e57>\n  crc-validator <path/to/folder/>"
+        "Usage:\n  e57-check-crc <path/to/my.e57>\n  e57-check-crc <path/to/folder/>"
     );
 
     let path_str = &args[1];
