@@ -50,6 +50,13 @@ but also as a set of usefuls tools when working with E57 files:
 * `e57-to-xyz` to convert an E57 into an unstructured XYZ ASCII file.
 * `e57-unpack` to "unpack" the content of an E57 file to a folder on disk to be able to investigate and evaluate the contents of the file easier.
 
+### How to compile the tools
+1. Clone this repository with git or download and extract a ZIP from GitHub
+2. Install the Rust toolchain (see https://rustup.rs/)
+3. Open a terminal in the folder with this README file
+4. Run the command `cargo build --release --all`
+5. Find all the compiled tool binaries in the folder `target/release/`
+
 ## Motivation
 The E57 file format is well established for exchanging data produced by terrestrial lasers scanners.
 However, there are not many implementations that can read and write this file format.
