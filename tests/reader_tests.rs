@@ -1008,3 +1008,30 @@ fn color_normalization() {
     }
     std::fs::remove_file(path).unwrap();
 }
+
+#[test]
+fn read_file_with_missing_ext_namespace() {
+    let path = "testdata/no_ext_namespace.e57";
+    let mut e57 = E57Reader::from_file(path).unwrap();
+    let pointclouds = e57.pointclouds();
+    assert_eq!(pointclouds.len(), 1);
+    let pc = pointclouds.first().unwrap();
+    assert_eq!(pc.records, 1);
+    assert_eq!(pc.prototype.len(), 4);
+    assert_eq!(
+        pc.prototype[3].name,
+        RecordName::Unknown {
+            namespace: String::new(),
+            name: String::from("classification")
+        }
+    );
+    let iter = e57.pointcloud_raw(pc).unwrap();
+    let mut counter = 0;
+    for res in iter {
+        let p = res.unwrap();
+        assert_eq!(p.len(), 4);
+        assert_eq!(p[3], RecordValue::Integer(42));
+        counter += 1;
+    }
+    assert_eq!(counter, pc.records);
+}

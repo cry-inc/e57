@@ -91,6 +91,8 @@ pub enum RecordName {
     /// Most extensions are described on <http://www.libe57.org/extensions.html>, but others might be proprietary.
     Unknown {
         /// XML namespace of the extension that defines this attribute.
+        /// Required, but some E57 files out there are omitting it and we still want to be able to read them.
+        /// In such cases the namespace will be set to an empty string.
         namespace: String,
         /// Name of the point atribute.
         name: String,
@@ -181,11 +183,7 @@ impl RecordName {
             "timeStamp" => RecordName::TimeStamp,
             "isTimeStampInvalid" => RecordName::IsTimeStampInvalid,
             _ => RecordName::Unknown {
-                namespace: namespace
-                    .invalid_err(format!(
-                        "You must provide a namespace of the corresponding extension for the unknown attribute '{tag_name}'"
-                    ))?
-                    .to_owned(),
+                namespace: namespace.unwrap_or_default().to_owned(), // Missing namespace becomes empty string
                 name: tag_name.to_owned(),
             },
         })
