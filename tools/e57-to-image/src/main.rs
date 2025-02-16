@@ -95,20 +95,16 @@ fn main() -> Result<()> {
         for p in iter {
             let p = p.context("Unable to read next point")?;
 
+            // Since there is a intensity to color fallback
+            // we only need to ask for color here!
             let rgb = if let Some(color) = p.color {
                 [
                     (color.red * 255.0) as u8,
                     (color.green * 255.0) as u8,
                     (color.blue * 255.0) as u8,
                 ]
-            } else if let Some(intensity) = p.intensity {
-                [
-                    (intensity * 255.0) as u8,
-                    (intensity * 255.0) as u8,
-                    (intensity * 255.0) as u8,
-                ]
             } else {
-                // Individual points might have no color or intensity.
+                // Individual points might have no color and intensity.
                 // Leave them at the default color!
                 continue;
             };
