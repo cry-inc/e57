@@ -83,6 +83,7 @@ impl<T: Write + Read + Seek> E57Writer<T> {
 
     /// Registers a new E57 extension used by this file.
     pub fn register_extension(&mut self, extension: Extension) -> Result<()> {
+        Extension::validate_name(&extension.namespace)?;
         if self
             .extensions
             .iter()

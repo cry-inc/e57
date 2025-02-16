@@ -84,6 +84,9 @@ impl Extension {
     }
 
     pub(crate) fn validate_name(name: &str) -> Result<()> {
+        if name.is_empty() {
+            Error::invalid("Strings used as XML namespaces or attributes must not be empty")?
+        }
         if name.to_lowercase().starts_with("xml") {
             Error::invalid(format!(
                 "Strings used as XML namespaces or attributes must not start with 'XML': {name}"
@@ -119,5 +122,8 @@ mod tests {
 
         assert!(Extension::validate_name("abc.").is_err());
         assert!(Extension::validate_name("äüöß").is_err());
+
+        assert!(Extension::validate_name("").is_err());
+        assert!(Extension::validate_name(&String::new()).is_err());
     }
 }

@@ -1043,3 +1043,36 @@ fn writer_bug_regression_invalid_integers() {
     }
     std::fs::remove_file(file).unwrap();
 }
+
+#[test]
+fn empty_namespace_name_fails() {
+    let out_path = Path::new("empty_namespace_name_fails.e57");
+
+    let mut writer = E57Writer::from_file(out_path, "missing_namespace_name_guid").unwrap();
+    assert!(writer
+        .register_extension(Extension {
+            namespace: String::new(),
+            url: String::from("http://example.com")
+        })
+        .is_err());
+
+    let prototype = vec![
+        Record::CARTESIAN_X_F64,
+        Record::CARTESIAN_Y_F64,
+        Record::CARTESIAN_Z_F64,
+        Record {
+            name: RecordName::Unknown {
+                namespace: String::new(),
+                name: "some_name".to_owned(),
+            },
+            data_type: RecordDataType::Double {
+                min: None,
+                max: None,
+            },
+        },
+    ];
+
+    assert!(writer.add_pointcloud("pc_guid", prototype).is_err());
+
+    remove_file(out_path).unwrap();
+}
