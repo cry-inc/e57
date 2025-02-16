@@ -27,6 +27,7 @@ crc32c = { version = "0.6", optional = true }
 [workspace]
 members = [
     "tools/e57-check-crc",
+    "tools/e57-extract-scan-info",
     "tools/e57-extract-xml",
     "tools/e57-from-xyz",
     "tools/e57-to-image",
