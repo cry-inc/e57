@@ -124,6 +124,5 @@ mod tests {
         assert!(Extension::validate_name("äüöß").is_err());
 
         assert!(Extension::validate_name("").is_err());
-        assert!(Extension::validate_name(&String::new()).is_err());
     }
 }
