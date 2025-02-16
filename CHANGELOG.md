@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.8] - 2025-02-16
+
+- Allow reading of unknown custom point attributes without extension namespace.
+- Added example application to convert structured scans to spherical 360 degree panorama PNG images.
+- Added example application to convert structured scans to planar PNG images.
+- Renamed some of the example applications to have consistent names starting with `e57-*`.
+- Added Linux ARM 64bit CI builds and tests.
+- Added MacOS CI builds and tests.
+- Some minor documentation improvements.
+
 ## [0.11.7] - 2024-10-22
 
 - Fixed two bugs that prevented intensity limits from being read correctly.
