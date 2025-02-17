@@ -1,6 +1,7 @@
 use crate::xml;
 use crate::{Blob, DateTime, Error, Result, Transform};
 use roxmltree::{Document, Node};
+use std::f64::consts::PI;
 
 /// Descriptor with metadata for a single image.
 #[derive(Clone, Debug)]
@@ -370,14 +371,18 @@ pub struct SphericalImage {
 
 impl SphericalImage {
     pub(crate) fn from_node(node: &Node) -> Result<Self> {
+        let width = xml::req_int(node, "imageWidth")?;
+        let height = xml::req_int(node, "imageHeight")?;
         Ok(Self {
             blob: ImageBlob::from_rep_node(node)?,
             mask: Blob::from_parent_node("imageMask", node)?,
             properties: SphericalImageProperties {
-                width: xml::req_int(node, "imageWidth")?,
-                height: xml::req_int(node, "imageHeight")?,
-                pixel_width: xml::req_f64(node, "pixelWidth")?,
-                pixel_height: xml::req_f64(node, "pixelHeight")?,
+                width,
+                height,
+                // The spec says they are required but some files seeem to omit them :(
+                // We try to calculate default values from the image size (by assuming its a full pano).
+                pixel_width: xml::opt_f64(node, "pixelWidth")?.unwrap_or((2.0 * PI) / width as f64),
+                pixel_height: xml::opt_f64(node, "pixelHeight")?.unwrap_or(PI / height as f64),
             },
         })
     }
