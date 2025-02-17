@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.9] - 2025-02-17
+
+- Implemented fallback for missing pixel sizes in spherical images
+
 ## [0.11.8] - 2025-02-16
 
 - Allow reading of unknown custom point attributes without extension namespace.
