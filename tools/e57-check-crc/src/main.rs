@@ -1,7 +1,7 @@
 /*
  * Small example application that will validate all CRC checksums of E57 files.
  * If the argument is a file path, it will check a single file.
- * If the argument is a directory, will check recurisvely all E57 files in that directory.
+ * If the argument is a directory, will check recursively all E57 files in that directory.
  */
 
 use anyhow::{bail, ensure, Context, Result};
