@@ -535,14 +535,16 @@ impl Range {
 
     fn from_record_data_type(data_type: &RecordDataType) -> Result<Self> {
         match data_type {
-            RecordDataType::Single {
-                min: Some(min),
-                max: Some(max),
-            } => Self::from_min_max(*min as f64, *max as f64),
-            RecordDataType::Double {
-                min: Some(min),
-                max: Some(max),
-            } => Self::from_min_max(*min, *max),
+            RecordDataType::Single { min, max } => {
+                let min = min.unwrap_or(f32::MIN) as f64;
+                let max = max.unwrap_or(f32::MAX) as f64;
+                Self::from_min_max(min, max)
+            }
+            RecordDataType::Double { min, max } => {
+                let min = min.unwrap_or(f64::MIN);
+                let max = max.unwrap_or(f64::MAX);
+                Self::from_min_max(min, max)
+            }
             RecordDataType::ScaledInteger {
                 min,
                 max,
@@ -553,9 +555,6 @@ impl Range {
                 *max as f64 * *scale + *offset,
             ),
             RecordDataType::Integer { min, max } => Self::from_min_max(*min as f64, *max as f64),
-            _ => Error::invalid(format!(
-                "Found unexpected data type when extracting range: {data_type:?}"
-            )),
         }
     }
 

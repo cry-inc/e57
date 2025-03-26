@@ -1035,3 +1035,15 @@ fn read_file_with_missing_ext_namespace() {
     }
     assert_eq!(counter, pc.records);
 }
+
+#[test]
+fn float_intensity_without_min_max() {
+    let mut e57 = E57Reader::from_file("testdata/float_intensity_without_min_max.e57").unwrap();
+    let pointclouds = e57.pointclouds();
+    assert_eq!(pointclouds.len(), 1);
+    let pc = pointclouds.first().unwrap();
+    assert_eq!(pc.records, 1);
+    let iter = e57.pointcloud_simple(pc).unwrap();
+    let points = iter.collect::<Result<Vec<Point>>>().unwrap();
+    assert_eq!(points.len(), 1);
+}
