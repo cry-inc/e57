@@ -200,6 +200,7 @@ impl PointCloud {
         })
     }
 
+    #[allow(clippy::cognitive_complexity)]
     pub(crate) fn xml_string(&self) -> Result<String> {
         let mut xml = String::new();
         xml += "<vectorChild type=\"Structure\">\n";
@@ -225,10 +226,24 @@ impl PointCloud {
         }
 
         if let Some(limits) = &self.color_limits {
-            xml += &limits.xml_string();
+            // All members of the color limits struct are required,
+            // so we only write the XML if we have all of them!
+            if limits.red_min.is_some()
+                && limits.red_max.is_some()
+                && limits.green_min.is_some()
+                && limits.green_max.is_some()
+                && limits.blue_min.is_some()
+                && limits.blue_max.is_some()
+            {
+                xml += &limits.xml_string();
+            }
         }
         if let Some(limits) = &self.intensity_limits {
-            xml += &limits.xml_string();
+            // All members of the intensity limits struct are required,
+            // so we only write the XML if we have all of them!
+            if limits.intensity_min.is_some() && limits.intensity_max.is_some() {
+                xml += &limits.xml_string();
+            }
         }
 
         if let Some(name) = &self.name {
