@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.10] - 2025-03-26
+
+- Fixed simple reader bug for case where floating point records did not have the optional minimum and maximum values
+- Avoid writing invalid empty or partial limits for intensity and color (all fields are required according to the spec)
+
 ## [0.11.9] - 2025-02-17
 
 - Implemented fallback for missing pixel sizes in spherical images
