@@ -22,7 +22,7 @@ impl ByteStreamWriteBuffer {
 
     pub fn add_bits(&mut self, data: &[u8], bits: usize) {
         if self.last_byte_bit == 0 {
-            let to_append = (bits + 7) / 8; // Integer division with rounding up
+            let to_append = bits.div_ceil(8); // Integer division with rounding up
             self.buffer.extend_from_slice(&data[..to_append]);
             self.last_byte_bit = bits % 8;
         } else {

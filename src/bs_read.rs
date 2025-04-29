@@ -36,7 +36,7 @@ impl ByteStreamReadBuffer {
         }
 
         let start_offset = self.offset / 8;
-        let end_offset = (self.offset + bits + 7) / 8; // Integer division with rounding up
+        let end_offset = (self.offset + bits).div_ceil(8); // Integer division with rounding up
         let offset = self.offset % 8;
 
         let mut data = [0; 16];
