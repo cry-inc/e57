@@ -65,7 +65,7 @@ impl<T: Write + Read + Seek> E57Writer<T> {
         &mut self,
         guid: &str,
         prototype: Vec<Record>,
-    ) -> Result<PointCloudWriter<T>> {
+    ) -> Result<PointCloudWriter<'_, T>> {
         Extension::validate_prototype(&prototype, &self.extensions)?;
         PointCloudWriter::new(&mut self.writer, &mut self.pointclouds, guid, prototype)
     }
@@ -77,7 +77,7 @@ impl<T: Write + Read + Seek> E57Writer<T> {
     }
 
     /// Creates a new image writer for adding an image to the E57 file.
-    pub fn add_image(&mut self, guid: &str) -> Result<ImageWriter<T>> {
+    pub fn add_image(&mut self, guid: &str) -> Result<ImageWriter<'_, T>> {
         ImageWriter::new(&mut self.writer, &mut self.images, guid)
     }
 

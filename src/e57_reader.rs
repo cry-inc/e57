@@ -105,7 +105,7 @@ impl<T: Read + Seek> E57Reader<T> {
     /// Returns an iterator for reading point cloud data.
     /// The data provided by this interface is already normalized for convenience.
     /// There is also a raw iterator for advanced use-cases that require direct access.
-    pub fn pointcloud_simple(&mut self, pc: &PointCloud) -> Result<PointCloudReaderSimple<T>> {
+    pub fn pointcloud_simple(&mut self, pc: &PointCloud) -> Result<PointCloudReaderSimple<'_, T>> {
         PointCloudReaderSimple::new(pc, &mut self.reader)
     }
 
@@ -113,7 +113,7 @@ impl<T: Read + Seek> E57Reader<T> {
     /// This provides access to the original values stored in the E57 file.
     /// This interface is only recommended for advanced use-cases.
     /// In most scenarios the simple iterator is the better choice.
-    pub fn pointcloud_raw(&mut self, pc: &PointCloud) -> Result<PointCloudReaderRaw<T>> {
+    pub fn pointcloud_raw(&mut self, pc: &PointCloud) -> Result<PointCloudReaderRaw<'_, T>> {
         PointCloudReaderRaw::new(pc, &mut self.reader)
     }
 
