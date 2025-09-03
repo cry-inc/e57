@@ -7,4 +7,4 @@ publish = false
 [dependencies]
 e57 = { path = "../../" }
 anyhow = "1"
-png = "0.17"
+png = "0.18"
