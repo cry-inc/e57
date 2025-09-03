@@ -276,6 +276,39 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         self.color_limits = value;
     }
 
+    /// Sets and overrides the index bounds of the point cloud manually.
+    /// This should not be used in normales use cases, since the bounds
+    /// are set and updated automatically when you add a point that contains
+    /// a row, column or return value.
+    /// If you need to set the bounds manually, this needs to be done **after**
+    /// adding the last point and before calling `finalize()`!
+    pub fn set_index_bounds(&mut self, value: Option<IndexBounds>) {
+        self.index_bounds = value;
+    }
+
+    /// Sets and overrides the Cartesian bounds of the point cloud manually.
+    /// This should not be used in normales use cases, since the bounds
+    /// are set and updated automatically when you add a point that contains
+    /// a Cartesian coordinate. Note that the Cartesian bounds are **not** updated
+    /// when you add a point that only contains spherical coordinates.
+    /// If you want additional Cartesian bounds in your E57 file,
+    /// you need to extract them manually and set them using this method.
+    /// If you set the bounds manually, this needs to be done **after**
+    /// adding the last point and before calling `finalize()`!
+    pub fn set_cartesian_bounds(&mut self, value: Option<CartesianBounds>) {
+        self.cartesian_bounds = value;
+    }
+
+    /// Sets and overrides the spherical bounds of the point cloud manually.
+    /// This should not be used in normales use cases, since the bounds
+    /// are set and updated automatically when you add a point that contains
+    /// a spherical coordinate.
+    /// If you need to set the bounds manually, this needs to be done **after**
+    /// adding the last point and before calling `finalize()`!
+    pub fn set_spherical_bounds(&mut self, value: Option<SphericalBounds>) {
+        self.spherical_bounds = value;
+    }
+
     fn validate_prototype(prototype: &[Record]) -> Result<()> {
         // Helpers to check and look up records
         let contains = |n: RecordName| prototype.iter().any(|p| p.name == n);
@@ -447,7 +480,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
                 let bounds = self
                     .cartesian_bounds
                     .as_mut()
-                    .internal_err("Cannot find cartesian bounds")?;
+                    .internal_err("Cannot find Cartesian bounds")?;
                 if p.name == RecordName::CartesianX {
                     update_min(value, &mut bounds.x_min);
                     update_max(value, &mut bounds.x_max);
