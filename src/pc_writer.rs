@@ -33,6 +33,8 @@ pub struct PointCloudWriter<'a, T: Read + Write + Seek> {
     section_header: CompressedVectorSectionHeader,
     original_guids: Option<Vec<String>>,
     prototype: Vec<Record>,
+    cartesian_invalid_index: Option<usize>,
+    spherical_invalid_index: Option<usize>,
     point_count: u64,
     buffer: VecDeque<RawValues>,
     max_points_per_packet: usize,
@@ -135,6 +137,19 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         let intensity = prototype.iter().find(|p| p.name == RecordName::Intensity);
         let intensity_limits = intensity.map(|i| IntensityLimits::from_record_type(&i.data_type));
 
+        // Get prototype index positions of invalid states, if available.
+        // They are needed later to skip bounds extraction for invalid points.
+        let cartesian_invalid_index = prototype
+            .iter()
+            .enumerate()
+            .find(|p| p.1.name == RecordName::CartesianInvalidState)
+            .map(|p| p.0);
+        let spherical_invalid_index = prototype
+            .iter()
+            .enumerate()
+            .find(|p| p.1.name == RecordName::SphericalInvalidState)
+            .map(|p| p.0);
+
         Ok(PointCloudWriter {
             writer,
             pointclouds,
@@ -143,6 +158,8 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             section_header,
             original_guids: None,
             prototype,
+            cartesian_invalid_index,
+            spherical_invalid_index,
             point_count: 0,
             buffer: VecDeque::new(),
             byte_streams,
@@ -448,6 +465,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
     }
 
     /// Adds a new point to the point cloud.
+    #[allow(clippy::cognitive_complexity)]
     pub fn add_point(&mut self, values: RawValues) -> Result<()> {
         if values.len() != self.prototype.len() {
             Error::invalid("Number of values does not match prototype length")?
@@ -477,21 +495,32 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
                 || p.name == RecordName::CartesianZ
             {
                 let value = values[i].to_f64(&p.data_type)?;
-                let bounds = self
-                    .cartesian_bounds
-                    .as_mut()
-                    .internal_err("Cannot find Cartesian bounds")?;
-                if p.name == RecordName::CartesianX {
-                    update_min(value, &mut bounds.x_min);
-                    update_max(value, &mut bounds.x_max);
-                }
-                if p.name == RecordName::CartesianY {
-                    update_min(value, &mut bounds.y_min);
-                    update_max(value, &mut bounds.y_max);
-                }
-                if p.name == RecordName::CartesianZ {
-                    update_min(value, &mut bounds.z_min);
-                    update_max(value, &mut bounds.z_max);
+
+                // Check if the Cartesian coordinate is valid
+                let valid = if let Some(index) = self.cartesian_invalid_index {
+                    let value = values[index].to_i64(&self.prototype[index].data_type)?;
+                    value == 0
+                } else {
+                    true
+                };
+
+                if valid {
+                    let bounds = self
+                        .cartesian_bounds
+                        .as_mut()
+                        .internal_err("Cannot find Cartesian bounds")?;
+                    if p.name == RecordName::CartesianX {
+                        update_min(value, &mut bounds.x_min);
+                        update_max(value, &mut bounds.x_max);
+                    }
+                    if p.name == RecordName::CartesianY {
+                        update_min(value, &mut bounds.y_min);
+                        update_max(value, &mut bounds.y_max);
+                    }
+                    if p.name == RecordName::CartesianZ {
+                        update_min(value, &mut bounds.z_min);
+                        update_max(value, &mut bounds.z_max);
+                    }
                 }
             }
 
@@ -501,21 +530,33 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
                 || p.name == RecordName::SphericalRange
             {
                 let value = values[i].to_f64(&p.data_type)?;
-                let bounds = self
-                    .spherical_bounds
-                    .as_mut()
-                    .internal_err("Cannot find spherical bounds")?;
-                if p.name == RecordName::SphericalAzimuth {
-                    update_min(value, &mut bounds.azimuth_start);
-                    update_max(value, &mut bounds.azimuth_end);
-                }
-                if p.name == RecordName::SphericalElevation {
-                    update_min(value, &mut bounds.elevation_min);
-                    update_max(value, &mut bounds.elevation_max);
-                }
-                if p.name == RecordName::SphericalRange {
-                    update_min(value, &mut bounds.range_min);
-                    update_max(value, &mut bounds.range_max);
+
+                // Check if the spherical coordinate is valid
+                let valid = if let Some(index) = self.spherical_invalid_index {
+                    let value = values[index].to_i64(&self.prototype[index].data_type)?;
+                    value == 0
+                } else {
+                    true
+                };
+
+                if valid {
+                    let bounds = self
+                        .spherical_bounds
+                        .as_mut()
+                        .internal_err("Cannot find spherical bounds")?;
+                    if p.name == RecordName::SphericalAzimuth {
+                        update_min(value, &mut bounds.azimuth_start);
+                        update_max(value, &mut bounds.azimuth_end);
+                    }
+                    if p.name == RecordName::SphericalElevation {
+                        update_min(value, &mut bounds.elevation_min);
+                        update_max(value, &mut bounds.elevation_max);
+                    }
+                    // Range must be updated only for fully valid spherical coordinates
+                    if p.name == RecordName::SphericalRange {
+                        update_min(value, &mut bounds.range_min);
+                        update_max(value, &mut bounds.range_max);
+                    }
                 }
             }
 

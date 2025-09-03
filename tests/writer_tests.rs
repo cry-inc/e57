@@ -1076,3 +1076,123 @@ fn empty_namespace_name_fails() {
 
     remove_file(out_path).unwrap();
 }
+
+#[test]
+fn no_invalid_cartesian_coordinates_for_bounds() {
+    let path = Path::new("no_invalid_cartesian_coordinates_for_bounds.e57");
+
+    {
+        let mut writer = E57Writer::from_file(path, "file_guid").unwrap();
+        let prototype = vec![
+            Record::CARTESIAN_X_F64,
+            Record::CARTESIAN_Y_F64,
+            Record::CARTESIAN_Z_F64,
+            Record::CARTESIAN_INVALID_STATE,
+        ];
+        let mut pc_writer = writer.add_pointcloud("pc_guid", prototype).unwrap();
+        pc_writer
+            .add_point(vec![
+                RecordValue::Double(1.0),
+                RecordValue::Double(2.0),
+                RecordValue::Double(3.0),
+                RecordValue::Integer(0),
+            ])
+            .unwrap();
+        pc_writer
+            .add_point(vec![
+                RecordValue::Double(4.0),
+                RecordValue::Double(5.0),
+                RecordValue::Double(6.0),
+                RecordValue::Integer(1),
+            ])
+            .unwrap();
+        pc_writer
+            .add_point(vec![
+                RecordValue::Double(7.0),
+                RecordValue::Double(8.0),
+                RecordValue::Double(9.0),
+                RecordValue::Integer(2),
+            ])
+            .unwrap();
+        pc_writer.finalize().unwrap();
+        writer.finalize().unwrap();
+    }
+
+    {
+        let reader = E57Reader::from_file(path).unwrap();
+        let pcs = reader.pointclouds();
+        let pc = pcs.first().unwrap();
+        let cart_bounds = pc.cartesian_bounds.as_ref().unwrap();
+
+        assert_eq!(cart_bounds.x_min, Some(1.0));
+        assert_eq!(cart_bounds.x_max, Some(1.0));
+
+        assert_eq!(cart_bounds.y_min, Some(2.0));
+        assert_eq!(cart_bounds.y_max, Some(2.0));
+
+        assert_eq!(cart_bounds.z_min, Some(3.0));
+        assert_eq!(cart_bounds.z_max, Some(3.0));
+    }
+
+    remove_file(path).unwrap();
+}
+
+#[test]
+fn no_invalid_spherical_coordinates_for_bounds() {
+    let path = Path::new("no_invalid_spherical_coordinates_for_bounds.e57");
+
+    {
+        let mut writer = E57Writer::from_file(path, "file_guid").unwrap();
+        let prototype = vec![
+            Record::SPHERICAL_AZIMUTH_F32,
+            Record::SPHERICAL_ELEVATION_F32,
+            Record::SPHERICAL_RANGE_F32,
+            Record::SPHERICAL_INVALID_STATE,
+        ];
+        let mut pc_writer = writer.add_pointcloud("pc_guid", prototype).unwrap();
+        pc_writer
+            .add_point(vec![
+                RecordValue::Single(-1.0),
+                RecordValue::Single(-2.0),
+                RecordValue::Single(-3.0),
+                RecordValue::Integer(0),
+            ])
+            .unwrap();
+        pc_writer
+            .add_point(vec![
+                RecordValue::Single(-4.0),
+                RecordValue::Single(-5.0),
+                RecordValue::Single(-6.0),
+                RecordValue::Integer(1),
+            ])
+            .unwrap();
+        pc_writer
+            .add_point(vec![
+                RecordValue::Single(-7.0),
+                RecordValue::Single(-8.0),
+                RecordValue::Single(-9.0),
+                RecordValue::Integer(2),
+            ])
+            .unwrap();
+        pc_writer.finalize().unwrap();
+        writer.finalize().unwrap();
+    }
+
+    {
+        let reader = E57Reader::from_file(path).unwrap();
+        let pcs = reader.pointclouds();
+        let pc = pcs.first().unwrap();
+        let spherical_bounds = pc.spherical_bounds.as_ref().unwrap();
+
+        assert_eq!(spherical_bounds.azimuth_start, Some(-1.0));
+        assert_eq!(spherical_bounds.azimuth_end, Some(-1.0));
+
+        assert_eq!(spherical_bounds.elevation_min, Some(-2.0));
+        assert_eq!(spherical_bounds.elevation_max, Some(-2.0));
+
+        assert_eq!(spherical_bounds.range_min, Some(-3.0));
+        assert_eq!(spherical_bounds.range_max, Some(-3.0));
+    }
+
+    remove_file(path).unwrap();
+}
