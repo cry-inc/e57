@@ -501,6 +501,46 @@ impl Record {
         data_type: RecordDataType::F64,
     };
 
+    pub const CARTESIAN_INVALID_STATE: Record = Record {
+        name: RecordName::CartesianInvalidState,
+        data_type: RecordDataType::Integer { min: 0, max: 2 },
+    };
+
+    pub const SPHERICAL_AZIMUTH_F32: Record = Record {
+        name: RecordName::SphericalAzimuth,
+        data_type: RecordDataType::F32,
+    };
+
+    pub const SPHERICAL_ELEVATION_F32: Record = Record {
+        name: RecordName::SphericalElevation,
+        data_type: RecordDataType::F32,
+    };
+
+    pub const SPHERICAL_RANGE_F32: Record = Record {
+        name: RecordName::SphericalRange,
+        data_type: RecordDataType::F32,
+    };
+
+    pub const SPHERICAL_AZIMUTH_F64: Record = Record {
+        name: RecordName::SphericalAzimuth,
+        data_type: RecordDataType::F64,
+    };
+
+    pub const SPHERICAL_ELEVATION_F64: Record = Record {
+        name: RecordName::SphericalElevation,
+        data_type: RecordDataType::F64,
+    };
+
+    pub const SPHERICAL_RANGE_F64: Record = Record {
+        name: RecordName::SphericalRange,
+        data_type: RecordDataType::F64,
+    };
+
+    pub const SPHERICAL_INVALID_STATE: Record = Record {
+        name: RecordName::SphericalInvalidState,
+        data_type: RecordDataType::Integer { min: 0, max: 2 },
+    };
+
     pub const COLOR_RED_U8: Record = Record {
         name: RecordName::ColorRed,
         data_type: RecordDataType::U8,
