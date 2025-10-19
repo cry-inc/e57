@@ -21,7 +21,7 @@ include = [
 crc32c = ["dep:crc32c"]
 
 [dependencies]
-roxmltree = "0.20"
+roxmltree = "0.21"
 crc32c = { version = "0.6", optional = true }
 
 [workspace]
