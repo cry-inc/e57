@@ -34,7 +34,7 @@ impl CompressedVectorSectionHeader {
         if header.section_id != 1 {
             Error::invalid("Section ID of the compressed vector section header is not 1")?
         }
-        if header.section_length % 4 != 0 {
+        if !header.section_length.is_multiple_of(4) {
             Error::invalid("Section length is not aligned and a multiple of four")?
         }
 

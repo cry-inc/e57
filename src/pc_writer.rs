@@ -417,7 +417,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             // Calculate packet length for header, must be aligned to four bytes.
             // If the length exceeds 2^16 this library has somewhere a logic bug!
             let mut packet_length = DataPacketHeader::SIZE + proto_len * 2 + sum_bs_sizes;
-            if packet_length % 4 != 0 {
+            if !packet_length.is_multiple_of(4) {
                 let missing = 4 - (packet_length % 4);
                 packet_length += missing;
             }

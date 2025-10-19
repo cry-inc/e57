@@ -60,7 +60,7 @@ impl IndexPacketHeader {
         let _index_level = buffer[5];
 
         // Validate length
-        if packet_length % 4 != 0 {
+        if !packet_length.is_multiple_of(4) {
             Error::invalid("Index packet length is not aligned and a multiple of four")?
         }
 
@@ -93,7 +93,7 @@ impl DataPacketHeader {
             u16::from_le_bytes(buffer[3..5].try_into().internal_err(WRONG_OFFSET)?);
 
         // Validate values
-        if packet_length % 4 != 0 {
+        if !packet_length.is_multiple_of(4) {
             Error::invalid("Data packet length is not aligned and a multiple of four")?
         }
         if bytestream_count == 0 {
@@ -145,7 +145,7 @@ impl IgnoredPacketHeader {
             u16::from_le_bytes(buffer[1..3].try_into().internal_err(WRONG_OFFSET)?) as u64 + 1;
 
         // Validate length
-        if packet_length % 4 != 0 {
+        if !packet_length.is_multiple_of(4) {
             Error::invalid("Ignored packet length is not aligned and a multiple of four")?
         }
 
