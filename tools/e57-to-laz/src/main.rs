@@ -42,9 +42,15 @@ fn main() -> Result<()> {
 
     // Loop over all point clouds in the E57 file
     let pointclouds = file.pointclouds();
-    for pointcloud in pointclouds {
+    for (index, pointcloud) in pointclouds.iter().enumerate() {
+        println!(
+            "Converting point cloud {}/{}...",
+            index + 1,
+            pointclouds.len()
+        );
+
         let mut iter = file
-            .pointcloud_simple(&pointcloud)
+            .pointcloud_simple(pointcloud)
             .context("Unable to get point cloud iterator")?;
 
         // Set point iterator options
@@ -53,16 +59,30 @@ fn main() -> Result<()> {
         iter.intensity_to_color(false);
         iter.apply_pose(true);
 
+        // Count different point states
+        let mut valid = 0;
+        let mut direction_only = 0;
+        let mut invalid = 0;
+
         // Iterate over all points in point cloud
         for p in iter {
             let p = p.context("Unable to read next point")?;
             let mut point = Point::default();
-            if let CartesianCoordinate::Valid { x, y, z } = p.cartesian {
-                point.x = x;
-                point.y = y;
-                point.z = z;
-            } else {
-                continue;
+            match p.cartesian {
+                CartesianCoordinate::Valid { x, y, z } => {
+                    valid += 1;
+                    point.x = x;
+                    point.y = y;
+                    point.z = z;
+                }
+                CartesianCoordinate::Direction { .. } => {
+                    direction_only += 1;
+                    continue;
+                }
+                CartesianCoordinate::Invalid => {
+                    invalid += 1;
+                    continue;
+                }
             }
             if let Some(color) = p.color {
                 point.color = Some(Color {
@@ -78,6 +98,17 @@ fn main() -> Result<()> {
                 .write_point(point)
                 .context("Failed to write LAZ point")?;
         }
+
+        // Print collected point states
+        println!("Skipped {invalid} invalid points");
+        println!("Skipped {direction_only} direction only points");
+        println!("Converted {valid} valid points");
+
+        println!(
+            "Finished converting point cloud {}/{}",
+            index + 1,
+            pointclouds.len()
+        );
     }
 
     Ok(())
