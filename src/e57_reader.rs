@@ -20,7 +20,7 @@ use std::io::Seek;
 use std::io::Write;
 use std::path::Path;
 
-const MAX_XML_SIZE: usize = 1024 * 1024 * 10;
+const MAX_XML_SIZE: usize = 1024 * 1024 * 50;
 
 /// Main interface for reading E57 files.
 pub struct E57Reader<T: Read + Seek> {
