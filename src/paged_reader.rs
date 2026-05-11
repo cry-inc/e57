@@ -31,21 +31,23 @@ impl<T: Read + Seek> PagedReader<T> {
             ))?;
         }
         if page_size <= CHECKSUM_SIZE {
-            Err(Error::new(
-                ErrorKind::InvalidInput,
-                format!("Page size {page_size} needs to be bigger than checksum ({CHECKSUM_SIZE} bytes)"),
-            ))?;
+            let msg = if page_size == 0 {
+                "File does not appear to be a valid E57 file (page size is 0, the header may be corrupt or missing)".to_string()
+            } else {
+                format!("Page size {page_size} needs to be bigger than checksum ({CHECKSUM_SIZE} bytes)")
+            };
+            Err(Error::new(ErrorKind::InvalidInput, msg))?;
         }
 
         let phy_file_size = reader.seek(SeekFrom::End(0))?;
         if phy_file_size == 0 {
-            let msg = "A file size of zero is not allowed";
+            let msg = "File is empty (0 bytes)";
             Err(Error::new(ErrorKind::InvalidData, msg))?;
         }
         if phy_file_size % page_size != 0 {
             Err(Error::new(
                 ErrorKind::InvalidData,
-                format!("File size {phy_file_size} is not a multiple of the page size {page_size}"),
+                format!("File appears to be truncated (file size {phy_file_size} is not a multiple of the page size {page_size})"),
             ))?;
         }
 
@@ -72,7 +74,7 @@ impl<T: Read + Seek> PagedReader<T> {
         if offset >= self.phy_file_size {
             Err(Error::new(
                 ErrorKind::InvalidInput,
-                format!("Offset {offset} is behind end of file"),
+                format!("Offset {offset} is behind end of file (maybe it's cut off?)"),
             ))?;
         }
 

@@ -204,11 +204,11 @@ impl<T: Read + Seek> E57Reader<T> {
         }
         reader
             .seek_physical(offset)
-            .read_err("Cannot seek to XML offset")?;
+            .read_err(format!("File appears truncated: cannot seek to XML section at offset {offset}"))?;
         let mut xml = vec![0_u8; length];
         reader
             .read_exact(&mut xml)
-            .read_err("Failed to read XML data")?;
+            .read_err(format!("File appears truncated: cannot read {length} bytes of XML data"))?;
         Ok(xml)
     }
 }

@@ -81,11 +81,23 @@ impl Error {
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         match self {
-            Error::Invalid { desc, .. } => write!(f, "Invalid E57 content: {desc}"),
-            Error::Read { desc, .. } => write!(f, "Failed to read E57: {desc}"),
-            Error::Internal { desc, .. } => write!(f, "Internal error: {desc}"),
+            Error::Invalid { desc, source } => match source {
+                Some(src) => write!(f, "Invalid E57 content: {desc}: {src}"),
+                None => write!(f, "Invalid E57 content: {desc}"),
+            },
+            Error::Read { desc, source } => match source {
+                Some(src) => write!(f, "Failed to read E57: {desc}: {src}"),
+                None => write!(f, "Failed to read E57: {desc}"),
+            },
+            Error::Internal { desc, source } => match source {
+                Some(src) => write!(f, "Internal error: {desc}: {src}"),
+                None => write!(f, "Internal error: {desc}"),
+            },
             Error::NotImplemented { desc } => write!(f, "Not implemented: {desc}"),
-            Error::Write { desc, .. } => write!(f, "Failed to write E57: {desc}"),
+            Error::Write { desc, source } => match source {
+                Some(src) => write!(f, "Failed to write E57: {desc}: {src}"),
+                None => write!(f, "Failed to write E57: {desc}"),
+            },
         }
     }
 }
