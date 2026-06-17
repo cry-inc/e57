@@ -32,7 +32,7 @@ impl<T: Read + Seek> PagedReader<T> {
         }
         if page_size <= CHECKSUM_SIZE {
             let msg = if page_size == 0 {
-                "File does not appear to be a valid E57 file (page size is 0, the header may be corrupt or missing)".to_string()
+                String::from("File does not appear to be a valid E57 file (page size is 0, the header may be corrupt or missing)")
             } else {
                 format!("Page size {page_size} needs to be bigger than checksum ({CHECKSUM_SIZE} bytes)")
             };
@@ -47,7 +47,7 @@ impl<T: Read + Seek> PagedReader<T> {
         if phy_file_size % page_size != 0 {
             Err(Error::new(
                 ErrorKind::InvalidData,
-                format!("File appears to be truncated (file size {phy_file_size} is not a multiple of the page size {page_size})"),
+                format!("File appears to be truncated: file size {phy_file_size} is not a multiple of the page size {page_size}"),
             ))?;
         }
 
@@ -74,7 +74,7 @@ impl<T: Read + Seek> PagedReader<T> {
         if offset >= self.phy_file_size {
             Err(Error::new(
                 ErrorKind::InvalidInput,
-                format!("Offset {offset} is behind end of file (maybe it's cut off?)"),
+                format!("File appears to be truncated: offset {offset} is behind end of file"),
             ))?;
         }
 
