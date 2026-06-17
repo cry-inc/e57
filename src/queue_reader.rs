@@ -122,8 +122,7 @@ impl<'a, T: Read + Seek> QueueReader<'a, T> {
                 for (i, bs) in self.byte_streams.iter().enumerate() {
                     let bit_size = self.pc.prototype[i].data_type.bit_size();
                     // We can only check records with a non-zero bit size
-                    if bit_size != 0 {
-                        let bs_items = bs.available() / bit_size;
+                    if let Some(bs_items) = bs.available().checked_div(bit_size) {
                         let queue_items = self.queues[i].len();
                         let items = bs_items + queue_items;
                         if items < min_queue_size {
