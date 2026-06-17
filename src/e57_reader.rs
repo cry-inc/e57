@@ -202,13 +202,13 @@ impl<T: Read + Seek> E57Reader<T> {
                 "XML sections larger than {MAX_XML_SIZE} bytes are not supported"
             ))?
         }
-        reader
-            .seek_physical(offset)
-            .read_err(format!("File appears truncated: cannot seek to XML section at offset {offset}"))?;
+        reader.seek_physical(offset).read_err(format!(
+            "File appears truncated: cannot seek to XML section at offset {offset}"
+        ))?;
         let mut xml = vec![0_u8; length];
-        reader
-            .read_exact(&mut xml)
-            .read_err(format!("File appears truncated: cannot read {length} bytes of XML data"))?;
+        reader.read_exact(&mut xml).read_err(format!(
+            "File appears truncated: cannot read {length} bytes of XML data"
+        ))?;
         Ok(xml)
     }
 }
