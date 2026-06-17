@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.13] - 2026-06-17
+
+- Improved error messages (thx @chpatrick and @nh2)
+
 ## [0.11.12] - 2025-11-06
 
 - Allow reading of E57 files with XML sections of up to 50 MB.
