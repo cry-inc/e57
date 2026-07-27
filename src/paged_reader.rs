@@ -16,6 +16,7 @@ pub struct PagedReader<T: Read + Seek> {
     offset: u64,
     page_num: Option<u64>,
     page_buffer: Vec<u8>,
+    phy_pos: Option<u64>,
 
     #[cfg(not(feature = "crc32c"))]
     crc: Crc32,
@@ -60,6 +61,7 @@ impl<T: Read + Seek> PagedReader<T> {
             phy_file_size,
             log_file_size: pages * (page_size - CHECKSUM_SIZE),
             page_buffer: vec![0_u8; page_size as usize],
+            phy_pos: None,
             page_num: None,
             offset: 0,
 
@@ -92,8 +94,25 @@ impl<T: Read + Seek> PagedReader<T> {
             ))?;
         }
         let offset = page * self.page_size;
-        self.reader.seek(SeekFrom::Start(offset))?;
-        self.reader.read_exact(&mut self.page_buffer)?;
+
+        // Only seek if the physical position of the underlying reader
+        // is unknown or does not match the required offset.
+        // Avoiding unnecessary seeks allows buffering readers like
+        // BufReader to keep their buffer when reading sequentially.
+        if self.phy_pos != Some(offset) {
+            self.reader.seek(SeekFrom::Start(offset)).inspect_err(|_| {
+                self.phy_pos = None;
+            })?;
+        }
+
+        // Read actual data and update physical file position
+        self.reader
+            .read_exact(&mut self.page_buffer)
+            .inspect_err(|_| {
+                self.phy_pos = None;
+            })?;
+        self.phy_pos = Some(offset + self.page_size);
+
         let data_size = self.page_size - CHECKSUM_SIZE;
         let expected_checksum = &self.page_buffer[data_size as usize..];
 
