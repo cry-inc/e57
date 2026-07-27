@@ -217,7 +217,11 @@ impl E57Reader<BufReader<File>> {
     /// Creates an E57 instance from a Path.
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self> {
         let file = File::open(path).read_err("Unable to open file")?;
-        let reader = BufReader::new(file);
+
+        // Use a bigger buffer than the 8 KB default to reduce
+        // the number of syscalls when reading big files sequentially.
+        let reader = BufReader::with_capacity(256 * 1024, file);
+
         Self::new(reader)
     }
 }
