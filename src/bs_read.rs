@@ -1,7 +1,6 @@
 #[derive(Clone)]
 pub struct ByteStreamReadBuffer {
     buffer: Vec<u8>,
-    tmp: Vec<u8>,
     offset: usize,
 }
 
@@ -9,21 +8,26 @@ impl ByteStreamReadBuffer {
     pub fn new() -> Self {
         Self {
             buffer: Vec::new(),
-            tmp: Vec::new(),
             offset: 0,
         }
     }
 
-    /// Append a fresh slice of bytes to the end of the stream
-    pub fn append(&mut self, data: &[u8]) {
+    /// Append bytes read from a reader to the end of the stream.
+    /// Reads directly into the internal buffer to avoid
+    /// an extra copy through an intermediate buffer.
+    pub fn append_from_reader(
+        &mut self,
+        reader: &mut impl std::io::Read,
+        bytes: usize,
+    ) -> std::io::Result<()> {
         let consumed_bytes = self.offset / 8;
-        let remaining_bytes = self.buffer.len() - consumed_bytes;
-        self.offset -= consumed_bytes * 8;
-        self.tmp.reserve(remaining_bytes + data.len());
-        self.tmp.extend_from_slice(&self.buffer[consumed_bytes..]);
-        self.tmp.extend_from_slice(data);
-        self.buffer.clear();
-        std::mem::swap(&mut self.buffer, &mut self.tmp);
+        if consumed_bytes > 0 {
+            self.buffer.drain(..consumed_bytes);
+            self.offset -= consumed_bytes * 8;
+        }
+        let old_len = self.buffer.len();
+        self.buffer.resize(old_len + bytes, 0);
+        reader.read_exact(&mut self.buffer[old_len..])
     }
 
     /// Extracts a single value with 64 bits or less from the byte stream and returns it as u64.
@@ -125,6 +129,12 @@ impl ByteStreamReadBuffer {
 mod tests {
     use super::*;
 
+    // Helper to easily put data into the BS for tests
+    fn append(bs: &mut ByteStreamReadBuffer, data: &[u8]) {
+        let mut cursor = std::io::Cursor::new(data);
+        bs.append_from_reader(&mut cursor, data.len()).unwrap();
+    }
+
     #[test]
     fn empty() {
         let mut bs = ByteStreamReadBuffer::new();
@@ -138,7 +148,7 @@ mod tests {
     #[test]
     fn append_and_extract_bits() {
         let mut bs = ByteStreamReadBuffer::new();
-        bs.append(&[255]);
+        append(&mut bs, &[255]);
 
         assert_eq!(bs.available(), 8);
         let result = bs.extract_single(2).unwrap();
@@ -155,7 +165,7 @@ mod tests {
     #[test]
     fn append_and_extract_bytes() {
         let mut bs = ByteStreamReadBuffer::new();
-        bs.append(&[23, 42, 13]);
+        append(&mut bs, &[23, 42, 13]);
         bs.extract_single(2).unwrap();
 
         assert_eq!(bs.available(), 22);
@@ -166,12 +176,12 @@ mod tests {
     #[test]
     fn remove_consume_when_appending() {
         let mut bs = ByteStreamReadBuffer::new();
-        bs.append(&[1, 2, 3, 4, 5]);
+        append(&mut bs, &[1, 2, 3, 4, 5]);
         bs.extract_single(4 * 8 + 2).unwrap();
 
         // We append one byte and the buffer should become smaller
         // because all fully consumed bytes are removed.
-        bs.append(&[6]);
+        append(&mut bs, &[6]);
         assert!(bs.buffer.len() == 2);
 
         // Offsets are updated correctly appended
@@ -184,7 +194,7 @@ mod tests {
     fn extract_all_aligned() {
         // Byte-aligned fast path with 16 bit values
         let mut bs = ByteStreamReadBuffer::new();
-        bs.append(&[0x01, 0x00, 0xff, 0xff, 0x34, 0x12, 0x99]);
+        append(&mut bs, &[0x01, 0x00, 0xff, 0xff, 0x34, 0x12, 0x99]);
         let mut values = Vec::new();
         bs.extract_all(16, |v| values.push(v));
         assert_eq!(values, [0x0001, 0xffff, 0x1234]);
@@ -195,7 +205,7 @@ mod tests {
     fn extract_all_accumulator() {
         // Bit accumulator fast path with values that are not byte-aligned
         let mut bs = ByteStreamReadBuffer::new();
-        bs.append(&[0b10101010, 0b11001100, 0b11110000]);
+        append(&mut bs, &[0b10101010, 0b11001100, 0b11110000]);
         let mut values = Vec::new();
         bs.extract_all(3, |v| values.push(v));
         assert_eq!(values.len(), 8);
@@ -207,7 +217,7 @@ mod tests {
     fn extract_single_unaligned_8bit() {
         // Unaligned start, then extract full 8-bit values.
         let mut bs = ByteStreamReadBuffer::new();
-        bs.append(&[0xff, 0xf0, 0xaa, 0xbb]);
+        append(&mut bs, &[0xff, 0xf0, 0xaa, 0xbb]);
         assert_eq!(bs.extract_single(4).unwrap() & 0x0f, 0x0f);
 
         let mask = 0xff;
@@ -221,7 +231,7 @@ mod tests {
     fn extract_all_unaligned_8bit() {
         // Unaligned start, then extract full 8-bit values.
         let mut bs = ByteStreamReadBuffer::new();
-        bs.append(&[0xff, 0xf0, 0xaa, 0xbb]);
+        append(&mut bs, &[0xff, 0xf0, 0xaa, 0xbb]);
         bs.extract_single(4).unwrap();
 
         let mut values = Vec::new();

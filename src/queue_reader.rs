@@ -17,7 +17,6 @@ use std::io::{Read, Seek};
 pub struct QueueReader<'a, T: Read + Seek> {
     pc: PointCloud,
     reader: &'a mut PagedReader<T>,
-    buffer: Vec<u8>,
     buffer_sizes: Vec<usize>,
     byte_streams: Vec<ByteStreamReadBuffer>,
     queues: Vec<VecDeque<RecordValue>>,
@@ -36,7 +35,6 @@ impl<'a, T: Read + Seek> QueueReader<'a, T> {
         Ok(Self {
             pc: pc.clone(),
             reader,
-            buffer: Vec::new(),
             buffer_sizes: vec![0; pc.prototype.len()],
             byte_streams: vec![ByteStreamReadBuffer::new(); pc.prototype.len()],
             queues: vec![VecDeque::new(); pc.prototype.len()],
@@ -105,13 +103,11 @@ impl<'a, T: Read + Seek> QueueReader<'a, T> {
                     self.buffer_sizes[i] = len;
                 }
 
-                // Read byte streams into memory
+                // Read data to fill byte stream buffers
                 for (i, bs) in self.buffer_sizes.iter().enumerate() {
-                    self.buffer.resize(*bs, 0_u8);
-                    self.reader
-                        .read_exact(&mut self.buffer)
+                    self.byte_streams[i]
+                        .append_from_reader(self.reader, *bs)
                         .read_err("Failed to read data packet buffers")?;
-                    self.byte_streams[i].append(&self.buffer);
                 }
 
                 // Find smallest number of expected items in any queue after stream unpacking.
