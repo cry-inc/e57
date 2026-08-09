@@ -39,7 +39,6 @@ pub struct PointCloudReaderSimple<'a, T: Read + Seek> {
     read: u64,                      // Number of points that were already consumed by the client
     values: Vec<RecordValue>,       // Reusable buffer for a set of raw values for a single point
     points: VecDeque<Point>,        // Queue with finished points ready for reading
-    buffer: Vec<Point>,             // Reusable buffer for extracting new points
     intensity_range: Option<Range>, // Intensity range for normalization
     red_range: Option<Range>,       // Red color range for normalization
     green_range: Option<Range>,     // Green color range for normalization
@@ -64,7 +63,6 @@ impl<'a, T: Read + Seek> PointCloudReaderSimple<'a, T> {
             read: 0,
             values: Vec::with_capacity(pc.prototype.len()),
             points: VecDeque::new(),
-            buffer: Vec::new(),
             intensity_range: Range::intensity_from_pointcloud(pc)?,
             red_range: Range::red_from_pointcloud(pc)?,
             green_range: Range::green_from_pointcloud(pc)?,
@@ -369,43 +367,34 @@ impl<T: Read + Seek> Iterator for PointCloudReaderSimple<'_, T> {
             return Some(Err(err));
         }
 
-        // Read raw point values as simple point, add to buffer
+        // Read raw point values as simple points and add them to the output queue
         let available = self.queue_reader.available();
-        self.buffer.reserve(available);
+        let start = self.points.len();
+        self.points.reserve(available);
         for _ in 0..available {
             let p = match self.pop_point() {
                 Ok(p) => p,
                 Err(err) => return Some(Err(err)),
             };
-            self.buffer.push(p);
-        }
-
-        // Post-processing of the points in the buffer
-        if self.s2c {
-            for p in self.buffer.iter_mut() {
-                convert_to_cartesian(p);
-            }
-        }
-        if self.c2s {
-            for p in self.buffer.iter_mut() {
-                convert_to_spherical(p);
-            }
-        }
-        if self.i2c {
-            for p in self.buffer.iter_mut() {
-                convert_intensity(p);
-            }
-        }
-        if self.transform {
-            for p in self.buffer.iter_mut() {
-                transform_point(p, &self.rotation, &self.translation);
-            }
-        }
-
-        // Move points from buffer to output queue
-        self.points.reserve(available);
-        for p in self.buffer.drain(..) {
             self.points.push_back(p);
+        }
+
+        // Post-processing of the new points in a single pass
+        if self.s2c || self.c2s || self.i2c || self.transform {
+            for p in self.points.range_mut(start..) {
+                if self.s2c {
+                    convert_to_cartesian(p);
+                }
+                if self.c2s {
+                    convert_to_spherical(p);
+                }
+                if self.i2c {
+                    convert_intensity(p);
+                }
+                if self.transform {
+                    transform_point(p, &self.rotation, &self.translation);
+                }
+            }
         }
 
         // Get and return one of the new points
