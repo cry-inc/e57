@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+- Added support for reading and writing `pointGroupingSchemes/groupingByLine`,
+  the optional per-scan-line index of a structured point cloud.
+  See `PointCloudWriter::set_point_groups` and `E57Reader::point_groups`.
+
 ## [0.11.13] - 2026-06-17
 
 - Improved error messages (thx @chpatrick and @nh2)

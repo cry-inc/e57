@@ -1080,3 +1080,15 @@ fn cartesian_invalid_state_single() {
     );
     assert_eq!(points[2].cartesian, CartesianCoordinate::Invalid);
 }
+
+/// This file groups its points by LAS return index, an extension scheme rather
+/// than the `groupingByLine` of the standard. It must be ignored, not
+/// misparsed: its groups have no `startPointIndex` at all.
+#[test]
+fn unsupported_point_grouping_schemes_are_ignored() {
+    let file = "testdata/las2e57_no_images_tag.e57";
+    let mut reader = E57Reader::from_file(file).unwrap();
+    let pc = reader.pointclouds().first().unwrap().clone();
+    assert!(pc.point_groups.is_none());
+    assert!(reader.point_groups(&pc).unwrap().is_none());
+}

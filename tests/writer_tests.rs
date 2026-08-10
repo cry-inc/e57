@@ -1,7 +1,8 @@
 use e57::{
     Blob, CartesianCoordinate, DateTime, E57Reader, E57Writer, Extension, ImageFormat, Point,
-    Projection, Quaternion, RawValues, Record, RecordDataType, RecordName, RecordValue, Result,
-    SphericalImageProperties, Transform, Translation, VisualReferenceImageProperties,
+    PointGroup, PointGroups, Projection, Quaternion, RawValues, Record, RecordDataType, RecordName,
+    RecordValue, Result, SphericalImageProperties, Transform, Translation,
+    VisualReferenceImageProperties,
 };
 use std::f32::consts::PI;
 use std::fs::{remove_file, File};
@@ -1195,4 +1196,151 @@ fn no_invalid_spherical_coordinates_for_bounds() {
     }
 
     remove_file(path).unwrap();
+}
+
+#[test]
+fn write_read_cycle_point_groups() {
+    let path = Path::new("write_read_cycle_point_groups.e57");
+
+    // A 4x2 structured scan, written column by column.
+    let mut e57 = E57Writer::from_file(path, "guid_file").unwrap();
+    let prototype = vec![
+        Record::CARTESIAN_X_F64,
+        Record::CARTESIAN_Y_F64,
+        Record::CARTESIAN_Z_F64,
+        Record {
+            name: RecordName::RowIndex,
+            data_type: RecordDataType::Integer { min: 0, max: 1 },
+        },
+        Record {
+            name: RecordName::ColumnIndex,
+            data_type: RecordDataType::Integer { min: 0, max: 3 },
+        },
+    ];
+    let mut pc_writer = e57.add_pointcloud("guid_pointcloud", prototype).unwrap();
+    for column in 0..4 {
+        for row in 0..2 {
+            pc_writer
+                .add_point(vec![
+                    RecordValue::Double(column as f64),
+                    RecordValue::Double(row as f64),
+                    RecordValue::Double(0.0),
+                    RecordValue::Integer(row),
+                    RecordValue::Integer(column),
+                ])
+                .unwrap();
+        }
+    }
+    let groups: Vec<PointGroup> = (0..4)
+        .map(|column| PointGroup {
+            start_point_index: column * 2,
+            id_element_value: column,
+            point_count: 2,
+        })
+        .collect();
+    let point_groups = PointGroups::new(RecordName::ColumnIndex, groups.clone());
+    pc_writer.set_point_groups(Some(point_groups.clone()));
+    pc_writer.finalize().unwrap();
+    e57.finalize().unwrap();
+    drop(e57);
+
+    let mut e57 = E57Reader::from_file(path).unwrap();
+    let pc = e57.pointclouds().first().unwrap().clone();
+    let header = pc.point_groups.clone().unwrap();
+    assert_eq!(header.id_element_name, RecordName::ColumnIndex);
+    assert_eq!(header.records, 4);
+    assert_eq!(header.limits, point_groups.limits);
+    assert_eq!(e57.point_groups(&pc).unwrap().unwrap(), groups);
+
+    remove_file(path).unwrap();
+}
+
+#[test]
+fn point_clouds_without_groups_have_none() {
+    let mut writer = Cursor::new(Vec::new());
+    let mut e57 = E57Writer::new(&mut writer, "guid_file").unwrap();
+    let prototype = vec![
+        Record::CARTESIAN_X_F64,
+        Record::CARTESIAN_Y_F64,
+        Record::CARTESIAN_Z_F64,
+    ];
+    let mut pc_writer = e57.add_pointcloud("guid_pointcloud", prototype).unwrap();
+    pc_writer
+        .add_point(vec![
+            RecordValue::Double(1.0),
+            RecordValue::Double(2.0),
+            RecordValue::Double(3.0),
+        ])
+        .unwrap();
+    pc_writer.finalize().unwrap();
+    e57.finalize().unwrap();
+    drop(e57);
+
+    let mut e57 = E57Reader::new(Cursor::new(writer.into_inner())).unwrap();
+    let pc = e57.pointclouds().first().unwrap().clone();
+    assert!(pc.point_groups.is_none());
+    assert!(e57.point_groups(&pc).unwrap().is_none());
+}
+
+/// A value that does not fit the limits it is declared under would be encoded
+/// in too few bits and silently lost, so writing it is refused instead.
+#[test]
+fn point_groups_outside_their_declared_limits_are_refused() {
+    let mut writer = Cursor::new(Vec::new());
+    let mut e57 = E57Writer::new(&mut writer, "guid_file").unwrap();
+    let prototype = vec![
+        Record::CARTESIAN_X_F64,
+        Record::CARTESIAN_Y_F64,
+        Record::CARTESIAN_Z_F64,
+    ];
+    let mut pc_writer = e57.add_pointcloud("guid_pointcloud", prototype).unwrap();
+    pc_writer
+        .add_point(vec![
+            RecordValue::Double(1.0),
+            RecordValue::Double(2.0),
+            RecordValue::Double(3.0),
+        ])
+        .unwrap();
+    let mut point_groups = PointGroups::new(
+        RecordName::ColumnIndex,
+        vec![PointGroup {
+            start_point_index: 0,
+            id_element_value: 0,
+            point_count: 1,
+        }],
+    );
+    point_groups.limits.point_count_max = 0;
+    pc_writer.set_point_groups(Some(point_groups));
+    let error = pc_writer.finalize().unwrap_err().to_string();
+    assert!(error.contains("pointCount"), "{error}");
+}
+
+/// Groups must be keyed on the row or column index; anything else is not a
+/// `groupingByLine`.
+#[test]
+fn point_groups_keyed_on_another_record_are_refused() {
+    let mut writer = Cursor::new(Vec::new());
+    let mut e57 = E57Writer::new(&mut writer, "guid_file").unwrap();
+    let prototype = vec![
+        Record::CARTESIAN_X_F64,
+        Record::CARTESIAN_Y_F64,
+        Record::CARTESIAN_Z_F64,
+    ];
+    let mut pc_writer = e57.add_pointcloud("guid_pointcloud", prototype).unwrap();
+    pc_writer
+        .add_point(vec![
+            RecordValue::Double(1.0),
+            RecordValue::Double(2.0),
+            RecordValue::Double(3.0),
+        ])
+        .unwrap();
+    pc_writer.set_point_groups(Some(PointGroups::new(
+        RecordName::Intensity,
+        vec![PointGroup {
+            start_point_index: 0,
+            id_element_value: 0,
+            point_count: 1,
+        }],
+    )));
+    assert!(pc_writer.finalize().is_err());
 }
