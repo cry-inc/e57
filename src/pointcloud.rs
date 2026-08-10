@@ -1,8 +1,8 @@
 use crate::error::Converter;
 use crate::xml;
 use crate::{
-    CartesianBounds, ColorLimits, DateTime, IndexBounds, IntensityLimits, Record, RecordDataType,
-    RecordName, Result, SphericalBounds, Transform,
+    CartesianBounds, ColorLimits, DateTime, IndexBounds, IntensityLimits, PointGroupsHeader,
+    Record, RecordDataType, RecordName, Result, SphericalBounds, Transform,
 };
 use roxmltree::{Document, Node};
 
@@ -63,6 +63,10 @@ pub struct PointCloud {
     pub humidity: Option<f64>,
     /// Optional atmospheric pressure in Pascals, measured at the sensor at the time of capturing.
     pub atmospheric_pressure: Option<f64>,
+
+    /// Optional per-scan-line index: which points belong to which row or
+    /// column.
+    pub point_groups: Option<PointGroupsHeader>,
 }
 
 impl PointCloud {
@@ -95,6 +99,7 @@ impl PointCloud {
         let acquisition_start = xml::opt_date_time(node, "acquisitionStart")?;
         let acquisition_end = xml::opt_date_time(node, "acquisitionEnd")?;
         let transform = xml::opt_transform(node, "pose")?;
+        let point_groups = PointGroupsHeader::from_node(node)?;
         let cartesian_bounds = node.children().find(|n| n.has_tag_name("cartesianBounds"));
         let spherical_bounds = node.children().find(|n| n.has_tag_name("sphericalBounds"));
         let index_bounds = node.children().find(|n| n.has_tag_name("indexBounds"));
@@ -197,6 +202,7 @@ impl PointCloud {
             temperature,
             humidity,
             atmospheric_pressure,
+            point_groups,
         })
     }
 
@@ -301,6 +307,10 @@ impl PointCloud {
         }
         xml += "</prototype>\n";
         xml += "</points>\n";
+
+        if let Some(groups) = &self.point_groups {
+            xml += &groups.xml_string()?;
+        }
 
         xml += "</vectorChild>\n";
         Ok(xml)

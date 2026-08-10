@@ -10,6 +10,8 @@ use crate::Error;
 use crate::IndexBounds;
 use crate::IntensityLimits;
 use crate::PointCloud;
+use crate::PointGroups;
+use crate::PointGroupsHeader;
 use crate::RawValues;
 use crate::Record;
 use crate::RecordDataType;
@@ -58,6 +60,7 @@ pub struct PointCloudWriter<'a, T: Read + Write + Seek> {
     temperature: Option<f64>,
     humidity: Option<f64>,
     atmospheric_pressure: Option<f64>,
+    point_groups: Option<PointGroups>,
 }
 
 impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
@@ -169,6 +172,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             index_bounds,
             color_limits,
             intensity_limits,
+            point_groups: None,
             name: None,
             description: None,
             transform: None,
@@ -314,6 +318,19 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
     /// adding the last point and before calling `finalize()`!
     pub fn set_cartesian_bounds(&mut self, value: Option<CartesianBounds>) {
         self.cartesian_bounds = value;
+    }
+
+    /// Sets the `groupingByLine` scheme of the point cloud: the optional
+    /// per-scan-line index that lets a reader seek to a single row or column
+    /// without decoding the whole cloud.
+    ///
+    /// The groups are written as their own compressed vector when the point
+    /// cloud is finalized, so this has to be set **after** the last point has
+    /// been added and before calling `finalize()`. The caller is responsible
+    /// for the groups matching the points: they are not derived, because the
+    /// declared limits sometimes have to match another implementation exactly.
+    pub fn set_point_groups(&mut self, value: Option<PointGroups>) {
+        self.point_groups = value;
     }
 
     /// Sets and overrides the spherical bounds of the point cloud manually.
@@ -597,6 +614,131 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         Ok(())
     }
 
+    /// Lays down the groups as a compressed vector section of their own and
+    /// returns the header describing where it went.
+    fn write_point_groups(&mut self, groups: &PointGroups) -> Result<PointGroupsHeader> {
+        // Fail before writing anything if the scheme is not one this format
+        // can express.
+        groups.id_element_tag()?;
+
+        // Every value has to fit the limits it is declared under, or the file
+        // would encode it in too few bits and silently lose it. libE57Format
+        // rejects this case with E57_ERROR_VALUE_OUT_OF_BOUNDS, and so do we.
+        let limits = groups.limits;
+        for group in &groups.groups {
+            let check = |value: i64, max: i64, field: &str| -> Result<()> {
+                if value < 0 || value > max {
+                    Error::invalid(format!(
+                        "Point group {field} is {value}, outside its declared range of 0..{max}"
+                    ))?
+                }
+                Ok(())
+            };
+            check(
+                group.start_point_index,
+                limits.start_point_index_max,
+                "startPointIndex",
+            )?;
+            check(
+                group.id_element_value,
+                limits.id_element_value_max,
+                "idElementValue",
+            )?;
+            check(group.point_count, limits.point_count_max, "pointCount")?;
+        }
+
+        let prototype = groups.prototype();
+        let proto_len = prototype.len();
+
+        let mut section_header = CompressedVectorSectionHeader::default();
+        let section_offset = self.writer.physical_position()?;
+        section_header.section_length = CompressedVectorSectionHeader::SIZE;
+        section_header.write(&mut self.writer)?;
+        section_header.data_offset = self.writer.physical_position()?;
+
+        let max_per_packet = get_max_packet_points(&prototype);
+        let mut remaining = groups.groups.as_slice();
+        while !remaining.is_empty() {
+            let take = max_per_packet.min(remaining.len());
+            let (chunk, rest) = remaining.split_at(take);
+            remaining = rest;
+
+            let mut byte_streams = vec![ByteStreamWriteBuffer::new(); proto_len];
+            for group in chunk {
+                let values = [
+                    RecordValue::Integer(group.start_point_index),
+                    RecordValue::Integer(group.id_element_value),
+                    RecordValue::Integer(group.point_count),
+                ];
+                for (i, record) in prototype.iter().enumerate() {
+                    record.data_type.write(&values[i], &mut byte_streams[i])?;
+                }
+            }
+
+            let mut sum_bs_sizes = 0;
+            let mut bs_sizes = Vec::with_capacity(proto_len);
+            for bs in &byte_streams {
+                let bs_size = bs.all_bytes();
+                sum_bs_sizes += bs_size;
+                bs_sizes.push(bs_size as u16);
+            }
+            if sum_bs_sizes == 0 {
+                continue;
+            }
+
+            let mut packet_length = DataPacketHeader::SIZE + proto_len * 2 + sum_bs_sizes;
+            if !packet_length.is_multiple_of(4) {
+                packet_length += 4 - (packet_length % 4);
+            }
+            if packet_length > u16::MAX as usize {
+                Error::internal("Invalid group packet length detected")?
+            }
+            section_header.section_length += packet_length as u64;
+
+            DataPacketHeader {
+                comp_restart_flag: false,
+                packet_length: packet_length as u64,
+                bytestream_count: proto_len as u16,
+            }
+            .write(&mut self.writer)?;
+
+            for size in bs_sizes {
+                self.writer
+                    .write_all(&size.to_le_bytes())
+                    .write_err("Cannot write group packet buffer size")?;
+            }
+            for bs in &mut byte_streams {
+                let data = bs.get_all_bytes();
+                self.writer
+                    .write_all(&data)
+                    .write_err("Cannot write bytestream buffer into group packet")?;
+            }
+
+            self.writer
+                .align()
+                .write_err("Failed to align writer after writing a group packet")?;
+        }
+
+        let end_offset = self
+            .writer
+            .physical_position()
+            .write_err("Failed to get group section end offset")?;
+        self.writer
+            .physical_seek(section_offset)
+            .write_err("Failed to seek to group section start for final update")?;
+        section_header.write(&mut self.writer)?;
+        self.writer
+            .physical_seek(end_offset)
+            .write_err("Failed to seek behind finalized group section")?;
+
+        Ok(PointGroupsHeader {
+            id_element_name: groups.id_element_name.clone(),
+            limits: groups.limits,
+            file_offset: section_offset,
+            records: groups.groups.len() as u64,
+        })
+    }
+
     /// Called after all points have been added to finalize the creation of the new point cloud.
     pub fn finalize(&mut self) -> Result<()> {
         // Flush remaining points from buffer into byte streams and write them
@@ -620,6 +762,13 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
         self.writer
             .physical_seek(end_offset)
             .write_err("Failed to seek behind finalized section")?;
+
+        // The groups, if any, go into a compressed vector section of their own,
+        // laid down straight after the points.
+        let point_groups = match self.point_groups.take() {
+            Some(groups) => Some(self.write_point_groups(&groups)?),
+            None => None,
+        };
 
         // prepare point cloud metadata
         let pc = PointCloud {
@@ -647,6 +796,7 @@ impl<'a, T: Read + Write + Seek> PointCloudWriter<'a, T> {
             temperature: self.temperature.take(),
             humidity: self.humidity.take(),
             atmospheric_pressure: self.atmospheric_pressure.take(),
+            point_groups,
         };
 
         // Add metadata for XML generation later, when the file is completed.

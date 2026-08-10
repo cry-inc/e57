@@ -11,6 +11,8 @@ use crate::Image;
 use crate::PointCloud;
 use crate::PointCloudReaderRaw;
 use crate::PointCloudReaderSimple;
+use crate::PointGroup;
+use crate::RecordValue;
 use crate::Result;
 use roxmltree::Document;
 use std::fs::File;
@@ -115,6 +117,43 @@ impl<T: Read + Seek> E57Reader<T> {
     /// In most scenarios the simple iterator is the better choice.
     pub fn pointcloud_raw(&mut self, pc: &PointCloud) -> Result<PointCloudReaderRaw<'_, T>> {
         PointCloudReaderRaw::new(pc, &mut self.reader)
+    }
+
+    /// Reads the `groupingByLine` scheme of a point cloud, if it has one:
+    /// which points belong to which row or column.
+    pub fn point_groups(&mut self, pc: &PointCloud) -> Result<Option<Vec<PointGroup>>> {
+        let Some(header) = pc.point_groups.clone() else {
+            return Ok(None);
+        };
+
+        // The groups are an ordinary compressed vector, so they can be read by
+        // the same machinery as points once they are described as one.
+        let as_pointcloud = PointCloud {
+            file_offset: header.file_offset,
+            records: header.records,
+            prototype: header.prototype(),
+            ..Default::default()
+        };
+
+        let mut groups = Vec::with_capacity(header.records as usize);
+        for values in PointCloudReaderRaw::new(&as_pointcloud, &mut self.reader)? {
+            let values = values?;
+            if values.len() != 3 {
+                Error::invalid("A point group must have exactly three values")?
+            }
+            let integer = |v: &RecordValue| -> Result<i64> {
+                match v {
+                    RecordValue::Integer(i) => Ok(*i),
+                    _ => Error::invalid("A point group value must be an integer"),
+                }
+            };
+            groups.push(PointGroup {
+                start_point_index: integer(&values[0])?,
+                id_element_value: integer(&values[1])?,
+                point_count: integer(&values[2])?,
+            });
+        }
+        Ok(Some(groups))
     }
 
     /// Returns a list of all image descriptors in the file.
