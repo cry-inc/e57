@@ -6,5 +6,5 @@ publish = false
 
 [dependencies]
 e57 = { path = "../../" }
-las = { version = "0.11", features = ["laz"] }
+las = { version = "0.11", features = ["laz-parallel"] }
 anyhow = "1"

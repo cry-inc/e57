@@ -10,8 +10,10 @@
 
 use anyhow::{ensure, Context, Result};
 use e57::{CartesianCoordinate, E57Reader};
-use las::{Builder, Color, Point, Version, Writer};
+use las::{Builder, Color, LazParallelism, Point, Version, Writer, WriterOptions};
 use std::env::args;
+use std::fs::File;
+use std::io::BufWriter;
 
 fn main() -> Result<()> {
     // Check command line arguments and show usage
@@ -37,8 +39,11 @@ fn main() -> Result<()> {
         .context("Failed to build LAZ header")?;
 
     // Prepare writing to output file
-    let mut writer =
-        Writer::from_path(out_file, header).context("Failed to open new LAZ file for writing")?;
+    let options = WriterOptions::default().with_laz_parallelism(LazParallelism::Yes);
+    let out_file = File::create(out_file).context("Failed to create file")?;
+    let out_file = BufWriter::new(out_file);
+    let mut writer = Writer::with_options(out_file, header, options)
+        .context("Failed to open new LAZ file for writing")?;
 
     // Loop over all point clouds in the E57 file
     let pointclouds = file.pointclouds();
