@@ -1080,3 +1080,27 @@ fn cartesian_invalid_state_single() {
     );
     assert_eq!(points[2].cartesian, CartesianCoordinate::Invalid);
 }
+
+#[test]
+fn file_with_grouping_works() {
+    let mut e57 = E57Reader::from_file("testdata/structured_grouping.e57").unwrap();
+    let pointclouds = e57.pointclouds();
+    assert_eq!(pointclouds.len(), 1);
+    let pc = pointclouds.first().unwrap();
+    assert_eq!(pc.records, 200);
+    let iter = e57.pointcloud_simple(pc).unwrap();
+    let points = iter.collect::<Result<Vec<Point>>>().unwrap();
+    assert_eq!(points.len(), 200);
+}
+
+#[test]
+fn file_with_extension_grouping_works() {
+    let mut e57 = E57Reader::from_file("testdata/las2e57_no_images_tag.e57").unwrap();
+    let pointclouds = e57.pointclouds();
+    assert_eq!(pointclouds.len(), 1);
+    let pc = pointclouds.first().unwrap();
+    assert_eq!(pc.records, 153);
+    let iter = e57.pointcloud_simple(pc).unwrap();
+    let points = iter.collect::<Result<Vec<Point>>>().unwrap();
+    assert_eq!(points.len(), 153);
+}

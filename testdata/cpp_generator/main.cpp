@@ -9,6 +9,55 @@ void empty() {
 	if (!writer.Close()) throw std::string("Failed to close empty.e57");
 }
 
+void structured_grouping() {
+	constexpr int32_t columnCount = 20;
+	constexpr int32_t rowCount = 10;
+	constexpr size_t pointsPerColumn = static_cast<size_t>(rowCount);
+
+	e57::Writer writer("structured_grouping.e57");
+	e57::Data3D header;
+	header.pointCount = static_cast<size_t>(columnCount) * rowCount;
+	header.pointFields.cartesianXField = true;
+	header.pointFields.cartesianYField = true;
+	header.pointFields.cartesianZField = true;
+	header.pointFields.intensityField = true;
+	header.pointFields.intensityNodeType = e57::NumericalNodeType::Integer;
+	header.intensityLimits.intensityMinimum = 0;
+	header.intensityLimits.intensityMaximum = UINT16_MAX;
+	header.pointFields.rowIndexField = true;
+	header.pointFields.rowIndexMaximum = rowCount - 1;
+	header.pointFields.columnIndexField = true;
+	header.pointFields.columnIndexMaximum = columnCount - 1;
+	header.pointGroupingSchemes.groupingByLine.idElementName = "columnIndex";
+	header.pointGroupingSchemes.groupingByLine.groupsSize = columnCount;
+	header.pointGroupingSchemes.groupingByLine.pointCountSize = rowCount;
+	e57::Data3DPointsFloat buffers(header);
+	for (int32_t column = 0; column < columnCount; ++column) {
+		for (int32_t row = 0; row < rowCount; ++row) {
+			const size_t pointIndex = static_cast<size_t>(column) * rowCount + row;
+			buffers.cartesianX[pointIndex] = static_cast<float>(column);
+			buffers.cartesianY[pointIndex] = static_cast<float>(-row);
+			buffers.cartesianZ[pointIndex] = static_cast<float>(column + row) * 0.01F;
+			buffers.intensity[pointIndex] = static_cast<uint16_t>(1000 + column * 100 + row);
+			buffers.rowIndex[pointIndex] = row;
+			buffers.columnIndex[pointIndex] = column;
+		}
+	}
+	const int64_t dataIndex = writer.WriteData3DData(header, buffers);
+	std::vector<int64_t> groupColumns(columnCount);
+	std::vector<int64_t> groupStarts(columnCount);
+	std::vector<int64_t> groupCounts(columnCount, rowCount);
+	for (int32_t column = 0; column < columnCount; ++column) {
+		groupColumns[column] = column;
+		groupStarts[column] = static_cast<int64_t>(column) * rowCount;
+	}
+	if (!writer.WriteData3DGroupsData(dataIndex, groupColumns.size(), groupColumns.data(),
+		groupStarts.data(), groupCounts.data())) {
+		throw std::string("Failed to write structured point groups");
+	}
+	if (!writer.Close()) throw std::string("Failed to close structured_grouping.e57");
+}
+
 void tiny_pc() {
 	e57::Writer writer("tiny_pc.e57");
 	e57::DateTime time;
@@ -303,6 +352,7 @@ void read_error() {
 
 int main() {
 	empty();
+	structured_grouping();
 	tiny_pc();
 	tiny_pc_with_extension();
 	empty_pc();
