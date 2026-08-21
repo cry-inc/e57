@@ -54,7 +54,7 @@ impl ByteStreamWriteBuffer {
 
     pub fn get_all_bytes(&mut self) -> Vec<u8> {
         self.last_byte_bit = 0;
-        self.buffer.drain(..).collect()
+        std::mem::take(&mut self.buffer)
     }
 
     pub fn full_bytes(&self) -> usize {
