@@ -265,6 +265,8 @@ void integer_intensity() {
 	header.pointFields.cartesianZField = true;
 	header.pointFields.intensityField = true;
 	header.pointFields.intensityNodeType = e57::NumericalNodeType::Integer;
+	header.intensityLimits.intensityMaximum = 66;
+	header.intensityLimits.intensityMinimum = -66;
 	e57::Data3DPointsDouble buffers(header);
 	buffers.cartesianInvalidState[0] = 0;
 	buffers.cartesianX[0] = 1.1;
@@ -291,6 +293,8 @@ void scaled_integer_intensity() {
 	header.pointFields.intensityField = true;
 	header.pointFields.intensityNodeType = e57::NumericalNodeType::ScaledInteger;
 	header.pointFields.intensityScale = 0.1;
+	header.intensityLimits.intensityMaximum = 66.6;
+	header.intensityLimits.intensityMinimum = -66.6;
 	e57::Data3DPointsDouble buffers(header);
 	buffers.cartesianInvalidState[0] = 0;
 	buffers.cartesianX[0] = 1.1;
